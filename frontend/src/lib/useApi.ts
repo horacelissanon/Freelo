@@ -8,6 +8,17 @@ const cache = new Map<string, { data: unknown; ts: number }>();
 
 const STALE_TIME = 2 * 60 * 1000;
 
+// Broadcasts cache invalidation so mounted useApi() instances elsewhere in
+// the tree (e.g. a list page open behind a "create" modal) refetch instead
+// of silently going stale until the next manual navigation.
+const CACHE_EVENT = 'merrudit:cache-invalidated';
+
+function notifyInvalidated(prefix: string): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<{ prefix: string }>(CACHE_EVENT, { detail: { prefix } }));
+  }
+}
+
 if (typeof window !== 'undefined') {
   const EVICTION_THRESHOLD = 3 * STALE_TIME;
   window.setInterval(
@@ -90,6 +101,17 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiResu
     // fetchData is intentionally excluded; it depends only on `skip` which is in deps.
   }, [path, skip]);
 
+  useEffect(() => {
+    function onInvalidate(e: Event) {
+      const { prefix } = (e as CustomEvent<{ prefix: string }>).detail;
+      if (!skip && pathRef.current.startsWith(prefix)) {
+        void fetchData(false);
+      }
+    }
+    window.addEventListener(CACHE_EVENT, onInvalidate);
+    return () => window.removeEventListener(CACHE_EVENT, onInvalidate);
+  }, [fetchData, skip]);
+
   const refresh = useCallback(async () => {
     cache.delete(pathRef.current);
     await fetchData(true);
@@ -109,10 +131,12 @@ export function setCache(path: string, data: unknown): void {
 
 export function invalidateCache(path: string): void {
   cache.delete(path);
+  notifyInvalidated(path);
 }
 
 export function invalidateCachePrefix(prefix: string): void {
   for (const key of cache.keys()) {
     if (key.startsWith(prefix)) cache.delete(key);
   }
+  notifyInvalidated(prefix);
 }

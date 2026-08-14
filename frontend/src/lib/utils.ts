@@ -15,6 +15,34 @@ export function formatPrice(amount: number, currency: string = ''): string {
   return currency ? `${formatted} ${currency}` : formatted;
 }
 
+/** Format an ISO date string as a short French date, e.g. "15 mars". */
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+/** Format an ISO date string as a long French date, e.g. "lundi 21 juillet 2025". */
+export function formatLongDate(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso;
+  return date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/** Relative time label with minute/hour/day granularity, e.g. "il y a 14 min". */
+export function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `il y a ${hours} h`;
+  const days = Math.round(hours / 24);
+  return `il y a ${days} j`;
+}
+
 /**
  * Detect in-app browsers (Facebook, Instagram, TikTok). These WebViews
  * often block redirects to native payment apps.

@@ -16,6 +16,17 @@ export interface User {
   hasPassword: boolean;
   /** Provider names already linked, e.g. ['google']. Empty for pure email/password accounts. */
   linkedProviders: string[];
+  name: string | null;
+  avatarUrl: string | null;
+  phone: string | null;
+  bio: string | null;
+  studioName: string | null;
+  taxId: string | null;
+  address: string | null;
+  defaultCurrency: string;
+  language: string;
+  showPaidInvoicesDefault: boolean;
+  publicPortalEnabled: boolean;
 }
 
 interface AuthContextValue {

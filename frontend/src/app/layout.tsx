@@ -1,19 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { IBM_Plex_Sans } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-const inter = Inter({
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-ibm-plex-sans',
   display: 'swap',
 });
 
-// Replace these with your app name + description per fork.
 export const metadata: Metadata = {
-  title: 'izi kit',
-  description: 'Headless Next.js 16 starter — auth, payments, admin, webhooks, cron.',
+  title: 'Freelo',
+  description: 'Espace freelance — clients, projets, devis, factures.',
 };
 
 export default function RootLayout({
@@ -22,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={inter.className}>
+    <html lang="fr" className={ibmPlexSans.variable}>
+      <body className={ibmPlexSans.className} suppressHydrationWarning>
         <ToastProvider>
           <AuthProvider>{children}</AuthProvider>
         </ToastProvider>

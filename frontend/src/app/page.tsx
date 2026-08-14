@@ -1,193 +1,412 @@
-// Default welcome page for the izi kit starter.
-//
-// Replace this file with your real homepage as soon as you're oriented.
-// This file exists so a fresh fork shows something useful at `/` instead of a
-// blank page — it's a server component that reads env at request time and
-// shows which optional providers are configured.
-//
-// Design-swappable: uses minimal Tailwind utilities; rip the JSX out and write
-// your own homepage. The starter ships no UI components by design.
-
+// Landing page (PRD §3.13) — the app's public entry point for visitors.
+// Server-rendered, no client JS required (the FAQ accordion uses native
+// <details>/<summary>) so it stays fast on the low-end-phone / 2G-3G
+// connections the PRD calls out. Content is scoped to what's ACTUALLY
+// shipped today — no fabricated user counts or testimonials; the "Pensé
+// pour" section uses the PRD's own named personas (Aminata, Koffi) framed
+// explicitly as target personas, not attributed customer quotes.
 export const runtime = 'nodejs';
 
-function ConfigRow({ label, ok, hint }: { label: string; ok: boolean; hint: string }) {
-  return (
-    <li className="flex flex-wrap items-center gap-2 py-1.5">
-      <span aria-hidden className={ok ? 'text-emerald-600' : 'text-amber-500'}>
-        {ok ? '✅' : '⚠️ '}
-      </span>
-      <span className="font-mono text-sm">{label}</span>
-      <span className="text-xs text-gray-500">— {hint}</span>
-    </li>
-  );
-}
+import Link from 'next/link';
+import { Icon } from '@/components/ui/Icon';
+import { Avatar } from '@/components/ui/Avatar';
+
+const FEATURES: { icon: string; title: string; description: string }[] = [
+  {
+    icon: 'users',
+    title: 'CRM clients simple',
+    description:
+      'Chaque client reçoit un code unique — plus jamais de confusion entre deux clients du même nom.',
+  },
+  {
+    icon: 'layout-dashboard',
+    title: 'Projets & étapes personnalisables',
+    description:
+      'Ajoute, retire ou réordonne les étapes de chaque projet. Ton client voit l’avancement en temps réel.',
+  },
+  {
+    icon: 'file-text',
+    title: 'Devis & factures en FCFA',
+    description:
+      'Numérotation automatique, aperçu en direct pendant la saisie, export propre — natif FCFA.',
+  },
+  {
+    icon: 'link',
+    title: 'Lien de suivi client',
+    description:
+      'Un lien unique, sans inscription : ton client consulte l’avancement, commente et règle sa facture.',
+  },
+  {
+    icon: 'smartphone',
+    title: 'Paiement mobile money',
+    description:
+      'En plan Pro, ton client règle l’acompte ou le solde directement depuis le lien de suivi.',
+  },
+  {
+    icon: 'trending-up',
+    title: 'Tableau de bord clair',
+    description:
+      'Projets actifs, montant encaissé, factures impayées — l’essentiel en un coup d’œil à l’ouverture.',
+  },
+];
+
+const PERSONAS: { name: string; role: string; pain: string; solution: string }[] = [
+  {
+    name: 'Aminata',
+    role: 'Graphiste freelance, Abidjan',
+    pain: 'Devis sur Word, factures sur Excel, échanges sur WhatsApp — elle a déjà oublié de facturer un client.',
+    solution:
+      'Avec Freelo, chaque projet a sa facture rattachée et son lien de suivi : plus rien ne se perd entre deux outils.',
+  },
+  {
+    name: 'Koffi',
+    role: 'Designer UI/UX freelance, Cotonou',
+    pain: 'Ses clients locaux paient en mobile money, ceux de la diaspora par carte — aucun outil ne gère les deux sur un même document.',
+    solution:
+      'Freelo facture nativement en FCFA (EUR/USD en Pro) et centralise tous les échanges projet par projet.',
+  },
+];
+
+const FAQS: { question: string; answer: string }[] = [
+  {
+    question: 'Freelo est-il vraiment gratuit ?',
+    answer:
+      'Oui. Le plan Gratuit permet de gérer 1 client et 2 projets actifs, avec devis et factures en FCFA — de quoi réellement travailler. Le plan Pro (3 500 FCFA/mois ou 35 000 FCFA/an) lève ces limites.',
+  },
+  {
+    question: 'Mes clients doivent-ils créer un compte ?',
+    answer:
+      'Non. Le lien de suivi que tu partages s’ouvre directement — aucune inscription, aucun mot de passe côté client.',
+  },
+  {
+    question: 'Quels moyens de paiement mes clients peuvent-ils utiliser ?',
+    answer:
+      'Le paiement mobile money directement depuis le lien de suivi est disponible en plan Pro. En plan Gratuit, le lien reste consultable en lecture seule.',
+  },
+  {
+    question: 'Puis-je facturer en euros ou en dollars ?',
+    answer:
+      'Le plan Gratuit facture en FCFA uniquement. Le plan Pro débloque l’émission en EUR et USD, utile pour les clients de la diaspora.',
+  },
+];
+
+const inputCardClass = 'rounded-lg border border-border bg-canvas p-5 shadow-card';
 
 export default function Home() {
-  const env = process.env;
-
-  const required = [
-    { label: 'DATABASE_URL', ok: !!env.DATABASE_URL, hint: 'Postgres (required)' },
-    { label: 'JWT_SECRET', ok: !!env.JWT_SECRET, hint: 'Auth signing key (required)' },
-  ];
-
-  const recommended = [
-    { label: 'ENCRYPTION_KEY', ok: !!env.ENCRYPTION_KEY, hint: 'AES-256-GCM (recommended)' },
-    { label: 'CRON_SECRET', ok: !!env.CRON_SECRET, hint: 'Vercel Cron Bearer (recommended)' },
-    { label: 'DIRECT_URL', ok: !!env.DIRECT_URL, hint: 'For prisma migrate deploy' },
-  ];
-
-  const optional = [
-    {
-      label: 'UPSTASH_REDIS_REST_URL',
-      ok: !!env.UPSTASH_REDIS_REST_URL,
-      hint: 'Redis (rate limit, queue, lockout)',
-    },
-    {
-      label: 'GOOGLE_CLIENT_ID',
-      ok: !!env.GOOGLE_CLIENT_ID,
-      hint: 'Sign in with Google (OAuth)',
-    },
-    { label: 'RESEND_API_KEY', ok: !!env.RESEND_API_KEY, hint: 'Email sender' },
-    { label: 'EMAIL_FROM', ok: !!env.EMAIL_FROM, hint: 'Verified sender address' },
-    {
-      label: 'CLOUDINARY_CLOUD_NAME',
-      ok: !!env.CLOUDINARY_CLOUD_NAME,
-      hint: 'Cloudinary file / media storage',
-    },
-    { label: 'BICTORYS_API_KEY', ok: !!env.BICTORYS_API_KEY, hint: 'Mobile money payments' },
-    { label: 'SENTRY_DSN', ok: !!env.SENTRY_DSN, hint: 'Error reporting + traces' },
-  ];
-
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 font-sans text-gray-900">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight">izi kit</h1>
-        <p className="mt-2 text-gray-600">
-          Headless Next.js 16 starter — auth, payments, admin, webhooks, cron.
-          <br />
-          You&rsquo;re seeing this default page because{' '}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5 text-sm">
-            frontend/src/app/page.tsx
-          </code>{' '}
-          hasn&rsquo;t been replaced yet.
-        </p>
+    <div className="min-h-screen bg-background">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+              <span className="font-headings text-base font-bold text-primary-foreground">F</span>
+            </div>
+            <span className="font-headings text-lg font-bold tracking-tight text-foreground">
+              Freelo
+            </span>
+          </div>
+          <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
+            <a href="#fonctionnalites" className="hover:text-foreground">
+              Fonctionnalités
+            </a>
+            <a href="#tarifs" className="hover:text-foreground">
+              Tarifs
+            </a>
+            <a href="#faq" className="hover:text-foreground">
+              FAQ
+            </a>
+          </nav>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="hidden font-body text-sm font-medium text-foreground sm:inline"
+            >
+              Se connecter
+            </Link>
+            <Link
+              href="/signup"
+              className="rounded-md bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground"
+            >
+              Commencer gratuitement
+            </Link>
+          </div>
+        </div>
       </header>
 
-      {/* ─── Beginner: what to type next ───────────────────────────────── */}
-      <section className="mt-10 rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-        <h2 className="text-lg font-semibold text-emerald-900">
-          👋 New here? Open this project in Claude Code and type:
-        </h2>
-        <pre className="mt-3 overflow-x-auto rounded bg-white p-3 text-sm">/setup-kit</pre>
-        <p className="mt-3 text-sm text-emerald-900">
-          The <code>/setup-kit</code> skill audits your environment, installs what it can (pnpm via
-          Corepack, secrets), and walks you through plugging a <strong>Neon Postgres</strong>{' '}
-          connection string — the kit is tuned for Neon&rsquo;s serverless behavior (other Postgres
-          providers work but need user-side tuning). Then just{' '}
-          <strong>describe what you want to build to Claude</strong> (in French or English). The 40
-          routes (auth, payments, admin, webhooks, cron, uploads) are already wired — you only talk
-          about your product, not the plumbing. See <code>WORKFLOW.md</code> for the full
-          vibe-coding flow.
-        </p>
-      </section>
-
-      {/* ─── Live backend probes ──────────────────────────────────────── */}
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Backend status</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Live JSON probes — open these in a new tab to confirm everything is up.
-        </p>
-        <ul className="mt-3 space-y-1">
-          <li>
-            <a
-              href="/api/health"
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-600 underline"
+      {/* ── Hero ────────────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-6xl px-4 pt-14 pb-16 sm:px-6 sm:pt-20">
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
+          <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
+            Pensé pour les freelances d’Afrique francophone
+          </span>
+          <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+            Gère tes clients, projets et factures — sans jongler entre 5 outils
+          </h1>
+          <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
+            Freelo centralise ton activité : CRM clients, suivi de projet, devis et factures en
+            FCFA, et un lien de suivi que tes clients consultent sans créer de compte.
+          </p>
+          <div className="flex flex-col items-center gap-3 sm:flex-row">
+            <Link
+              href="/signup"
+              className="rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
             >
-              /api/health
-            </a>{' '}
-            <span className="text-xs text-gray-500">— liveness (always responds)</span>
-          </li>
-          <li>
+              Commencer gratuitement
+            </Link>
             <a
-              href="/api/readyz"
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-600 underline"
+              href="#tarifs"
+              className="rounded-md border border-border px-6 py-3 font-body text-sm font-semibold text-foreground"
             >
-              /api/readyz
-            </a>{' '}
-            <span className="text-xs text-gray-500">
-              — readiness (DB + Redis probes, 503 if either is down)
-            </span>
-          </li>
-        </ul>
+              Voir les tarifs
+            </a>
+          </div>
+          <p className="font-body text-xs text-muted-foreground">
+            Gratuit pour démarrer · Aucune carte bancaire requise
+          </p>
+        </div>
+
+        {/* Product preview — built from the app's own visual language rather
+            than a screenshot, so it never goes stale as the UI evolves. */}
+        <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className={inputCardClass}>
+            <p className="font-body text-xs text-muted-foreground">Projets actifs</p>
+            <p className="font-headings text-2xl font-bold text-foreground">4</p>
+            <p className="mt-1 font-body text-xs text-tag-green-fg">+2 ce mois-ci</p>
+          </div>
+          <div className={inputCardClass}>
+            <p className="font-body text-xs text-muted-foreground">Encaissé ce mois</p>
+            <p className="font-headings text-2xl font-bold text-foreground">850 000 FCFA</p>
+            <p className="mt-1 font-body text-xs text-tag-green-fg">3 factures payées</p>
+          </div>
+          <div className={inputCardClass}>
+            <p className="font-body text-xs text-muted-foreground">Lien de suivi</p>
+            <p className="font-headings text-2xl font-bold text-foreground">100 %</p>
+            <p className="mt-1 font-body text-xs text-muted-foreground">Zéro inscription client</p>
+          </div>
+        </div>
       </section>
 
-      {/* ─── Provider configuration ───────────────────────────────────── */}
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">Provider configuration</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Read at request time from <code>process.env</code>. Optional providers are inert when
-          absent — the corresponding routes 404 silently and the rest of the app keeps working.
-        </p>
-
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Required (app refuses to boot without these)
-        </h3>
-        <ul>
-          {required.map((row) => (
-            <ConfigRow key={row.label} {...row} />
-          ))}
-        </ul>
-
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Recommended (app boots, but breaks at first use)
-        </h3>
-        <ul>
-          {recommended.map((row) => (
-            <ConfigRow key={row.label} {...row} />
-          ))}
-        </ul>
-
-        <h3 className="mt-5 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Optional providers
-        </h3>
-        <ul>
-          {optional.map((row) => (
-            <ConfigRow key={row.label} {...row} />
-          ))}
-        </ul>
+      {/* ── Problème / solution ────────────────────────────────────── */}
+      <section className="border-y border-border bg-secondary/40">
+        <div className="mx-auto max-w-4xl px-4 py-10 text-center sm:px-6">
+          <p className="font-body text-sm text-muted-foreground italic">
+            « WhatsApp pour les échanges, Excel pour les factures, un carnet pour les contacts — et
+            des relances client sans fin. »
+          </p>
+          <p className="mt-3 font-body text-sm font-medium text-foreground">
+            Freelo remplace les 5 outils par un seul espace de travail.
+          </p>
+        </div>
       </section>
 
-      {/* ─── What's shipped ───────────────────────────────────────────── */}
-      <section className="mt-10">
-        <h2 className="text-xl font-semibold">What this starter ships</h2>
-        <ul className="mt-3 list-inside list-disc space-y-1 text-sm">
-          <li>
-            API routes under <code>/api/*</code> — auth, OAuth, admin, payments, uploads, webhooks,
-            5 cron handlers
-          </li>
-          <li>Prisma schema + versioned migrations (Postgres / Neon)</li>
-          <li>Vitest unit test suite covering the protected libs</li>
-          <li>CI pipeline: format / lint / typecheck / test / build / audit</li>
-          <li>
-            Cloud-only by design — bring your own Postgres (Neon free tier), no local containers
-          </li>
-        </ul>
-        <p className="mt-3 text-sm text-gray-600">
-          Full architecture overview in{' '}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5">CLAUDE.md</code>; public surface in{' '}
-          <code className="rounded bg-gray-100 px-1.5 py-0.5">README.md</code>.
-        </p>
+      {/* ── Fonctionnalités ─────────────────────────────────────────── */}
+      <section id="fonctionnalites" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+            Tout ce qu’il te faut, rien de superflu
+          </h2>
+          <p className="mt-2 font-body text-sm text-muted-foreground">
+            Chaque fonctionnalité répond à un vrai blocage du quotidien freelance.
+          </p>
+        </div>
+        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((feature) => (
+            <div key={feature.title} className={inputCardClass}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
+                <Icon i={feature.icon} size={18} className="text-tag-green-fg" />
+              </div>
+              <h3 className="mt-4 font-headings text-base font-semibold text-foreground">
+                {feature.title}
+              </h3>
+              <p className="mt-1.5 font-body text-sm text-muted-foreground">
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
-      <footer className="mt-12 border-t border-gray-200 pt-6 text-xs text-gray-500">
-        Replace this page in{' '}
-        <code className="rounded bg-gray-100 px-1.5 py-0.5">frontend/src/app/page.tsx</code> when
-        you&rsquo;re ready.
+      {/* ── Personas ("Pensé pour") ─────────────────────────────────── */}
+      <section className="border-t border-border bg-secondary/40">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+              Pensé pour des freelances comme toi
+            </h2>
+            <p className="mt-2 font-body text-sm text-muted-foreground">
+              Deux profils types que Freelo a été conçu pour servir.
+            </p>
+          </div>
+          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-5 sm:grid-cols-2">
+            {PERSONAS.map((persona) => (
+              <div key={persona.name} className={inputCardClass}>
+                <div className="flex items-center gap-3">
+                  <Avatar name={persona.name} className="h-10 w-10 flex-shrink-0 text-sm" />
+                  <div>
+                    <p className="font-body text-sm font-semibold text-foreground">
+                      {persona.name}
+                    </p>
+                    <p className="font-body text-xs text-muted-foreground">{persona.role}</p>
+                  </div>
+                </div>
+                <p className="mt-4 font-body text-sm text-muted-foreground">« {persona.pain} »</p>
+                <p className="mt-3 font-body text-sm text-foreground">{persona.solution}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Tarifs ──────────────────────────────────────────────────── */}
+      <section id="tarifs" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+            Des tarifs pensés pour l’Afrique francophone
+          </h2>
+          <p className="mt-2 font-body text-sm text-muted-foreground">
+            Commence gratuitement. Passe en Pro quand ton activité grandit.
+          </p>
+        </div>
+        <div className="mx-auto mt-10 grid max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className={inputCardClass}>
+            <p className="font-headings text-base font-semibold text-foreground">Gratuit</p>
+            <p className="mt-1 font-headings text-3xl font-bold text-foreground">0 FCFA</p>
+            <ul className="mt-4 flex flex-col gap-2">
+              {[
+                '1 client',
+                '2 projets actifs',
+                'Devis & factures en FCFA',
+                'Lien de suivi en lecture seule',
+              ].map((line) => (
+                <li
+                  key={line}
+                  className="flex items-start gap-2 font-body text-sm text-muted-foreground"
+                >
+                  <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-primary" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/signup"
+              className="mt-6 block rounded-md border border-border px-4 py-2.5 text-center font-body text-sm font-medium text-foreground"
+            >
+              Commencer gratuitement
+            </Link>
+          </div>
+          <div className={`${inputCardClass} border-primary`}>
+            <p className="font-headings text-base font-semibold text-foreground">Pro</p>
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <p className="font-headings text-3xl font-bold text-foreground">3 500 FCFA</p>
+              <span className="font-body text-xs text-muted-foreground">/mois</span>
+            </div>
+            <p className="font-body text-xs text-muted-foreground">ou 35 000 FCFA/an</p>
+            <ul className="mt-4 flex flex-col gap-2">
+              {[
+                'Clients & projets illimités',
+                'Devis & factures en FCFA, EUR, USD',
+                'Lien de suivi interactif + paiement mobile money',
+                'Sans filigrane sur les documents',
+              ].map((line) => (
+                <li key={line} className="flex items-start gap-2 font-body text-sm text-foreground">
+                  <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-primary" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/signup"
+              className="mt-6 block rounded-md bg-primary px-4 py-2.5 text-center font-body text-sm font-medium text-primary-foreground"
+            >
+              Essayer le plan Pro
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ─────────────────────────────────────────────────────── */}
+      <section id="faq" className="border-t border-border bg-secondary/40">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+          <h2 className="text-center font-headings text-2xl font-bold text-foreground sm:text-3xl">
+            Questions fréquentes
+          </h2>
+          <div className="mt-8 flex flex-col divide-y divide-border">
+            {FAQS.map((faq) => (
+              <details key={faq.question} className="group py-4">
+                <summary className="flex cursor-pointer list-none items-center justify-between font-body text-sm font-medium text-foreground">
+                  {faq.question}
+                  <Icon
+                    i="chevron-down"
+                    size={16}
+                    className="flex-shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                  />
+                </summary>
+                <p className="mt-2 font-body text-sm text-muted-foreground">{faq.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA finale ──────────────────────────────────────────────── */}
+      <section className="bg-accent">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-4 py-16 text-center sm:px-6">
+          <h2 className="font-headings text-2xl font-bold text-accent-foreground sm:text-3xl">
+            Prêt à simplifier ta gestion freelance ?
+          </h2>
+          <p className="max-w-md font-body text-sm text-accent-foreground/80">
+            Crée ton compte en quelques minutes et partage ton premier lien de suivi client
+            aujourd’hui.
+          </p>
+          <Link
+            href="/signup"
+            className="rounded-md bg-primary-foreground px-6 py-3 font-body text-sm font-semibold text-accent"
+          >
+            Commencer gratuitement
+          </Link>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────────────────── */}
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 sm:flex-row sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
+                <span className="font-headings text-sm font-bold text-primary-foreground">F</span>
+              </div>
+              <span className="font-headings text-base font-bold text-foreground">Freelo</span>
+            </div>
+            <p className="max-w-xs font-body text-xs text-muted-foreground">
+              L’espace de travail des designers freelances d’Afrique francophone.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-8 sm:flex sm:gap-16">
+            <div className="flex flex-col gap-2">
+              <span className="font-body text-xs font-semibold text-foreground">Produit</span>
+              <a href="#fonctionnalites" className="font-body text-xs text-muted-foreground">
+                Fonctionnalités
+              </a>
+              <a href="#tarifs" className="font-body text-xs text-muted-foreground">
+                Tarifs
+              </a>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="font-body text-xs font-semibold text-foreground">Compte</span>
+              <Link href="/login" className="font-body text-xs text-muted-foreground">
+                Connexion
+              </Link>
+              <Link href="/signup" className="font-body text-xs text-muted-foreground">
+                Inscription
+              </Link>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-border px-4 py-4 text-center font-body text-xs text-muted-foreground sm:px-6">
+          © {new Date().getFullYear()} Freelo. Tous droits réservés.
+        </div>
       </footer>
-    </main>
+    </div>
   );
 }

@@ -1,0 +1,306 @@
+'use client';
+
+import Link from 'next/link';
+import { useUser } from '@/contexts/AuthContext';
+import { useCreateMenu } from '@/contexts/CreateMenuContext';
+import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { api } from '@/lib/api';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { ProjectRow, type ProjectRowData } from '@/components/dashboard/ProjectRow';
+import { ActivityItem, type ActivityItemData } from '@/components/dashboard/ActivityItem';
+import { AlertBanner } from '@/components/dashboard/AlertBanner';
+import { QuickActions } from '@/components/dashboard/QuickActions';
+import { NotificationBell } from '@/components/dashboard/NotificationBell';
+import { UnpaidInvoicesPanel } from '@/components/dashboard/UnpaidInvoicesPanel';
+import { RevenueTrendCard } from '@/components/dashboard/RevenueTrendCard';
+import { UpcomingDeadlinesCard } from '@/components/dashboard/UpcomingDeadlinesCard';
+import { Icon } from '@/components/ui/Icon';
+import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
+import { formatPrice, formatDate, formatLongDate, relativeTime } from '@/lib/utils';
+import type { ProjectStatus, InvoiceStatus } from '@/lib/constants';
+
+interface DashboardStats {
+  revenue: { amount: number; currency: string; trendPercent: number | null };
+  activeProjects: { count: number };
+  pendingInvoices: { amount: number; currency: string; overdueCount: number };
+  newClients: { count: number; trend: number };
+  revenueTrend: { month: string; amount: number }[];
+}
+
+interface ProjectApiRow {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  progress: number;
+  amount: number;
+  currency: string;
+  step: string | null;
+  dueDate: string | null;
+  publicToken: string;
+}
+
+interface NotificationApiRow {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+interface InvoiceApiRow {
+  id: string;
+  number: string;
+  docType: 'INVOICE' | 'QUOTE';
+  status: InvoiceStatus;
+  amount: number;
+  client: { id: string; name: string };
+}
+
+const URGENT_WINDOW_DAYS = 7;
+
+export default function DashboardPage() {
+  const user = useUser();
+  const { openCreate } = useCreateMenu();
+  const stats = useApi<DashboardStats>('/api/dashboard/stats');
+  const projects = useApi<{ items: ProjectApiRow[] }>('/api/projects?status=IN_PROGRESS&limit=5');
+  const notifications = useApi<{ items: NotificationApiRow[] }>('/api/notifications?limit=8');
+  const notifCount = useApi<{ count: number }>('/api/notifications/count');
+  const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');
+
+  if (!user) return null;
+
+  const firstName = user.email.split('@')[0];
+
+  const projectRows: ProjectRowData[] = (projects.data?.items ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    status: p.status,
+    progress: p.progress,
+    amount: p.amount,
+    currency: p.currency,
+    step: p.step,
+    dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
+    publicToken: p.publicToken,
+  }));
+
+  const activityItems: ActivityItemData[] = (notifications.data?.items ?? []).map((n) => ({
+    id: n.id,
+    type: n.type,
+    text: n.body || n.title,
+    timeLabel: relativeTime(n.createdAt),
+    unread: !n.readAt,
+  }));
+
+  async function markAllNotificationsRead() {
+    await api('/api/notifications', { method: 'PATCH', body: { ids: 'all' } });
+    invalidateCachePrefix('/api/notifications');
+  }
+
+  const unpaidInvoices = (invoices.data?.items ?? [])
+    .filter((i) => i.docType === 'INVOICE' && (i.status === 'SENT' || i.status === 'OVERDUE'))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 3);
+
+  const UPCOMING_WINDOW_DAYS = 14;
+  const upcomingDeadlines = (projects.data?.items ?? [])
+    .filter((p) => p.dueDate)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      daysLeft: Math.ceil((new Date(p.dueDate as string).getTime() - Date.now()) / 86_400_000),
+    }))
+    .filter((p) => p.daysLeft >= 0 && p.daysLeft <= UPCOMING_WINDOW_DAYS)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+    .slice(0, 3);
+
+  // Data-honest alert: never fabricated. Overdue invoices win (money already
+  // late); otherwise the soonest due in-progress project within the urgency
+  // window; otherwise no banner at all.
+  let alert: { text: string; href: string } | null = null;
+  if (stats.data && stats.data.pendingInvoices.overdueCount > 0) {
+    const n = stats.data.pendingInvoices.overdueCount;
+    alert = {
+      text: `${n} facture${n > 1 ? 's' : ''} en retard — ${formatPrice(stats.data.pendingInvoices.amount)} FCFA à encaisser`,
+      href: '/invoices',
+    };
+  } else {
+    const soonest = (projects.data?.items ?? [])
+      .filter((p) => p.dueDate)
+      .map((p) => ({
+        ...p,
+        daysLeft: Math.ceil((new Date(p.dueDate as string).getTime() - Date.now()) / 86_400_000),
+      }))
+      .filter((p) => p.daysLeft >= 0 && p.daysLeft <= URGENT_WINDOW_DAYS)
+      .sort((a, b) => a.daysLeft - b.daysLeft)[0];
+    if (soonest) {
+      alert = {
+        text: `${soonest.name} — échéance dans ${soonest.daysLeft === 0 ? "moins d'un jour" : `${soonest.daysLeft} jour${soonest.daysLeft > 1 ? 's' : ''}`}`,
+        href: `/projects/${soonest.id}`,
+      };
+    }
+  }
+
+  return (
+    <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+            Bonjour, {firstName}
+          </h1>
+          <p className="font-body text-sm text-muted-foreground capitalize">
+            {formatLongDate(new Date())}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <NotificationBell
+            unreadCount={notifCount.data?.count ?? 0}
+            notifications={notifications.data?.items ?? []}
+            onMarkAllRead={() => void markAllNotificationsRead()}
+          />
+          <button
+            type="button"
+            onClick={() => openCreate('project')}
+            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground sm:flex-none"
+          >
+            <Icon i="plus" size={15} />
+            Nouveau projet
+          </button>
+        </div>
+      </div>
+
+      {alert && (
+        <div className="mb-6">
+          <AlertBanner text={alert.text} href={alert.href} />
+        </div>
+      )}
+
+      {stats.loading ? (
+        <LoadingState />
+      ) : stats.error ? (
+        <ErrorState message={stats.error} onRetry={stats.refresh} />
+      ) : stats.data ? (
+        <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <StatCard
+            label="Revenus ce mois-ci"
+            value={formatPrice(stats.data.revenue.amount)}
+            unit={stats.data.revenue.currency}
+            icon="banknote"
+            trend={
+              stats.data.revenue.trendPercent === null
+                ? undefined
+                : {
+                    text: `${stats.data.revenue.trendPercent > 0 ? '+' : ''}${stats.data.revenue.trendPercent}%`,
+                    up: stats.data.revenue.trendPercent >= 0,
+                  }
+            }
+          />
+          <StatCard
+            label="Projets actifs"
+            value={String(stats.data.activeProjects.count)}
+            icon="briefcase"
+          />
+          <StatCard
+            label="Factures en attente"
+            value={formatPrice(stats.data.pendingInvoices.amount)}
+            unit={stats.data.pendingInvoices.currency}
+            icon="file-clock"
+            trend={
+              stats.data.pendingInvoices.overdueCount > 0
+                ? { text: `${stats.data.pendingInvoices.overdueCount} en retard`, up: false }
+                : undefined
+            }
+          />
+          <StatCard
+            label="Nouveaux clients"
+            value={String(stats.data.newClients.count)}
+            unit="ce mois-ci"
+            icon="users"
+            trend={
+              stats.data.newClients.trend === 0
+                ? undefined
+                : {
+                    text: `${stats.data.newClients.trend > 0 ? '+' : ''}${stats.data.newClients.trend}`,
+                    up: stats.data.newClients.trend >= 0,
+                  }
+            }
+          />
+        </div>
+      ) : null}
+
+      <div className="mb-8">
+        <QuickActions onNewQuote={() => openCreate('quote')} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-5 lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-headings text-base font-semibold text-foreground">
+              Projets en cours
+            </h2>
+            <Link href="/projects" className="font-body text-xs font-medium text-primary">
+              Voir tous
+            </Link>
+          </div>
+          {projects.loading ? (
+            <LoadingState />
+          ) : projects.error ? (
+            <ErrorState message={projects.error} onRetry={projects.refresh} />
+          ) : projectRows.length === 0 ? (
+            <EmptyState
+              icon="folder-open"
+              title="Aucun projet en cours"
+              description="Vos projets actifs apparaîtront ici."
+            />
+          ) : (
+            <div>
+              {projectRows.map((p) => (
+                <ProjectRow key={p.id} project={p} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-6">
+          <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
+            <h2 className="mb-3 font-headings text-base font-semibold text-foreground">
+              Activité récente
+            </h2>
+            {notifications.loading ? (
+              <LoadingState />
+            ) : notifications.error ? (
+              <ErrorState message={notifications.error} onRetry={notifications.refresh} />
+            ) : activityItems.length === 0 ? (
+              <EmptyState
+                icon="bell"
+                title="Aucune activité"
+                description="Les notifications récentes apparaîtront ici."
+              />
+            ) : (
+              <div>
+                {activityItems.map((a) => (
+                  <ActivityItem key={a.id} activity={a} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <UpcomingDeadlinesCard items={upcomingDeadlines} />
+
+          {stats.data && (
+            <UnpaidInvoicesPanel
+              invoices={unpaidInvoices}
+              total={stats.data.pendingInvoices.amount}
+            />
+          )}
+        </div>
+      </div>
+
+      {stats.data && (
+        <div className="mt-6">
+          <RevenueTrendCard data={stats.data.revenueTrend} />
+        </div>
+      )}
+    </div>
+  );
+}

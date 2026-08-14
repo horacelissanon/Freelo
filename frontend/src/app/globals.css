@@ -1,1 +1,127 @@
 @import 'tailwindcss';
+
+/* Merrudit design tokens — client-supplied design system (2026-08-14
+   redesign pass, superseding the earlier Banani-derived terracotta/cream
+   palette). Every hex below is the exact value given by the user; only two
+   values were left to our judgment because the spec named a light badge
+   background without naming its paired dark text color — `--color-tag-orange-fg`
+   and `--color-tag-purple-fg` derive from the given base hues, not invented
+   from scratch. No yellow tag exists in this system — statuses that used it
+   were remapped to orange (lib/constants.ts). */
+@theme {
+  --color-background: #fafafa;
+  --color-foreground: #171717;
+  --color-border: #e5e5e5;
+  --color-input: #f5f5f5;
+  --color-primary: #059669;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: #171717;
+  --color-muted: #f0f0f0;
+  --color-muted-foreground: #737373;
+  --color-accent: #047857;
+  --color-accent-foreground: #ffffff;
+  --color-canvas: #ffffff;
+  --color-canvas-foreground: #171717;
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #171717;
+  --color-sidebar-muted: #e5e5e5;
+  --color-tag-green: #ecfdf5;
+  --color-tag-green-fg: #047857;
+  --color-tag-orange: #fff1e8;
+  --color-tag-orange-fg: #9a3412;
+  --color-tag-purple: #f3f0ff;
+  --color-tag-purple-fg: #7c5cfc;
+  --color-tag-red: #fef2f2;
+  --color-tag-red-fg: #dc2626;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius: var(--radius-sm);
+
+  --font-body: var(--font-ibm-plex-sans);
+  --font-headings: var(--font-ibm-plex-sans);
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-3xl: 36px;
+  --text-4xl: 48px;
+}
+
+body {
+  letter-spacing: -0.01em;
+}
+
+/* Light, sitewide interaction animations — kept subtle on purpose. */
+@layer base {
+  button,
+  a {
+    transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-up-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-fade-in {
+  animation: fade-in 150ms ease-out;
+}
+
+@utility animate-scale-in {
+  animation: scale-in 150ms ease-out;
+}
+
+@utility animate-slide-in-left {
+  animation: slide-in-left 200ms ease-out;
+}
+
+@utility animate-slide-up-in {
+  animation: slide-up-in 180ms ease-out;
+}
