@@ -168,6 +168,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           data: {
             passwordHash,
             tokenVersion: { increment: 1 },
+            passwordChangedAt: new Date(),
           },
         });
       });

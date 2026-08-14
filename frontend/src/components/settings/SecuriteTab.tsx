@@ -24,6 +24,7 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { formatLongDate } from '@/lib/utils';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -157,6 +158,11 @@ export function SecuriteTab({ user }: { user: User }) {
                 : 'Définir le mot de passe'}
           </button>
         </form>
+        {hasPassword && user.passwordChangedAt && (
+          <p className="font-body text-xs text-muted-foreground">
+            Dernière modification : {formatLongDate(user.passwordChangedAt)}
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">

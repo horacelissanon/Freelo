@@ -47,6 +47,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         createdAt: true,
         updatedAt: true,
         passwordHash: true,
+        passwordChangedAt: true,
         oauthAccounts: { select: { provider: true } },
         name: true,
         avatarUrl: true,
@@ -84,6 +85,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           : dbUser.updatedAt
         : null,
       hasPassword: !!dbUser?.passwordHash,
+      passwordChangedAt: dbUser?.passwordChangedAt
+        ? dbUser.passwordChangedAt instanceof Date
+          ? dbUser.passwordChangedAt.toISOString()
+          : dbUser.passwordChangedAt
+        : null,
       linkedProviders: (dbUser?.oauthAccounts ?? []).map((a) => a.provider),
       name: dbUser?.name ?? null,
       avatarUrl: dbUser?.avatarUrl ?? null,

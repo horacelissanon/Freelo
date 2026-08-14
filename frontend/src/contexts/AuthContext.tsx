@@ -14,6 +14,8 @@ export interface User {
   updatedAt: string;
   /** false when the account was created via OAuth and never set a password. */
   hasPassword: boolean;
+  /** Set by change-password/set-password/reset-password on success. */
+  passwordChangedAt: string | null;
   /** Provider names already linked, e.g. ['google']. Empty for pure email/password accounts. */
   linkedProviders: string[];
   name: string | null;
