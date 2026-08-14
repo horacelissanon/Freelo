@@ -21,3 +21,7 @@ next-env.d.ts
 amp
 node-compile-cache/
 
+# Personal reference material (PRD drafts, mockup screenshots) — not for
+# public distribution, kept local only
+Mes docs/
+

@@ -116,12 +116,13 @@ Référence env complète avec toutes les flags : voir [`.env.example`](.env.exa
 
 Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement par leur CDN — pas de route proxy côté Next.
 
-### Webhooks — 1 route
+### Webhooks — 2 routes
 | Méthode | Path | Auth |
 |---|---|---|
-| POST | `/api/webhooks/bictorys` | HMAC provider + replay window 60s |
+| POST | `/api/webhooks/bictorys` | HMAC provider + replay window 60s — paiements clients |
+| POST | `/api/webhooks/fedapay` | HMAC `X-FEDAPAY-SIGNATURE` + replay window 5min — abonnement SaaS |
 
-### Handlers cron — 5 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
+### Handlers cron — 7 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
 | Path | Schedule (`vercel.json`) |
 |---|---|
 | `/api/cron/outbox-drain` | toutes les minutes |
@@ -129,6 +130,8 @@ Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement pa
 | `/api/cron/verification-cleanup` | toutes les heures |
 | `/api/cron/order-expiration` | toutes les 5 min |
 | `/api/cron/webhook-log-purge` | quotidien |
+| `/api/cron/email-job-purge` | quotidien |
+| `/api/cron/subscription-expiry` | quotidien (6h) |
 
 ### Admin (`/api/admin/*`) — 12 routes
 | Méthode | Path | Auth |
@@ -207,7 +210,7 @@ izikit/
 ├── frontend/                    L'app Next.js 16 (full-stack)
 │   ├── prisma/                  schema.prisma + migrations
 │   ├── scripts/                 make-superadmin.ts, seed-dev.ts, smoke-auth.ts (via tsx)
-│   ├── vercel.json              schedules cron (5 entrées)
+│   ├── vercel.json              schedules cron (7 entrées)
 │   ├── .env.example             référence env
 │   └── src/
 │       ├── app/api/             route handlers
