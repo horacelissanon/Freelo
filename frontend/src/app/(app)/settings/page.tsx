@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/Icon';
 import { CompteTab } from '@/components/settings/CompteTab';
@@ -19,9 +20,17 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'facturation', label: 'Facturation', icon: 'credit-card' },
 ];
 
-export default function SettingsPage() {
+const TAB_KEYS: readonly TabKey[] = TABS.map((t) => t.key);
+
+function isTabKey(value: string | null): value is TabKey {
+  return value !== null && (TAB_KEYS as readonly string[]).includes(value);
+}
+
+function SettingsPageInner() {
   const user = useUser();
-  const [activeTab, setActiveTab] = useState<TabKey>('compte');
+  const params = useSearchParams();
+  const initialTab = params.get('tab');
+  const [activeTab, setActiveTab] = useState<TabKey>(isTabKey(initialTab) ? initialTab : 'compte');
 
   if (!user) return null;
 
@@ -56,5 +65,13 @@ export default function SettingsPage() {
       {activeTab === 'securite' && <SecuriteTab user={user} />}
       {activeTab === 'facturation' && <FacturationTab />}
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
   );
 }

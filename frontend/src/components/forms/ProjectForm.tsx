@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
+import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,
@@ -53,6 +54,7 @@ export function ProjectForm({
   const [dueDate, setDueDate] = useState('');
   const [steps, setSteps] = useState<string[]>(DEFAULT_STEP_TITLES);
   const [error, setError] = useState<string | null>(null);
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function updateStep(index: number, value: string) {
@@ -69,6 +71,7 @@ export function ProjectForm({
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setPlanLimitMessage(null);
     try {
       const stepTitles = steps.map((s) => s.trim()).filter(Boolean);
       await api('/api/projects', {
@@ -88,7 +91,12 @@ export function ProjectForm({
       toast('Projet créé.', 'success');
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      if (err instanceof ApiError && isPlanLimitCode(err.code)) {
+        const detail = err.body.message;
+        setPlanLimitMessage(typeof detail === 'string' ? detail : err.message);
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -232,6 +240,7 @@ export function ProjectForm({
           Ajouter une étape
         </button>
       </div>
+      {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
       {error && (
         <p role="alert" className="font-body text-sm text-tag-red-fg">
           {error}

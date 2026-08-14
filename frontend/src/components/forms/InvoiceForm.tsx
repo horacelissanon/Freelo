@@ -6,6 +6,7 @@ import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice, formatDate } from '@/lib/utils';
+import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import type { InvoiceDocType } from '@/lib/constants';
 
 const inputClass =
@@ -50,6 +51,7 @@ export function InvoiceForm({
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const selectedClient = clients.find((c) => c.id === clientId);
@@ -59,6 +61,7 @@ export function InvoiceForm({
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setPlanLimitMessage(null);
     try {
       await api('/api/invoices', {
         method: 'POST',
@@ -76,7 +79,12 @@ export function InvoiceForm({
       toast(docType === 'QUOTE' ? 'Devis créé.' : 'Facture créée.', 'success');
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      if (err instanceof ApiError && isPlanLimitCode(err.code)) {
+        const detail = err.body.message;
+        setPlanLimitMessage(typeof detail === 'string' ? detail : err.message);
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -187,6 +195,7 @@ export function InvoiceForm({
             className={inputClass}
           />
         </label>
+        {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
         {error && (
           <p role="alert" className="font-body text-sm text-tag-red-fg">
             {error}

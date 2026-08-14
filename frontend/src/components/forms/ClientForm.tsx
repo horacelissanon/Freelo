@@ -6,6 +6,7 @@ import { invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -47,12 +48,14 @@ export function ClientForm({ onDone }: { onDone: () => void }) {
   const [sector, setSector] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setPlanLimitMessage(null);
     try {
       await api('/api/clients', {
         method: 'POST',
@@ -73,7 +76,12 @@ export function ClientForm({ onDone }: { onDone: () => void }) {
       toast('Client ajouté.', 'success');
       onDone();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      if (err instanceof ApiError && isPlanLimitCode(err.code)) {
+        const detail = err.body.message;
+        setPlanLimitMessage(typeof detail === 'string' ? detail : err.message);
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -235,6 +243,7 @@ export function ClientForm({ onDone }: { onDone: () => void }) {
           </ul>
         </div>
 
+        {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
         {error && (
           <p role="alert" className="font-body text-sm text-tag-red-fg">
             {error}
