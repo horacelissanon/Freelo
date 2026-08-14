@@ -13,6 +13,20 @@ export const COOKIE_PREFIX = process.env.NEXT_PUBLIC_COOKIE_PREFIX ?? 'app';
 // (see app/globals.css).
 // ─────────────────────────────────────────────────────────────────────────
 
+// Pro-only beyond XOF (see PLAN_LIMIT_CURRENCY gating in /api/projects and
+// /api/invoices) — the list itself is shown to everyone; the plan-limit
+// error surfaces on submit for FREE accounts via the existing
+// PlanLimitPrompt pattern, no separate plan check needed client-side.
+export const CURRENCIES: { value: string; label: string }[] = [
+  { value: 'XOF', label: 'XOF — Franc CFA (UEMOA)' },
+  { value: 'XAF', label: 'XAF — Franc CFA (CEMAC)' },
+  { value: 'MAD', label: 'MAD — Dirham marocain' },
+  { value: 'GNF', label: 'GNF — Franc guinéen' },
+  { value: 'GHS', label: 'GHS — Cedi ghanéen' },
+  { value: 'EUR', label: 'EUR — Euro' },
+  { value: 'USD', label: 'USD — Dollar américain' },
+];
+
 export type ProjectType =
   | 'LOGO'
   | 'IDENTITY'

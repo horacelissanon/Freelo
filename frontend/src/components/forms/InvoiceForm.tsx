@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
-import type { InvoiceDocType } from '@/lib/constants';
+import { CURRENCIES, type InvoiceDocType } from '@/lib/constants';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -22,12 +22,25 @@ interface ProjectOption {
   name: string;
 }
 
+export interface InvoiceFormExisting {
+  id: string;
+  docType: InvoiceDocType;
+  clientId: string;
+  projectId: string | null;
+  description: string | null;
+  amount: number;
+  currency: string;
+  dueDate: string | null;
+}
+
 export function InvoiceForm({
   initialDocType,
+  invoice,
   onDone,
   onNeedClient,
 }: {
   initialDocType: InvoiceDocType;
+  invoice?: InvoiceFormExisting;
   onDone: () => void;
   onNeedClient: () => void;
 }) {
@@ -38,18 +51,19 @@ export function InvoiceForm({
   );
   const clients = clientsData?.items ?? [];
 
-  const [docType, setDocType] = useState<InvoiceDocType>(initialDocType);
-  const [clientId, setClientId] = useState('');
+  const [docType, setDocType] = useState<InvoiceDocType>(invoice?.docType ?? initialDocType);
+  const [clientId, setClientId] = useState(invoice?.clientId ?? '');
   const { data: projectsData } = useApi<{ items: ProjectOption[] }>(
     `/api/projects?clientId=${clientId}&limit=50`,
     { skip: !clientId },
   );
   const projects = projectsData?.items ?? [];
 
-  const [projectId, setProjectId] = useState('');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [projectId, setProjectId] = useState(invoice?.projectId ?? '');
+  const [description, setDescription] = useState(invoice?.description ?? '');
+  const [amount, setAmount] = useState(invoice ? String(invoice.amount) : '');
+  const [currency, setCurrency] = useState(invoice?.currency ?? 'XOF');
+  const [dueDate, setDueDate] = useState(invoice?.dueDate ? invoice.dueDate.slice(0, 10) : '');
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,20 +77,38 @@ export function InvoiceForm({
     setError(null);
     setPlanLimitMessage(null);
     try {
-      await api('/api/invoices', {
-        method: 'POST',
-        body: {
-          clientId,
-          docType,
-          amount: Number(amount),
-          ...(projectId ? { projectId } : {}),
-          ...(description ? { description } : {}),
-          ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
-        },
-      });
-      invalidateCachePrefix('/api/invoices');
-      invalidateCachePrefix('/api/dashboard/stats');
-      toast(docType === 'QUOTE' ? 'Devis créé.' : 'Facture créée.', 'success');
+      if (invoice) {
+        await api(`/api/invoices/${invoice.id}`, {
+          method: 'PATCH',
+          body: {
+            clientId,
+            projectId: projectId || null,
+            description: description || null,
+            amount: Number(amount),
+            currency,
+            dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          },
+        });
+        invalidateCachePrefix('/api/invoices');
+        invalidateCachePrefix(`/api/invoices/${invoice.id}`);
+        toast(docType === 'QUOTE' ? 'Devis mis à jour.' : 'Facture mise à jour.', 'success');
+      } else {
+        await api('/api/invoices', {
+          method: 'POST',
+          body: {
+            clientId,
+            docType,
+            amount: Number(amount),
+            currency,
+            ...(projectId ? { projectId } : {}),
+            ...(description ? { description } : {}),
+            ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
+          },
+        });
+        invalidateCachePrefix('/api/invoices');
+        invalidateCachePrefix('/api/dashboard/stats');
+        toast(docType === 'QUOTE' ? 'Devis créé.' : 'Facture créée.', 'success');
+      }
       onDone();
     } catch (err) {
       if (err instanceof ApiError && isPlanLimitCode(err.code)) {
@@ -111,22 +143,31 @@ export function InvoiceForm({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <form onSubmit={onSubmit} className="flex min-w-0 flex-1 flex-col gap-4">
-        <div className="flex gap-2">
-          {(['QUOTE', 'INVOICE'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setDocType(value)}
-              className={`flex-1 rounded-md border px-3 py-2 font-body text-sm font-medium ${
-                docType === value
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-muted-foreground'
-              }`}
-            >
-              {value === 'QUOTE' ? 'Devis' : 'Facture'}
-            </button>
-          ))}
-        </div>
+        {invoice ? (
+          <div className="flex items-center gap-1.5 font-body text-sm text-muted-foreground">
+            Type
+            <span className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-medium text-foreground">
+              {docType === 'QUOTE' ? 'Devis' : 'Facture'}
+            </span>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            {(['QUOTE', 'INVOICE'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setDocType(value)}
+                className={`flex-1 rounded-md border px-3 py-2 font-body text-sm font-medium ${
+                  docType === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                {value === 'QUOTE' ? 'Devis' : 'Facture'}
+              </button>
+            ))}
+          </div>
+        )}
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Client *
           <select
@@ -174,8 +215,28 @@ export function InvoiceForm({
             className={inputClass}
           />
         </label>
+        <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Devise
+          <div className="flex flex-wrap gap-2">
+            {CURRENCIES.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setCurrency(c.value)}
+                title={c.label}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  currency === c.value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-canvas text-foreground'
+                }`}
+              >
+                {c.value}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Montant (XOF) *
+          Montant ({currency}) *
           <input
             type="number"
             required
@@ -206,7 +267,13 @@ export function InvoiceForm({
           disabled={submitting}
           className="mt-2 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {submitting ? 'Création…' : docType === 'QUOTE' ? 'Créer le devis' : 'Créer la facture'}
+          {submitting
+            ? 'Enregistrement…'
+            : invoice
+              ? 'Enregistrer les modifications'
+              : docType === 'QUOTE'
+                ? 'Créer le devis'
+                : 'Créer la facture'}
         </button>
       </form>
 
@@ -221,7 +288,7 @@ export function InvoiceForm({
                 {docType === 'QUOTE' ? 'Devis' : 'Facture'}
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Numéro attribué à la création
+                {invoice ? 'Numéro déjà attribué' : 'Numéro attribué à la création'}
               </p>
             </div>
             <p className="flex-shrink-0 text-[11px] text-muted-foreground">
@@ -247,7 +314,7 @@ export function InvoiceForm({
                   (docType === 'QUOTE' ? 'Prestation à définir' : 'Prestation facturée')}
               </p>
               <p className="flex-shrink-0 text-sm font-semibold text-foreground">
-                {amount ? formatPrice(Number(amount), 'XOF') : '—'}
+                {amount ? formatPrice(Number(amount), currency) : '—'}
               </p>
             </div>
           </div>

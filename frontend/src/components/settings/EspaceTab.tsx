@@ -6,19 +6,10 @@ import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Toggle } from '@/components/ui/Toggle';
+import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
-
-const CURRENCIES: { value: string; label: string }[] = [
-  { value: 'XOF', label: 'XOF — Franc CFA (UEMOA)' },
-  { value: 'XAF', label: 'XAF — Franc CFA (CEMAC)' },
-  { value: 'MAD', label: 'MAD — Dirham marocain' },
-  { value: 'GNF', label: 'GNF — Franc guinéen' },
-  { value: 'GHS', label: 'GHS — Cedi ghanéen' },
-  { value: 'EUR', label: 'EUR — Euro' },
-  { value: 'USD', label: 'USD — Dollar américain' },
-];
 
 const LANGUAGES: { value: string; label: string }[] = [
   { value: 'fr', label: 'Français' },

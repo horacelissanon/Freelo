@@ -16,7 +16,7 @@ vi.mock('@/lib/server/middleware', () => ({
 }));
 
 import { requireAuth } from '@/lib/server/middleware';
-import { GET, PATCH } from './route';
+import { GET, PATCH, DELETE } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
@@ -41,6 +41,30 @@ function makePatch(body: unknown, opts: { csrf?: 'match' | 'missing' } = {}): Ne
     headers,
     body: JSON.stringify(body),
   });
+}
+
+function makeDelete(opts: { csrf?: 'match' | 'missing' } = {}): NextRequest {
+  const csrf = opts.csrf ?? 'match';
+  const headers: Record<string, string> = {};
+  if (csrf === 'match') {
+    headers['x-csrf-token'] = 'csrf-tok';
+    headers['cookie'] = 'app-csrf=csrf-tok';
+  }
+  return new NextRequest('http://test/api/invoices/i-1', { method: 'DELETE', headers });
+}
+
+function subscription(overrides: Partial<{ plan: string; status: string }> = {}) {
+  return {
+    id: 'sub-1',
+    userId: 'user-1',
+    plan: overrides.plan ?? 'FREE',
+    status: overrides.status ?? 'ACTIVE',
+    billingCycle: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    createdAt: new Date('2026-05-01T00:00:00Z'),
+    updatedAt: new Date('2026-05-01T00:00:00Z'),
+  };
 }
 
 function invoice(overrides: Partial<{ docType: string; status: string }> = {}) {
@@ -134,6 +158,104 @@ describe('PATCH /api/invoices/[id]', () => {
     expect(res.status).toBe(200);
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
     expect(updateArg?.data).toEqual({ status: 'PAID' });
+  });
+
+  it('content edit on a DRAFT invoice -> 200, updates the provided fields', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-2' } as never);
+    prismaMock.invoice.update.mockResolvedValue(invoice({ amount: 90000 } as never) as never);
+    const res = await PATCH(
+      makePatch({ clientId: 'c-2', description: 'Solde final', amount: 90000 }),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ clientId: 'c-2', description: 'Solde final', amount: 90000 });
+  });
+
+  it('content edit on a non-DRAFT invoice -> 409 INVOICE_NOT_EDITABLE, no update', async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(invoice({ status: 'SENT' }) as never);
+    const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('INVOICE_NOT_EDITABLE');
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it('status change on a non-DRAFT invoice is still allowed (not a content edit)', async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(invoice({ status: 'SENT' }) as never);
+    prismaMock.invoice.update.mockResolvedValue(invoice({ status: 'PAID' }) as never);
+    const res = await PATCH(makePatch({ status: 'PAID' }), ctxWith('i-1'));
+    expect(res.status).toBe(200);
+  });
+
+  it('clientId not owned -> 404 CLIENT_NOT_FOUND, no update', async () => {
+    prismaMock.client.findFirst.mockResolvedValue(null as never);
+    const res = await PATCH(makePatch({ clientId: 'someone-elses' }), ctxWith('i-1'));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('CLIENT_NOT_FOUND');
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it('projectId not owned -> 404 PROJECT_NOT_FOUND, no update', async () => {
+    prismaMock.project.findFirst.mockResolvedValue(null as never);
+    const res = await PATCH(makePatch({ projectId: 'someone-elses' }), ctxWith('i-1'));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('PROJECT_NOT_FOUND');
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it('currency changed to non-XOF on FREE plan -> 403 PLAN_LIMIT_CURRENCY, no update', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(subscription() as never);
+    const res = await PATCH(makePatch({ currency: 'EUR' }), ctxWith('i-1'));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('PLAN_LIMIT_CURRENCY');
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it('currency changed to non-XOF on PRO plan -> 200, updates currency', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue(subscription({ plan: 'PRO' }) as never);
+    prismaMock.invoice.update.mockResolvedValue(invoice({ currency: 'EUR' } as never) as never);
+    const res = await PATCH(makePatch({ currency: 'EUR' }), ctxWith('i-1'));
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ currency: 'EUR' });
+  });
+
+  it('dueDate: null clears the date on a DRAFT invoice', async () => {
+    prismaMock.invoice.update.mockResolvedValue(invoice() as never);
+    await PATCH(makePatch({ dueDate: null }), ctxWith('i-1'));
+    const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ dueDate: null });
+  });
+});
+
+describe('DELETE /api/invoices/[id]', () => {
+  it('missing x-csrf-token -> 403, no Prisma call', async () => {
+    const res = await DELETE(makeDelete({ csrf: 'missing' }), ctxWith('i-1'));
+    expect(res.status).toBe(403);
+    expect(prismaMock.invoice.delete).not.toHaveBeenCalled();
+  });
+
+  it('invoice not owned by caller -> 404 INVOICE_NOT_FOUND', async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(null as never);
+    const res = await DELETE(makeDelete(), ctxWith('someone-elses'));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('INVOICE_NOT_FOUND');
+  });
+
+  it('non-DRAFT invoice -> 409 INVOICE_NOT_DRAFT, no delete', async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(invoice({ status: 'SENT' }) as never);
+    const res = await DELETE(makeDelete(), ctxWith('i-1'));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('INVOICE_NOT_DRAFT');
+    expect(prismaMock.invoice.delete).not.toHaveBeenCalled();
+  });
+
+  it('DRAFT invoice -> 200 { ok: true }, deletes the row', async () => {
+    prismaMock.invoice.delete.mockResolvedValue(invoice() as never);
+    const res = await DELETE(makeDelete(), ctxWith('i-1'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(prismaMock.invoice.delete).toHaveBeenCalledWith({ where: { id: 'i-1' } });
   });
 });
 

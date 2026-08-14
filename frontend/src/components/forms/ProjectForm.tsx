@@ -10,6 +10,7 @@ import {
   PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,
   PROJECT_TYPE_ICONS,
+  CURRENCIES,
   type ProjectStatus,
   type ProjectType,
 } from '@/lib/constants';
@@ -49,6 +50,7 @@ export function ProjectForm({
   const [clientId, setClientId] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState<ProjectType>('OTHER');
+  const [currency, setCurrency] = useState('XOF');
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [dueDate, setDueDate] = useState('');
@@ -81,6 +83,7 @@ export function ProjectForm({
           name,
           type,
           amount: Number(amount),
+          currency,
           status,
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
           ...(stepTitles.length > 0 ? { steps: stepTitles.map((title) => ({ title })) } : {}),
@@ -169,8 +172,31 @@ export function ProjectForm({
           ))}
         </div>
       </div>
+      <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+        Devise du projet
+        <div className="flex flex-wrap gap-2">
+          {CURRENCIES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              onClick={() => setCurrency(c.value)}
+              title={c.label}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                currency === c.value
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-canvas text-foreground'
+              }`}
+            >
+              {c.value}
+            </button>
+          ))}
+        </div>
+        <p className="font-body text-xs text-muted-foreground">
+          S’applique au montant du projet ci-dessous.
+        </p>
+      </div>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-        Montant (XOF) *
+        Montant ({currency}) *
         <input
           type="number"
           required
