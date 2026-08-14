@@ -1,0 +1,168 @@
+// Freelance CRM — single-project detail (Phase A follow-up, same 404 gap as
+// clients/[id]). Deposit/balance derivation mirrors GET /api/track/[token]'s
+// project branch exactly (PAID Orders tagged via `metadata.projectId`) so the
+// authenticated dashboard view and the public Client Link Portal never
+// disagree on payment status.
+export const runtime = 'nodejs';
+
+import 'server-only';
+import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
+import { verifyCsrf } from '@/lib/server/auth';
+import { requireAuth } from '@/lib/server/middleware';
+import { prisma } from '@/lib/server/prisma';
+import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+
+interface PaidOrderMeta {
+  projectId?: string;
+  docType?: 'DEPOSIT' | 'BALANCE';
+}
+
+const PROJECT_TYPES = [
+  'LOGO',
+  'IDENTITY',
+  'POSTER',
+  'PACKAGING',
+  'SOCIAL',
+  'PRINT',
+  'UI_WEB',
+  'OTHER',
+] as const;
+
+const PatchBody = z.object({
+  name: z.string().min(1).max(200).optional(),
+  type: z.enum(PROJECT_TYPES).optional(),
+  description: z.string().max(2000).nullable().optional(),
+  amount: z.number().int().positive().optional(),
+  dueDate: z.string().datetime().nullable().optional(),
+});
+
+export async function GET(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const project = await prisma.project.findFirst({
+      where: { id, userId: auth.user.sub },
+      include: {
+        client: { select: { id: true, name: true, trackingToken: true } },
+        steps: { orderBy: { order: 'asc' } },
+        comments: { orderBy: { createdAt: 'asc' } },
+        invoices: {
+          orderBy: [{ createdAt: 'desc' }],
+          select: {
+            id: true,
+            number: true,
+            docType: true,
+            status: true,
+            amount: true,
+            currency: true,
+            dueDate: true,
+          },
+        },
+        files: {
+          orderBy: [{ createdAt: 'desc' }],
+          select: {
+            id: true,
+            url: true,
+            filename: true,
+            mimeType: true,
+            sizeBytes: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: 'PROJECT_NOT_FOUND', message: 'Project does not exist or does not belong to you' },
+        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    const paidOrders = await prisma.order.findMany({
+      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
+      select: { metadata: true },
+    });
+    const paidKinds = new Set(
+      paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
+    );
+
+    const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
+    const balanceAmount = project.amount - depositAmount;
+
+    const { steps, comments, invoices, files, ...projectFields } = project;
+    return NextResponse.json(
+      {
+        project: projectFields,
+        steps,
+        comments,
+        invoices,
+        files,
+        deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
+        balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
+      },
+      { headers: { 'x-request-id': reqCtx.requestId } },
+    );
+  });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const existing = await prisma.project.findFirst({
+      where: { id, userId: auth.user.sub },
+      select: { id: true },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'PROJECT_NOT_FOUND', message: 'Project does not exist or does not belong to you' },
+        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    const parsed = PatchBody.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: 'Invalid request body',
+          issues: parsed.error.issues,
+        },
+        { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+    const { name, type, description, amount, dueDate } = parsed.data;
+
+    const project = await prisma.project.update({
+      where: { id },
+      data: {
+        ...(name !== undefined ? { name } : {}),
+        ...(type !== undefined ? { type } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(amount !== undefined ? { amount } : {}),
+        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      },
+    });
+
+    return NextResponse.json(project, { headers: { 'x-request-id': reqCtx.requestId } });
+  });
+}

@@ -20,6 +20,8 @@ export const runtime = 'nodejs';
 
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
+import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -46,6 +48,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         updatedAt: true,
         passwordHash: true,
         oauthAccounts: { select: { provider: true } },
+        name: true,
+        avatarUrl: true,
+        phone: true,
+        bio: true,
+        studioName: true,
+        taxId: true,
+        address: true,
+        defaultCurrency: true,
+        language: true,
+        showPaidInvoicesDefault: true,
+        publicPortalEnabled: true,
       },
     });
 
@@ -72,7 +85,97 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         : null,
       hasPassword: !!dbUser?.passwordHash,
       linkedProviders: (dbUser?.oauthAccounts ?? []).map((a) => a.provider),
+      name: dbUser?.name ?? null,
+      avatarUrl: dbUser?.avatarUrl ?? null,
+      phone: dbUser?.phone ?? null,
+      bio: dbUser?.bio ?? null,
+      studioName: dbUser?.studioName ?? null,
+      taxId: dbUser?.taxId ?? null,
+      address: dbUser?.address ?? null,
+      defaultCurrency: dbUser?.defaultCurrency ?? 'XOF',
+      language: dbUser?.language ?? 'fr',
+      showPaidInvoicesDefault: dbUser?.showPaidInvoicesDefault ?? true,
+      publicPortalEnabled: dbUser?.publicPortalEnabled ?? true,
     };
+
+    return NextResponse.json({ user }, { status: 200, headers: { 'x-request-id': ctx.requestId } });
+  });
+}
+
+const PatchBody = z.object({
+  name: z.string().max(200).optional(),
+  phone: z.string().max(30).optional(),
+  bio: z.string().max(1000).optional(),
+  avatarUrl: z.string().url().optional(),
+  studioName: z.string().max(200).optional(),
+  taxId: z.string().max(60).optional(),
+  address: z.string().max(300).optional(),
+  defaultCurrency: z.string().length(3).optional(),
+  language: z.string().min(2).max(10).optional(),
+  showPaidInvoicesDefault: z.boolean().optional(),
+  publicPortalEnabled: z.boolean().optional(),
+});
+
+export async function PATCH(req: NextRequest): Promise<NextResponse> {
+  const ctx = makeRequestContext(req.headers);
+  return withRequestContext(ctx, async () => {
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth(req.headers.get('authorization'));
+    if (auth instanceof NextResponse) return auth;
+
+    const parsed = PatchBody.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'VALIDATION_FAILED', message: 'Invalid request body' },
+        { status: 400, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    const {
+      name,
+      phone,
+      bio,
+      avatarUrl,
+      studioName,
+      taxId,
+      address,
+      defaultCurrency,
+      language,
+      showPaidInvoicesDefault,
+      publicPortalEnabled,
+    } = parsed.data;
+
+    const user = await prisma.user.update({
+      where: { id: auth.user.sub },
+      data: {
+        ...(name !== undefined ? { name } : {}),
+        ...(phone !== undefined ? { phone } : {}),
+        ...(bio !== undefined ? { bio } : {}),
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+        ...(studioName !== undefined ? { studioName } : {}),
+        ...(taxId !== undefined ? { taxId } : {}),
+        ...(address !== undefined ? { address } : {}),
+        ...(defaultCurrency !== undefined ? { defaultCurrency } : {}),
+        ...(language !== undefined ? { language } : {}),
+        ...(showPaidInvoicesDefault !== undefined ? { showPaidInvoicesDefault } : {}),
+        ...(publicPortalEnabled !== undefined ? { publicPortalEnabled } : {}),
+      },
+      select: {
+        name: true,
+        phone: true,
+        bio: true,
+        avatarUrl: true,
+        studioName: true,
+        taxId: true,
+        address: true,
+        defaultCurrency: true,
+        language: true,
+        showPaidInvoicesDefault: true,
+        publicPortalEnabled: true,
+      },
+    });
 
     return NextResponse.json({ user }, { status: 200, headers: { 'x-request-id': ctx.requestId } });
   });

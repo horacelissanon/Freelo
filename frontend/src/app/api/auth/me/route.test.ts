@@ -16,7 +16,7 @@ vi.mock('@/lib/server/auth', async () => {
 });
 
 import { verifyToken } from '@/lib/server/auth';
-import { GET } from './route';
+import { GET, PATCH } from './route';
 import { NextRequest } from 'next/server';
 
 function makeReq(opts: { tokenCookie?: string; bearer?: string } = {}): NextRequest {
@@ -25,6 +25,24 @@ function makeReq(opts: { tokenCookie?: string; bearer?: string } = {}): NextRequ
   return new NextRequest('https://test/api/auth/me', {
     method: 'GET',
     headers,
+  });
+}
+
+function makePatch(
+  body: unknown,
+  opts: { csrf?: 'match' | 'missing'; bearer?: string } = {},
+): NextRequest {
+  const csrf = opts.csrf ?? 'match';
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (opts.bearer) headers.authorization = `Bearer ${opts.bearer}`;
+  if (csrf === 'match') {
+    headers['x-csrf-token'] = 'csrf-tok';
+    headers['cookie'] = 'app-csrf=csrf-tok';
+  }
+  return new NextRequest('https://test/api/auth/me', {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body),
   });
 }
 
@@ -91,5 +109,46 @@ describe('GET /api/auth/me', () => {
 
     const res = await GET(makeReq({ bearer: 'orphan-jwt' }));
     expect(res.status).toBe(401);
+  });
+});
+
+describe('PATCH /api/auth/me', () => {
+  it('missing x-csrf-token -> 403, no Prisma call', async () => {
+    const res = await PATCH(makePatch({ bio: 'Hi' }, { csrf: 'missing' }));
+    expect(res.status).toBe(403);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('no auth -> 401', async () => {
+    const res = await PATCH(makePatch({ bio: 'Hi' }));
+    expect(res.status).toBe(401);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('invalid body -> 400 VALIDATION_FAILED', async () => {
+    vi.mocked(verifyToken).mockResolvedValue({ sub: 'u1', email: 'a@b.com', tokenVersion: 0 });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      tokenVersion: 0,
+    } as never);
+    const res = await PATCH(makePatch({ defaultCurrency: 'TOOLONG' }, { bearer: 'valid' }));
+    expect(res.status).toBe(400);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('valid partial body -> 200, only provided keys updated', async () => {
+    vi.mocked(verifyToken).mockResolvedValue({ sub: 'u1', email: 'a@b.com', tokenVersion: 0 });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      tokenVersion: 0,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ bio: 'Designer' } as never);
+    const res = await PATCH(makePatch({ bio: 'Designer' }, { bearer: 'valid' }));
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
+    expect(updateArg?.where).toEqual({ id: 'u1' });
+    expect(updateArg?.data).toEqual({ bio: 'Designer' });
   });
 });

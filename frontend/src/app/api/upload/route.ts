@@ -6,11 +6,15 @@
  *   2. Auth (requireAuth) → bail 401 on missing/invalid session
  *   3. Cloudinary lazy-init → 503 STORAGE_NOT_CONFIGURED on missing creds
  *   4. formData parse → 400 UPLOAD_MISSING_FILE if no `file` field
- *   5. Size cap (UPLOAD_MAX_BYTES) → 413 FILE_TOO_LARGE
- *   6. MIME allowlist (UPLOAD_ALLOWED_MIME) → 415 INVALID_MIME
- *   7. Magic-byte sniff (verifyMagicBytes) → 415 MAGIC_BYTE_MISMATCH if sniffed && !match
- *   8. Cloudinary upload_stream → 502 UPLOAD_FAILED on throw
- *   9. prisma.fileUpload.create → 201 with row + x-request-id header
+ *   5. Optional `projectId` field → ownership check (404 PROJECT_NOT_FOUND)
+ *      + 5-file cap (400 MAX_FILES_REACHED) — only exercised when present,
+ *      so callers that don't attach a project (avatars, chat attachments)
+ *      skip this entirely.
+ *   6. Size cap (UPLOAD_MAX_BYTES, raised for project deliverables) → 413 FILE_TOO_LARGE
+ *   7. MIME allowlist (UPLOAD_ALLOWED_MIME) → 415 INVALID_MIME
+ *   8. Magic-byte sniff (verifyMagicBytes) → 415 MAGIC_BYTE_MISMATCH if sniffed && !match
+ *   9. Cloudinary upload_stream → 502 UPLOAD_FAILED on throw
+ *   10. prisma.fileUpload.create → 201 with row + x-request-id header
  *
  * Magic-byte invariant: sniff happens server-side BEFORE the upload call.
  * Do NOT delegate validation to Cloudinary alone — the route is the single
@@ -59,11 +63,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Read env at handler-call time so vi.stubEnv works and operators can flip
     // limits without redeploy. Never hoist these to module top.
-    const allowedMime = (process.env.UPLOAD_ALLOWED_MIME ?? 'image/jpeg,image/png,image/webp')
+    const allowedMime = (
+      process.env.UPLOAD_ALLOWED_MIME ??
+      'image/jpeg,image/png,image/webp,application/pdf,application/zip,application/postscript,audio/webm,audio/mp4'
+    )
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
-    const maxBytes = Number.parseInt(process.env.UPLOAD_MAX_BYTES ?? '10485760', 10);
 
     // Probe Cloudinary configuration BEFORE consuming the request body — we
     // want STORAGE_NOT_CONFIGURED to be a cheap 503, not a body-parse-after.
@@ -86,6 +92,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
     }
+
+    // Project deliverables ("Livrable final") link to a Project the caller
+    // owns and are capped at 5 files/project — checked here rather than a
+    // separate route so every upload (avatar, chat attachment, deliverable)
+    // shares one validated pipeline (CSRF/auth/size/MIME/magic-byte/HEIC).
+    const projectId = form.get('projectId');
+    let linkedProjectId: string | undefined;
+    if (typeof projectId === 'string' && projectId.length > 0) {
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, userId: auth.user.sub },
+        select: { id: true },
+      });
+      if (!project) {
+        return NextResponse.json(
+          {
+            code: 'PROJECT_NOT_FOUND',
+            message: 'Project does not exist or does not belong to you',
+          },
+          { status: 404, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      const existingCount = await prisma.fileUpload.count({ where: { projectId } });
+      if (existingCount >= 5) {
+        return NextResponse.json(
+          { code: 'MAX_FILES_REACHED', message: 'This project already has 5 files' },
+          { status: 400, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      linkedProjectId = project.id;
+    }
+
+    // Project deliverables (design files, PDFs, zipped source) run larger
+    // than the 10MB default meant for avatars/photos.
+    const maxBytes = linkedProjectId
+      ? 52428800
+      : Number.parseInt(process.env.UPLOAD_MAX_BYTES ?? '10485760', 10);
 
     if (file.size > maxBytes) {
       return NextResponse.json(
@@ -164,26 +206,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       data: {
         userId: auth.user.sub,
         key: uploaded.publicId,
+        url: uploaded.secureUrl,
         filename: storedFilename,
         mimeType: storedMime,
         sizeBytes: uploaded.bytes,
+        ...(linkedProjectId ? { projectId: linkedProjectId } : {}),
       },
       select: {
         id: true,
         key: true,
+        url: true,
         filename: true,
         mimeType: true,
         sizeBytes: true,
+        projectId: true,
         createdAt: true,
       },
     });
 
-    return NextResponse.json(
-      { ...row, url: uploaded.secureUrl },
-      {
-        status: 201,
-        headers: { 'x-request-id': ctx.requestId },
-      },
-    );
+    return NextResponse.json(row, {
+      status: 201,
+      headers: { 'x-request-id': ctx.requestId },
+    });
   });
 }

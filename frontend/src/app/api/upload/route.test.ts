@@ -42,13 +42,20 @@ vi.mock('@/lib/server/auth', () => ({
 const prismaCreate = vi.fn(async (args: unknown) => ({
   id: 'fu-1',
   key: (args as { data: { key: string } }).data.key,
+  url: 'https://res.cloudinary.com/test-cloud/image/upload/user-1/fu-1',
   filename: 'photo.jpg',
   mimeType: 'image/jpeg',
   sizeBytes: 4,
+  projectId: (args as { data: { projectId?: string } }).data.projectId ?? null,
   createdAt: new Date(),
 }));
+const projectFindFirst = vi.fn(async () => ({ id: 'project-1' }));
+const fileUploadCount = vi.fn(async () => 0);
 vi.mock('@/lib/server/prisma', () => ({
-  prisma: { fileUpload: { create: prismaCreate } },
+  prisma: {
+    fileUpload: { create: prismaCreate, count: fileUploadCount },
+    project: { findFirst: projectFindFirst },
+  },
 }));
 
 beforeEach(() => {
@@ -67,11 +74,13 @@ afterEach(() => {
 interface MakeReqOpts {
   csrf?: boolean;
   auth?: boolean;
+  projectId?: string;
 }
 
 function makeReq(file: File | null, opts: MakeReqOpts = { csrf: true, auth: true }) {
   const fd = new FormData();
   if (file) fd.append('file', file);
+  if (opts.projectId) fd.append('projectId', opts.projectId);
   const headers = new Headers();
   if (opts.csrf !== false) headers.set('x-csrf-token', 'test-csrf');
   return new Request(new URL('http://localhost/api/upload'), {
@@ -178,5 +187,49 @@ describe('POST /api/upload (Cloudinary)', () => {
     const f = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'a.jpg', { type: 'image/jpeg' });
     const res = await POST(makeReq(f) as never);
     expect(res.status).toBe(401);
+  });
+
+  it('links to a project when projectId is provided and owned', async () => {
+    const { POST } = await import('./route');
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'deliverable.jpg', {
+      type: 'image/jpeg',
+    });
+    const res = await POST(
+      makeReq(jpeg, { csrf: true, auth: true, projectId: 'project-1' }) as never,
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.projectId).toBe('project-1');
+    expect(projectFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'project-1', userId: 'user-1' } }),
+    );
+  });
+
+  it('unowned/unknown projectId returns 404', async () => {
+    projectFindFirst.mockResolvedValueOnce(null as never);
+    const { POST } = await import('./route');
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'deliverable.jpg', {
+      type: 'image/jpeg',
+    });
+    const res = await POST(
+      makeReq(jpeg, { csrf: true, auth: true, projectId: 'not-mine' }) as never,
+    );
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.code).toBe('PROJECT_NOT_FOUND');
+  });
+
+  it('rejects a 6th file on the same project', async () => {
+    fileUploadCount.mockResolvedValueOnce(5);
+    const { POST } = await import('./route');
+    const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'deliverable.jpg', {
+      type: 'image/jpeg',
+    });
+    const res = await POST(
+      makeReq(jpeg, { csrf: true, auth: true, projectId: 'project-1' }) as never,
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('MAX_FILES_REACHED');
   });
 });
