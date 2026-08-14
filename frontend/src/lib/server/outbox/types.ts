@@ -13,7 +13,8 @@ export type OutboxEvent =
   | NotificationPaymentReceivedEvent
   | EmailPaymentConfirmationEvent
   | EmailVerificationCodeEvent
-  | EmailPasswordResetEvent;
+  | EmailPasswordResetEvent
+  | NotificationSubscriptionRenewedEvent;
 
 export interface NotificationPaymentReceivedEvent {
   kind: 'notification.payment_received';
@@ -58,6 +59,21 @@ export interface EmailPasswordResetEvent {
     to: string;
     code: string;
     expiresAt: string;
+  };
+}
+
+/**
+ * Emitted by the FedaPay webhook's onPaid handler when a subscription
+ * renewal/upgrade transaction is confirmed (see webhook/fedapay.ts wiring
+ * in app/api/webhooks/fedapay/route.ts).
+ */
+export interface NotificationSubscriptionRenewedEvent {
+  kind: 'notification.subscription_renewed';
+  payload: {
+    userId: string;
+    subscriptionTransactionId: string;
+    plan: string;
+    currentPeriodEnd: string;
   };
 }
 

@@ -21,7 +21,7 @@
  */
 import type { PrismaClient } from '@prisma/client';
 import { createNotification } from '../notifications/index';
-import { paymentReceived } from '../notifications/templates';
+import { paymentReceived, subscriptionRenewed } from '../notifications/templates';
 import type { EmailQueue } from '../queues/email-queue';
 import { createLogger } from '../logger';
 import type { OutboxEvent } from './types';
@@ -154,6 +154,14 @@ async function dispatchEvent(deps: OutboxDispatcherDeps, event: OutboxEvent): Pr
       const { to, code, expiresAt } = event.payload;
       const tpl = verificationEmail({ code, email: to, expiresAt });
       await deps.emailQueue.enqueue({ to, subject: tpl.subject, html: tpl.html });
+      return;
+    }
+    case 'notification.subscription_renewed': {
+      const { userId, subscriptionTransactionId, plan, currentPeriodEnd } = event.payload;
+      await createNotification(
+        deps.prisma,
+        subscriptionRenewed(userId, subscriptionTransactionId, plan, currentPeriodEnd),
+      );
       return;
     }
     case 'email.password_reset': {

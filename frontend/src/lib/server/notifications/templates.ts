@@ -50,3 +50,43 @@ export function paymentReceived(
     dedupeKey: `payment-received:${orderId}`,
   };
 }
+
+/**
+ * Dispatched after a FedaPay subscription renewal/upgrade transaction is
+ * confirmed (Merrudit's own SaaS billing — see webhook/fedapay.ts).
+ */
+export function subscriptionRenewed(
+  userId: string,
+  subscriptionTransactionId: string,
+  plan: string,
+  currentPeriodEnd: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_RENEWED',
+    title: 'Abonnement renouvelé',
+    body: `Ton plan ${plan} est actif jusqu'au ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')}.`,
+    data: { subscriptionTransactionId, plan, currentPeriodEnd },
+    dedupeKey: `subscription-renewed:${subscriptionTransactionId}`,
+  };
+}
+
+/**
+ * Dispatched by the subscription-expiry cron a few days before a Pro
+ * period ends. Deduped per (subscription, period) so the daily cron tick
+ * doesn't re-fire it every day inside the reminder window.
+ */
+export function subscriptionExpiringSoon(
+  userId: string,
+  subscriptionId: string,
+  currentPeriodEnd: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_EXPIRING_SOON',
+    title: 'Ton abonnement Pro expire bientôt',
+    body: `Renouvelle avant le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')} pour garder tes fonctionnalités Pro.`,
+    data: { subscriptionId, currentPeriodEnd },
+    dedupeKey: `subscription-expiring:${subscriptionId}:${currentPeriodEnd}`,
+  };
+}
