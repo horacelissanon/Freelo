@@ -73,7 +73,7 @@ export const CLIENT_STATUS_COLORS: Record<ClientStatus, { bg: string; fg: string
   archived: { bg: 'bg-muted', fg: 'text-muted-foreground' },
 };
 
-export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'ACCEPTED';
+export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'ACCEPTED' | 'CANCELED';
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   DRAFT: 'Brouillon',
@@ -81,6 +81,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   PAID: 'Payée',
   OVERDUE: 'En retard',
   ACCEPTED: 'Acceptée',
+  CANCELED: 'Annulée',
 };
 
 export const INVOICE_STATUS_COLORS: Record<
@@ -92,13 +93,15 @@ export const INVOICE_STATUS_COLORS: Record<
   PAID: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'check-circle' },
   OVERDUE: { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   ACCEPTED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'check-circle' },
+  CANCELED: { bg: 'bg-muted', fg: 'text-muted-foreground', icon: 'x-circle' },
 };
 
-export type InvoiceDocType = 'INVOICE' | 'QUOTE';
+export type InvoiceDocType = 'INVOICE' | 'QUOTE' | 'CREDIT_NOTE';
 
 export const DOC_TYPE_LABELS: Record<InvoiceDocType, { short: string; long: string }> = {
   INVOICE: { short: 'FAC', long: 'Facture' },
   QUOTE: { short: 'QT', long: 'Devis' },
+  CREDIT_NOTE: { short: 'AV', long: 'Avoir' },
 };
 
 export type ProjectStepStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';

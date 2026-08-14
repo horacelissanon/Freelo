@@ -1,16 +1,20 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
-import { useApi } from '@/lib/useApi';
+import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { api, ApiError } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { Modal } from '@/components/ui/Modal';
 import { ProjectRow } from '@/components/dashboard/ProjectRow';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
+import { ClientForm } from '@/components/forms/ClientForm';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import {
   CLIENT_STATUS_LABELS,
@@ -67,6 +71,8 @@ export default function ClientDetailPage() {
   const { toast } = useToast();
   const { openCreate } = useCreateMenu();
   const { data: client, loading, error, refresh } = useApi<ClientDetail>(`/api/clients/${id}`);
+  const [editOpen, setEditOpen] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   if (!user) return null;
 
@@ -75,6 +81,22 @@ export default function ClientDetailPage() {
     const url = `${window.location.origin}/suivi/${client.trackingToken}`;
     await navigator.clipboard.writeText(url);
     toast('Lien de suivi copié.', 'success');
+  }
+
+  async function toggleArchive() {
+    if (!client) return;
+    const nextStatus = client.status === 'archived' ? 'active' : 'archived';
+    setArchiving(true);
+    try {
+      await api(`/api/clients/${client.id}`, { method: 'PATCH', body: { status: nextStatus } });
+      invalidateCachePrefix('/api/clients');
+      toast(nextStatus === 'archived' ? 'Client archivé.' : 'Client réactivé.', 'success');
+      await refresh();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
+    } finally {
+      setArchiving(false);
+    }
   }
 
   return (
@@ -147,15 +169,57 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={copyTrackingLink}
-              className="flex flex-shrink-0 items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
-            >
-              <Icon i="link" size={15} />
-              Copier le lien de suivi
-            </button>
+            <div className="flex flex-shrink-0 flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={copyTrackingLink}
+                className="flex items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
+              >
+                <Icon i="link" size={15} />
+                Copier le lien de suivi
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="flex items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
+              >
+                <Icon i="pen-line" size={15} />
+                Modifier
+              </button>
+              <button
+                type="button"
+                onClick={() => void toggleArchive()}
+                disabled={archiving}
+                className="flex items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
+              >
+                <Icon i={client.status === 'archived' ? 'check-circle' : 'trash'} size={15} />
+                {client.status === 'archived' ? 'Réactiver' : 'Archiver'}
+              </button>
+            </div>
           </div>
+
+          {editOpen && (
+            <Modal title="Modifier le client" onClose={() => setEditOpen(false)} size="lg">
+              <ClientForm
+                client={{
+                  id: client.id,
+                  name: client.name,
+                  company: client.company,
+                  contactName: client.contactName,
+                  website: client.website,
+                  phone: client.phone,
+                  email: client.email,
+                  city: client.city,
+                  sector: client.sector,
+                  notes: client.notes,
+                }}
+                onDone={() => {
+                  setEditOpen(false);
+                  void refresh();
+                }}
+              />
+            </Modal>
+          )}
 
           {client.notes && (
             <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5">

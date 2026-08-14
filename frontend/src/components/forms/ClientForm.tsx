@@ -36,17 +36,36 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-export function ClientForm({ onDone }: { onDone: () => void }) {
+export interface ClientFormExisting {
+  id: string;
+  name: string;
+  company: string | null;
+  contactName: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  sector: string | null;
+  notes: string | null;
+}
+
+export function ClientForm({
+  client,
+  onDone,
+}: {
+  client?: ClientFormExisting;
+  onDone: () => void;
+}) {
   const { toast } = useToast();
-  const [name, setName] = useState('');
-  const [company, setCompany] = useState('');
-  const [contactName, setContactName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [city, setCity] = useState('');
-  const [sector, setSector] = useState('');
-  const [notes, setNotes] = useState('');
+  const [name, setName] = useState(client?.name ?? '');
+  const [company, setCompany] = useState(client?.company ?? '');
+  const [contactName, setContactName] = useState(client?.contactName ?? '');
+  const [website, setWebsite] = useState(client?.website ?? '');
+  const [phone, setPhone] = useState(client?.phone ?? '');
+  const [email, setEmail] = useState(client?.email ?? '');
+  const [city, setCity] = useState(client?.city ?? '');
+  const [sector, setSector] = useState(client?.sector ?? '');
+  const [notes, setNotes] = useState(client?.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -57,23 +76,42 @@ export function ClientForm({ onDone }: { onDone: () => void }) {
     setError(null);
     setPlanLimitMessage(null);
     try {
-      await api('/api/clients', {
-        method: 'POST',
-        body: {
-          name,
-          ...(company ? { company } : {}),
-          ...(contactName ? { contactName } : {}),
-          ...(website ? { website } : {}),
-          ...(phone ? { phone } : {}),
-          ...(email ? { email } : {}),
-          ...(city ? { city } : {}),
-          ...(sector ? { sector } : {}),
-          ...(notes ? { notes } : {}),
-        },
-      });
-      invalidateCachePrefix('/api/clients');
-      invalidateCachePrefix('/api/dashboard/stats');
-      toast('Client ajouté.', 'success');
+      if (client) {
+        await api(`/api/clients/${client.id}`, {
+          method: 'PATCH',
+          body: {
+            name,
+            company: company || null,
+            contactName: contactName || null,
+            website: website || null,
+            phone: phone || null,
+            email: email || null,
+            city: city || null,
+            sector: sector || null,
+            notes: notes || null,
+          },
+        });
+        invalidateCachePrefix('/api/clients');
+        toast('Client mis à jour.', 'success');
+      } else {
+        await api('/api/clients', {
+          method: 'POST',
+          body: {
+            name,
+            ...(company ? { company } : {}),
+            ...(contactName ? { contactName } : {}),
+            ...(website ? { website } : {}),
+            ...(phone ? { phone } : {}),
+            ...(email ? { email } : {}),
+            ...(city ? { city } : {}),
+            ...(sector ? { sector } : {}),
+            ...(notes ? { notes } : {}),
+          },
+        });
+        invalidateCachePrefix('/api/clients');
+        invalidateCachePrefix('/api/dashboard/stats');
+        toast('Client ajouté.', 'success');
+      }
       onDone();
     } catch (err) {
       if (err instanceof ApiError && isPlanLimitCode(err.code)) {
@@ -255,7 +293,11 @@ export function ClientForm({ onDone }: { onDone: () => void }) {
           disabled={submitting}
           className="rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {submitting ? 'Ajout…' : 'Enregistrer le client'}
+          {submitting
+            ? 'Enregistrement…'
+            : client
+              ? 'Enregistrer les modifications'
+              : 'Enregistrer le client'}
         </button>
       </div>
     </form>

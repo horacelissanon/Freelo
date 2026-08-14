@@ -19,6 +19,7 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/pagination/paginate';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const Body = z.object({
@@ -32,11 +33,6 @@ const Body = z.object({
 });
 
 const MAX_NUMBER_RETRIES = 3;
-
-function formatNumber(docType: 'INVOICE' | 'QUOTE', year: number, seq: number): string {
-  const padded = String(seq).padStart(3, '0');
-  return docType === 'QUOTE' ? `QT-${year}-${padded}` : `${year}-${padded}`;
-}
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -142,7 +138,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const count = await prisma.invoice.count({
         where: { userId: auth.user.sub, docType, createdAt: { gte: yearStart } },
       });
-      const number = formatNumber(docType, year, count + 1 + attempt);
+      const number = formatInvoiceNumber(docType, year, count + 1 + attempt);
 
       try {
         invoice = await prisma.invoice.create({

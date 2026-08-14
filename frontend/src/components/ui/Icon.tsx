@@ -59,6 +59,7 @@ import {
   Shield,
   Building2,
   Loader2,
+  XCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -119,6 +120,7 @@ const ICONS: Record<string, LucideIcon> = {
   shield: Shield,
   building: Building2,
   loader: Loader2,
+  'x-circle': XCircle,
 };
 
 export interface IconProps {
