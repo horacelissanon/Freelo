@@ -15,6 +15,10 @@ model User {
   // password. Email/password signup still requires it; the auth route
   // enforces presence at runtime.
   passwordHash      String?
+  // Set by change-password/set-password on success — surfaced read-only in
+  // Paramètres → Sécurité ("Dernière modification"). Not used for any auth
+  // decision (tokenVersion already handles session invalidation).
+  passwordChangedAt DateTime?
   emailVerifiedAt   DateTime?
   tokenVersion      Int       @default(0)
   withdrawalPinHash String? // bcrypt hash of withdrawal PIN; null = no PIN set
@@ -23,6 +27,22 @@ model User {
   name              String?
   // Optional avatar URL — populated from OAuth profile on first sign-in.
   avatarUrl         String?
+  // Profile fields editable via PATCH /api/auth/me (Paramètres → Compte).
+  phone             String?
+  bio               String?
+  // Workspace/business fields (Paramètres → Espace de travail).
+  studioName        String?
+  taxId             String?
+  address           String?
+  defaultCurrency   String    @default("XOF")
+  language          String    @default("fr")
+  // showPaidInvoicesDefault: when false, /invoices pre-filters PAID docs out
+  // of the initial view (still togglable via the existing filter tabs).
+  showPaidInvoicesDefault Boolean @default(true)
+  // publicPortalEnabled: kill switch for this user's /suivi/[token] links —
+  // when false, GET /api/track/[token] (+ comments/pay siblings) 404 for
+  // all of this user's clients/projects, same shape as an invalid token.
+  publicPortalEnabled     Boolean @default(true)
   // App-wide role. USER is the default; ADMIN unlocks /admin back-office;
   // SUPERADMIN can promote/demote other admins. Bootstrap an initial
   // SUPERADMIN via `pnpm db:make-superadmin <email>` (see scripts).
@@ -42,6 +62,10 @@ model User {
   withdrawals       Withdrawal[]
   oauthAccounts     OAuthAccount[]
   adminActions      AdminAction[]
+  clients           Client[]
+  projects          Project[]
+  invoices          Invoice[]
+  subscription      Subscription?
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
@@ -170,13 +194,22 @@ model FileUpload {
   userId    String? // nullable — uploads can be anonymous if route allows
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   key       String   @unique // Cloudinary public_id (column name historical — was R2 object key)
+  url       String // Cloudinary secure_url — persisted at upload time since it can't be
+  // deterministically reconstructed later from `key` alone (resource_type/format aren't stored)
   filename  String
   mimeType  String
   sizeBytes Int
+  // Optional link to a Project — set when uploaded as a project deliverable
+  // (see POST /api/upload's `projectId` field). Null for other upload
+  // contexts (e.g. a future avatar uploader, or a chat-comment attachment,
+  // which links via ProjectComment.attachmentUrl instead).
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
+  @@index([projectId])
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -331,4 +364,175 @@ model Withdrawal {
   @@index([userId, requestedAt])
   @@index([status, requestedAt])
   @@index([provider, providerPayoutId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Freelance CRM (Banani "Espace Freelance Merrudit" import, Phase A —
+// see .planning/banani/IMPLEMENTATION-PLAN.md). Single-tenant: every row
+// is owned by one freelancer `User`, no Organization involved.
+//
+// These are deliberately separate from Order/Withdrawal — Order models a
+// buyer paying this app (marketplace checkout), while Invoice models a
+// freelancer billing an EXTERNAL client who is not necessarily a User.
+// The payment-collection loop (Phase C) composes on top of the existing
+// guest-checkout Order path rather than duplicating payment logic here.
+// ───────────────────────────────────────────────────────────────────────
+model Client {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String   @unique // human-friendly disambiguator ("CL-0001"), sequential per user — assigned explicitly by POST /api/clients (see route for the retry-on-collision pattern)
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  company     String?
+  website     String?
+  city        String?
+  sector      String?
+  notes       String?
+  status      String   @default("active") // active | pending | archived
+  imageUrl    String?
+  trackingToken String @unique @default(cuid()) // Client Link Portal (Phase C) — lists all of this client's projects
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projects Project[]
+  invoices Invoice[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  type        String    @default("OTHER") // LOGO | IDENTITY | POSTER | PACKAGING | SOCIAL | PRINT | UI_WEB | OTHER
+  description String? // short brief, freeform (v1)
+  status      String    @default("IN_PROGRESS") // IN_PROGRESS | PENDING | DELIVERED
+  progress    Int       @default(0) // 0-100
+  amount      Int // smallest currency unit, matches Order convention
+  currency    String    @default("XOF")
+  dueDate     DateTime?
+  step        String? // current milestone label, freeform (v1)
+  publicToken String    @unique @default(cuid()) // Client Link Portal (Phase C)
+  depositPercent Int    @default(30) // % of amount due as deposit before delivery
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  invoices Invoice[]
+  steps    ProjectStep[]
+  comments ProjectComment[]
+  files    FileUpload[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([clientId])
+}
+
+model ProjectStep {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  order       Int
+  title       String
+  description String?
+  status      String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId, order])
+}
+
+model ProjectComment {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author         String // FREELANCER | CLIENT
+  body           String // may be "" when attachmentUrl is set (photo/voice-only message)
+  attachmentUrl  String?
+  attachmentType String? // IMAGE | AUDIO
+  createdAt      DateTime @default(now())
+
+  @@index([projectId, createdAt])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  docType     String // INVOICE | QUOTE
+  number      String // "2025-001" / "QT-2025-008" — sequential per userId+docType
+  description String?
+  amount      Int
+  currency    String    @default("XOF")
+  status      String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE | ACCEPTED
+  issueDate   DateTime  @default(now())
+  dueDate     DateTime?
+  orderId     String?   @unique // set once a payment Order is created (Phase C)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, docType, number])
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@index([clientId])
+  @@index([projectId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// SaaS subscription billing — the freelancer paying US for using the app,
+// via FedaPay. Deliberately separate from Order (which models an end
+// CLIENT paying the freelancer) and from PaymentProvider (that interface
+// is shaped for the redirect-per-charge Order flow; FedaPay's adapter is
+// its own thing — see lib/server/payments/fedapay.ts).
+//
+// FedaPay has no silent tokenized recharge — every renewal is its own
+// redirect-confirmed transaction, so this is period-based with
+// prompted/manual renewal, not true auto-billing. No row = implicit FREE
+// plan (lazy-created on first read, see lib/server/billing/subscription.ts).
+// ───────────────────────────────────────────────────────────────────────
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              String   @default("FREE") // FREE | PRO
+  status            String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED | EXPIRED
+  billingCycle      String? // MONTHLY | YEARLY — null while FREE
+  currentPeriodEnd  DateTime?
+  cancelAtPeriodEnd Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  transactions SubscriptionTransaction[]
+}
+
+model SubscriptionTransaction {
+  id                    String       @id @default(cuid())
+  subscriptionId        String
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount                Int // smallest currency unit, matches Order convention
+  currency              String       @default("XOF")
+  billingCycle          String // MONTHLY | YEARLY
+  status                String       @default("PENDING") // PENDING | PAID | FAILED
+  provider              String       @default("fedapay")
+  providerTransactionId String?      @unique
+  paymentUrl            String?
+  idempotencyKey        String?      @unique
+  periodStart           DateTime?
+  periodEnd             DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  @@index([subscriptionId, createdAt])
+  @@index([status])
 }
