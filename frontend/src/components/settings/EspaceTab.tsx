@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Toggle } from '@/components/ui/Toggle';
 
 const inputClass =
@@ -27,6 +28,7 @@ const LANGUAGES: { value: string; label: string }[] = [
 export function EspaceTab({ user }: { user: User }) {
   const { refresh } = useAuth();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
   const [studioName, setStudioName] = useState(user.studioName ?? '');
   const [taxId, setTaxId] = useState(user.taxId ?? '');
@@ -159,6 +161,19 @@ export function EspaceTab({ user }: { user: User }) {
       <section className="flex flex-col divide-y divide-border rounded-lg border border-border bg-canvas p-5 shadow-card">
         <h2 className="mb-3 font-headings text-lg font-semibold text-foreground">Préférences</h2>
         <div className="flex items-center justify-between gap-4 py-4 first:pt-0">
+          <div className="flex flex-col">
+            <span className="font-body text-sm font-medium text-foreground">Thème sombre</span>
+            <span className="font-body text-xs text-muted-foreground">
+              Suit les réglages de ton appareil par défaut ; ce bouton force une préférence.
+            </span>
+          </div>
+          <Toggle
+            checked={theme === 'dark'}
+            onChange={(v) => setTheme(v ? 'dark' : 'light')}
+            label="Thème sombre"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4 py-4">
           <div className="flex flex-col">
             <span className="font-body text-sm font-medium text-foreground">
               Afficher les factures payées
