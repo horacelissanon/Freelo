@@ -99,9 +99,12 @@ export function Sidebar({
           {!collapsed && 'Paramètres'}
         </Link>
         {user && (
-          <div
-            className={`mt-4 flex items-center gap-3 border-t border-sidebar-muted pt-4 ${
-              collapsed ? 'justify-center' : ''
+          <Link
+            href="/settings"
+            onClick={onNavigate}
+            title={collapsed ? 'Mon compte' : undefined}
+            className={`mt-4 flex items-center gap-3 rounded-md border-t border-sidebar-muted pt-4 hover:bg-sidebar-muted/40 ${
+              collapsed ? 'justify-center' : 'px-2'
             }`}
           >
             <Avatar name={user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
@@ -110,10 +113,13 @@ export function Sidebar({
                 <p className="truncate font-body text-sm font-medium text-sidebar-foreground">
                   {user.email}
                 </p>
-                <p className="font-body text-xs text-sidebar-foreground/50">Freelance</p>
+                <p className="flex items-center gap-1 font-body text-xs text-sidebar-foreground/50">
+                  Mon compte
+                  <Icon i="chevron-right" size={11} />
+                </p>
               </div>
             )}
-          </div>
+          </Link>
         )}
       </div>
     </div>
