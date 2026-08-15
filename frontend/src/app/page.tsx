@@ -94,21 +94,20 @@ const STEPS: { icon: string; title: string; description: string }[] = [
   },
 ];
 
-// `inverted` keeps the exact same card shell (rounded-lg p-5 shadow-card,
-// same icon-badge size, same text sizes) as every other tile — only the
-// color tokens flip (solid bg-primary fill instead of bg-canvas + a pale
-// bg-tag-green badge) so "Une validation qui fait foi" still stands out
-// without being a different size or a separate spotlight bar. `pinBelowHighlight`
-// forces that card's lg (3-col) position to sit directly under it (grid
-// auto-flow alone would put the last item in column 1 of the next row, not
-// column 2) — source order already handles this correctly at the sm 2-col
-// breakpoint, so the explicit column-start only applies at lg.
+// 6 cards, uniform shell (rounded-lg p-5 shadow-card, same icon-badge size,
+// same text sizes) — 2 clean rows of 3 at lg, no orphan card, no explicit
+// grid-position overrides needed. `inverted` flips only the color tokens
+// (solid bg-primary fill instead of bg-canvas + a pale bg-tag-green badge)
+// on the single most important card for a freelance's actual bottom line:
+// getting a devis accepted at a price that then can't be disputed. Devis
+// multi-offres (proposing several formulas) and the client's own validation
+// of one of them are the same underlying flow described from two ends, so
+// they're one card, not two.
 const FEATURES: {
   icon: string;
   title: string;
   description: string;
   inverted?: boolean;
-  pinBelowHighlight?: boolean;
 }[] = [
   {
     icon: 'users',
@@ -123,23 +122,17 @@ const FEATURES: {
       'Ajoute, retire ou réordonne les étapes de chaque projet. Ton client voit l’avancement en temps réel.',
   },
   {
-    icon: 'file-text',
-    title: 'Devis multi-offres',
+    icon: 'file-check',
+    title: 'Une validation qui fait foi',
     description:
-      'Propose plusieurs formules sur un même devis, chacune avec son acompte — ton client choisit en un clic.',
+      'Propose plusieurs formules sur un même devis — ton client choisit et valide lui-même l’offre depuis son lien. Prix et contenu figés dès l’acceptation : fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
+    inverted: true,
   },
   {
     icon: 'receipt',
     title: 'Factures multi-devises',
     description:
       'Un design pro généré automatiquement en FCFA, EUR ou USD selon le client — plus besoin de Canva ou Photoshop pour composer un devis.',
-  },
-  {
-    icon: 'file-check',
-    title: 'Une validation qui fait foi',
-    description:
-      'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
-    inverted: true,
   },
   {
     icon: 'link',
@@ -152,7 +145,6 @@ const FEATURES: {
     title: 'Alertes automatiques',
     description:
       'Échéance de projet qui approche, facture en retard — Freelo te prévient avant que ton client s’en inquiète.',
-    pinBelowHighlight: true,
   },
 ];
 
@@ -699,11 +691,11 @@ export default function Home() {
               {FEATURES.map((feature) => (
                 <div
                   key={feature.title}
-                  className={`${
+                  className={
                     feature.inverted
                       ? 'rounded-lg border border-primary bg-primary p-5 shadow-card'
                       : inputCardClass
-                  } ${feature.pinBelowHighlight ? 'lg:col-start-2' : ''}`}
+                  }
                 >
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-lg ${
