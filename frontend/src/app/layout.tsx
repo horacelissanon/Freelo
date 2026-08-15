@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { IBM_Plex_Sans } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
@@ -48,9 +49,15 @@ export default function RootLayout({
   return (
     <html lang="fr" className={ibmPlexSans.variable} suppressHydrationWarning>
       <body className={ibmPlexSans.className} suppressHydrationWarning>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: ACCENT_INIT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: SIDEBAR_INIT_SCRIPT }} />
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
+        <Script id="accent-init" strategy="beforeInteractive">
+          {ACCENT_INIT_SCRIPT}
+        </Script>
+        <Script id="sidebar-init" strategy="beforeInteractive">
+          {SIDEBAR_INIT_SCRIPT}
+        </Script>
         <ThemeProvider>
           <AccentColorProvider>
             <SidebarColorProvider>
