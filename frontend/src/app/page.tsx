@@ -302,9 +302,8 @@ export default function Home() {
             <RotatingWord words={TARGET_PROFESSIONS} className="text-primary" />.
           </h1>
           <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
-            Fini Canva, Photoshop ou Word pour composer un devis. Freelo génère des devis et
-            factures pros en FCFA, EUR ou USD, avec tes moyens de paiement clairement indiqués — et
-            donne à chaque client un lien pour suivre son projet, sans jamais créer de compte.
+            Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures et
+            suivi client réunis en un seul endroit.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Link
