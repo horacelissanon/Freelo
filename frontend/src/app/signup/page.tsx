@@ -33,14 +33,14 @@ export default function SignupPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4 py-12">
-      <div className="flex items-center gap-2">
+      <Link href="/" className="flex items-center justify-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
           <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
         </div>
         <span className="font-headings text-xl font-bold tracking-tight text-foreground">
           Freelo
         </span>
-      </div>
+      </Link>
 
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
         <h1 className="font-headings text-2xl font-bold text-foreground">Créer un compte</h1>

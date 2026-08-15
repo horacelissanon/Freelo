@@ -13,6 +13,7 @@ import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { BackButton } from '@/components/ui/BackButton';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import {
@@ -116,13 +117,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <Link
-        href="/projects"
-        className="mb-4 inline-flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground"
-      >
-        <Icon i="chevron-left" size={16} />
-        Projets
-      </Link>
+      <BackButton fallbackHref="/projects" label="Projets" className="mb-4" />
 
       {loading ? (
         <LoadingState />

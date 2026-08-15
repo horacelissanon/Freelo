@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -12,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
+import { BackButton } from '@/components/ui/BackButton';
 import { ProjectRow } from '@/components/dashboard/ProjectRow';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { ClientForm } from '@/components/forms/ClientForm';
@@ -101,13 +101,7 @@ export default function ClientDetailPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <Link
-        href="/clients"
-        className="mb-4 inline-flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground"
-      >
-        <Icon i="chevron-left" size={16} />
-        Clients
-      </Link>
+      <BackButton fallbackHref="/clients" label="Clients" className="mb-4" />
 
       {loading ? (
         <LoadingState />

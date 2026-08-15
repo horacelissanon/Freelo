@@ -18,14 +18,19 @@ import {
 
 const PROJECT_TYPES = Object.keys(PROJECT_TYPE_LABELS) as ProjectType[];
 
-// Pre-filled with the same titles as the server's DEFAULT_STEPS fallback
-// (see /api/projects) so a user who touches nothing gets identical behavior
-// — but every line is editable/removable and more can be added.
-const DEFAULT_STEP_TITLES = [
-  'Brief & découverte',
-  'Premiers concepts',
-  'Révisions',
-  'Livraison finale',
+interface StepDraft {
+  title: string;
+  description: string;
+}
+
+// Pre-filled with the same titles/descriptions as the server's DEFAULT_STEPS
+// fallback (see /api/projects) so a user who touches nothing gets identical
+// behavior — but every line is editable/removable and more can be added.
+const DEFAULT_STEPS: StepDraft[] = [
+  { title: 'Brief & découverte', description: 'Collecte de vos informations et objectifs' },
+  { title: 'Premiers concepts', description: 'Premières propositions à valider' },
+  { title: 'Révisions', description: 'Ajustements selon vos retours' },
+  { title: 'Livraison finale', description: 'Remise des fichiers finaux' },
 ];
 
 const inputClass =
@@ -55,7 +60,7 @@ export function ProjectForm({
   const [amount, setAmount] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [dueDate, setDueDate] = useState('');
-  const [steps, setSteps] = useState<string[]>(DEFAULT_STEP_TITLES);
+  const [steps, setSteps] = useState<StepDraft[]>(DEFAULT_STEPS);
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -82,11 +87,11 @@ export function ProjectForm({
     return Object.keys(errors).length === 0;
   }
 
-  function updateStep(index: number, value: string) {
-    setSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
+  function updateStep(index: number, field: keyof StepDraft, value: string) {
+    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
   function addStep() {
-    setSteps((prev) => [...prev, '']);
+    setSteps((prev) => [...prev, { title: '', description: '' }]);
   }
   function removeStep(index: number) {
     setSteps((prev) => prev.filter((_, i) => i !== index));
@@ -99,7 +104,10 @@ export function ProjectForm({
     setError(null);
     setPlanLimitMessage(null);
     try {
-      const stepTitles = steps.map((s) => s.trim()).filter(Boolean);
+      const builtSteps = steps
+        .map((s) => ({ title: s.title.trim(), description: s.description.trim() }))
+        .filter((s) => s.title)
+        .map(({ title, description }) => ({ title, ...(description ? { description } : {}) }));
       await api('/api/projects', {
         method: 'POST',
         body: {
@@ -110,7 +118,7 @@ export function ProjectForm({
           currency,
           status,
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
-          ...(stepTitles.length > 0 ? { steps: stepTitles.map((title) => ({ title })) } : {}),
+          ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
         },
       });
       invalidateCachePrefix('/api/projects');
@@ -293,16 +301,29 @@ export function ProjectForm({
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Étapes du projet
         <div className="flex flex-col gap-2">
-          {steps.map((title, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => updateStep(index, e.target.value)}
-                placeholder={`Étape ${index + 1}`}
-                maxLength={200}
-                className={`${inputClass} min-w-0 flex-1`}
-              />
+          {steps.map((step, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-start"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <input
+                  type="text"
+                  value={step.title}
+                  onChange={(e) => updateStep(index, 'title', e.target.value)}
+                  placeholder={`Titre de l'étape ${index + 1}`}
+                  maxLength={200}
+                  className={inputClass}
+                />
+                <input
+                  type="text"
+                  value={step.description}
+                  onChange={(e) => updateStep(index, 'description', e.target.value)}
+                  placeholder="Description (optionnel)"
+                  maxLength={500}
+                  className={inputClass}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => removeStep(index)}

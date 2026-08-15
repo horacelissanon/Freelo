@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useApi } from '@/lib/useApi';
-import { Icon } from '@/components/ui/Icon';
+import { BackButton } from '@/components/ui/BackButton';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
 import { QuoteBuilderForm } from '@/components/forms/QuoteBuilderForm';
 import type { InvoiceDocType } from '@/lib/constants';
@@ -22,6 +21,8 @@ interface QuoteDetail {
     title: string;
     description: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
+    depositType: string | null;
+    depositValue: number | null;
   }[];
   contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
 }
@@ -34,13 +35,11 @@ export default function EditQuotePage() {
 
   return (
     <div className="pt-6 lg:pt-8">
-      <Link
-        href={`/invoices/${id}`}
-        className="mb-4 inline-flex items-center gap-1 px-4 font-body text-sm text-muted-foreground hover:text-foreground sm:px-6 lg:px-8"
-      >
-        <Icon i="chevron-left" size={16} />
-        Retour au devis
-      </Link>
+      <BackButton
+        fallbackHref={`/invoices/${id}`}
+        label="Retour au devis"
+        className="mb-4 px-4 sm:px-6 lg:px-8"
+      />
 
       {loading ? (
         <div className="px-4 sm:px-6 lg:px-8">
