@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
@@ -57,6 +58,7 @@ interface InvoiceApiRow {
 }
 
 const URGENT_WINDOW_DAYS = 7;
+const REVENUE_MASK_KEY = 'merrudit-dashboard-revenue-masked';
 
 export default function DashboardPage() {
   const user = useUser();
@@ -66,6 +68,32 @@ export default function DashboardPage() {
   const notifications = useApi<{ items: NotificationApiRow[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
   const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');
+
+  // Per-device preference, not a server setting — same pattern as
+  // sidebar-collapsed/bottom-nav-glass. Defaults to visible; a freelance
+  // working somewhere with a wandering eye can hide it behind the eye
+  // toggle on the StatCard itself.
+  const [revenueMasked, setRevenueMasked] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(REVENUE_MASK_KEY) === '1') setRevenueMasked(true);
+    } catch {
+      // Storage unavailable — stays visible for this session.
+    }
+  }, []);
+
+  function toggleRevenueMasked() {
+    setRevenueMasked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(REVENUE_MASK_KEY, next ? '1' : '0');
+      } catch {
+        // Preference still applies for this session, just won't persist.
+      }
+      return next;
+    });
+  }
 
   if (!user) return null;
 
@@ -194,6 +222,8 @@ export default function DashboardPage() {
                     up: stats.data.revenue.trendPercent >= 0,
                   }
             }
+            masked={revenueMasked}
+            onToggleMasked={toggleRevenueMasked}
           />
           <StatCard
             label="Projets actifs"
