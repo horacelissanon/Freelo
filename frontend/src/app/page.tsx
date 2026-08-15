@@ -4,16 +4,20 @@
 // the Mensuel/Annuel switch) so it stays fast on the low-end-phone / 2G-3G
 // connections the PRD calls out — everything else, including content, works
 // with zero JS. Content is scoped to what's ACTUALLY shipped today — no
-// fabricated user counts or testimonials; the trust strip lists the real
-// payment rails Bictorys/withdrawals actually support (Wave, Orange Money,
-// MTN Mobile Money — see app/api/withdrawals/route.ts), and the "Pensé pour"
-// section uses named personas (Aminata, Koffi) framed explicitly as target
-// personas, not attributed customer quotes. Restructured/rewritten
-// 2026-08-15, inspired by a competitor's landing structure (numbered steps,
-// capability strip, comparison table, tiered pricing with a billing toggle,
-// richer FAQ) but with entirely original copy and zero fabricated blocks —
-// no fake trust numbers, no WhatsApp community banner (no real link to
-// give), no "free courses" section (no such feature exists in this app).
+// fabricated user counts or testimonials, and no overclaiming payment
+// processing that doesn't exist: Freelo does NOT collect payment from a
+// freelancer's client on their behalf — a freelancer indicates their
+// preferred payment method (Wave, Orange Money, MTN…) and it's displayed on
+// the devis/facture; the client settles directly, outside the app. Every
+// payment-related line on this page is worded around that, not around
+// in-app processing. The "Pensé pour" section uses named personas (Aminata,
+// Koffi) framed explicitly as target personas, not attributed customer
+// quotes. Restructured/rewritten 2026-08-15, inspired by a competitor's
+// landing structure (numbered steps, capability strip, comparison table,
+// tiered pricing with a billing toggle, richer FAQ) but with entirely
+// original copy and zero fabricated blocks — no fake trust numbers, no
+// WhatsApp community banner (no real link to give), no "free courses"
+// section (no such feature exists in this app).
 export const runtime = 'nodejs';
 
 import Link from 'next/link';
@@ -22,9 +26,22 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ScrollReveal } from '@/components/marketing/ScrollReveal';
 import { PricingToggle } from '@/components/marketing/PricingToggle';
 import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
+import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 
 const PAYMENT_METHODS = ['Wave', 'Orange Money', 'MTN Mobile Money', 'Carte bancaire'];
+
+// Rotates in the hero eyebrow so "who this is for" stays visible and
+// inclusive — Freelo isn't scoped to graphic designers specifically, unlike
+// the competitor this page took structural inspiration from.
+const TARGET_PROFESSIONS = [
+  'designers',
+  'développeurs',
+  'rédacteurs',
+  'consultants',
+  'vidéastes',
+  'community managers',
+];
 
 const HERO_PILLS: { icon: string; label: string }[] = [
   { icon: 'file-text', label: 'Devis' },
@@ -43,7 +60,7 @@ const CAPABILITIES: { icon: string; title: string; description: string }[] = [
   {
     icon: 'smartphone',
     title: 'Wave · Orange Money · MTN',
-    description: 'Ton client règle depuis le lien de suivi, en plan Pro.',
+    description: 'Indiqués sur le devis ou la facture — ton client te règle en direct.',
   },
   {
     icon: 'link',
@@ -76,9 +93,9 @@ const STEPS: { icon: string; title: string; description: string }[] = [
   },
   {
     icon: 'banknote',
-    title: 'Sois payé, sans relance',
+    title: 'Sois payé, sans confusion',
     description:
-      'Ton client règle l’acompte ou le solde en Wave, Orange Money ou MTN, depuis le même lien.',
+      'Ton moyen de paiement (Wave, Orange Money, MTN…) apparaît clairement sur le devis ou la facture.',
   },
 ];
 
@@ -111,7 +128,7 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
     icon: 'link',
     title: 'Lien de suivi client',
     description:
-      'Un lien unique, sans inscription : ton client consulte l’avancement, commente et règle sa facture.',
+      'Un lien unique, sans inscription : ton client consulte l’avancement, commente, et voit tes moyens de paiement.',
   },
   {
     icon: 'bell',
@@ -175,7 +192,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   'Clients & projets illimités',
   'Devis & factures en FCFA, EUR, USD',
-  'Lien de suivi interactif + paiement mobile money',
+  'Lien de suivi interactif avec tes moyens de paiement indiqués',
   'Sans filigrane sur les documents',
 ];
 
@@ -191,9 +208,9 @@ const FAQS: { question: string; answer: string }[] = [
       'Non. Le lien de suivi que tu partages s’ouvre directement — aucune inscription, aucun mot de passe côté client.',
   },
   {
-    question: 'Comment mes clients règlent-ils leurs factures ?',
+    question: 'Mes clients paient-ils directement depuis Freelo ?',
     answer:
-      'Directement depuis le lien de suivi, en Wave, Orange Money ou MTN Mobile Money — disponible en plan Pro. En plan Gratuit, le lien reste consultable en lecture seule.',
+      'Pas encore — Freelo n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (Wave, Orange Money, MTN…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
   },
   {
     question: 'Puis-je facturer en euros ou en dollars ?',
@@ -275,15 +292,16 @@ export default function Home() {
         />
         <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
           <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
-            Conçu pour les freelances d’Afrique francophone
+            Conçu pour les <RotatingWord words={TARGET_PROFESSIONS} /> freelances d’Afrique
+            francophone
           </span>
           <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
             Arrête de courir après tes clients pour être payé.
           </h1>
           <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
             Fini Canva, Photoshop ou Word pour composer un devis. Freelo génère des devis et
-            factures pros en FCFA, EUR ou USD, et donne à chaque client un lien pour suivre son
-            projet et régler en Wave, Orange Money ou MTN — sans jamais créer de compte.
+            factures pros en FCFA, EUR ou USD, avec tes moyens de paiement clairement indiqués — et
+            donne à chaque client un lien pour suivre son projet, sans jamais créer de compte.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Link
@@ -371,6 +389,43 @@ export default function Home() {
               <p className="font-body text-xs text-muted-foreground">à Aïssatou</p>
             </div>
           </div>
+
+          {/* The other half of the story — what the client sees on the
+              tracking link, no account required. Same "built from the app's
+              own visual language" rule as the dashboard mockup above: no
+              screenshot, so it never goes stale. */}
+          <div className="absolute -right-4 -bottom-8 hidden w-44 overflow-hidden rounded-[1.75rem] border-4 border-foreground bg-canvas shadow-xl lg:block xl:-right-8 xl:w-52">
+            <div className="flex items-center justify-center border-b border-border bg-sidebar px-3 py-2">
+              <span className="font-body text-[10px] font-semibold text-sidebar-foreground">
+                Ce que voit ton client
+              </span>
+            </div>
+            <div className="flex flex-col gap-2 p-3">
+              <div className="flex items-center gap-2">
+                <Avatar name="Aïssatou" className="h-6 w-6 flex-shrink-0 text-[9px]" />
+                <div className="min-w-0">
+                  <p className="truncate font-body text-[10px] font-semibold text-foreground">
+                    Refonte identité
+                  </p>
+                  <p className="font-body text-[9px] text-muted-foreground">Projet en cours</p>
+                </div>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full w-2/3 rounded-full bg-primary" />
+              </div>
+              <div className="rounded-md bg-tag-green px-2 py-1.5">
+                <p className="font-body text-[9px] font-semibold text-tag-green-fg">
+                  Devis accepté
+                </p>
+              </div>
+              <div className="rounded-md border border-border p-2">
+                <p className="font-body text-[9px] text-muted-foreground">Moyen de paiement</p>
+                <p className="font-body text-[10px] font-medium text-foreground">
+                  Wave · +221 XX XXX XX XX
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Capability strip — merges the former payment-only trust strip
@@ -389,7 +444,7 @@ export default function Home() {
         </div>
         <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-2 text-center">
           <p className="font-body text-xs font-medium text-muted-foreground">
-            Compatible avec les moyens de paiement que tes clients utilisent déjà
+            Indique le moyen de paiement de ton choix sur chaque devis et facture
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {PAYMENT_METHODS.map((method) => (
