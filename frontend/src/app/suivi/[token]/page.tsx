@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { PackOfferCard } from '@/components/invoices/PackOfferCard';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance } from '@/lib/invoiceTotals';
 import {
@@ -543,6 +544,42 @@ function ProjectDetail({
   );
 }
 
+function FaqItem({
+  question,
+  answer,
+  forceOpen,
+}: {
+  question: string;
+  answer: string | null;
+  forceOpen: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const isOpen = open || forceOpen;
+  return (
+    <div className="rounded-md border border-border">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <span className="font-body text-sm font-medium text-foreground">{question}</span>
+        {answer && (
+          <Icon
+            i={isOpen ? 'chevron-up' : 'chevron-down'}
+            size={15}
+            className="flex-shrink-0 text-muted-foreground"
+          />
+        )}
+      </button>
+      {answer && isOpen && (
+        <p className="border-t border-border px-4 py-3 font-body text-sm text-muted-foreground">
+          {answer}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function QuoteInvoiceDetail({
   view,
   token,
@@ -558,6 +595,15 @@ function QuoteInvoiceDetail({
 
   const [validating, setValidating] = useState(false);
   const [validateError, setValidateError] = useState<string | null>(null);
+  const [forceFaqOpen, setForceFaqOpen] = useState(false);
+
+  useEffect(() => {
+    function expandForPrint() {
+      setForceFaqOpen(true);
+    }
+    window.addEventListener('beforeprint', expandForPrint);
+    return () => window.removeEventListener('beforeprint', expandForPrint);
+  }, []);
 
   async function validate() {
     setValidating(true);
@@ -581,27 +627,54 @@ function QuoteInvoiceDetail({
   const conditionBlocks = invoice.contentBlocks.filter((b) => b.kind === 'CONDITIONS');
   const paymentBlocks = invoice.contentBlocks.filter((b) => b.kind === 'PAYMENT_METHOD');
   const faqBlocks = invoice.contentBlocks.filter((b) => b.kind === 'FAQ');
+  const docLabel = DOC_TYPE_LABELS[invoice.docType].long;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 pb-24">
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-body text-xs tracking-widest text-muted-foreground uppercase">
-              {DOC_TYPE_LABELS[invoice.docType].long} — {invoice.client.name}
+              {docLabel} pour {invoice.client.name}
             </p>
             <h1 className="mt-1 font-headings text-2xl font-bold text-foreground">
               {invoice.number}
             </h1>
             {provider.name && (
-              <p className="mt-1 font-body text-sm text-muted-foreground">De {provider.name}</p>
+              <p className="mt-1 font-body text-sm text-muted-foreground">
+                Préparé par {provider.name}
+              </p>
             )}
           </div>
-          <div
-            className={`flex-shrink-0 rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${statusColors.bg} ${statusColors.fg}`}
-          >
-            {INVOICE_STATUS_LABELS[invoice.status]}
+          <div className="flex flex-shrink-0 flex-col items-end gap-2">
+            <div
+              className={`rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${statusColors.bg} ${statusColors.fg}`}
+            >
+              {INVOICE_STATUS_LABELS[invoice.status]}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40 print:hidden"
+            >
+              <Icon i="download" size={13} />
+              Télécharger
+            </button>
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+            {invoice.client.name}
+          </span>
+          <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+            Émis le {formatDate(invoice.issueDate)}
+          </span>
+          {invoice.dueDate && (
+            <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+              Échéance {formatDate(invoice.dueDate)}
+            </span>
+          )}
         </div>
 
         {provider.bio && (
@@ -611,52 +684,44 @@ function QuoteInvoiceDetail({
         )}
       </div>
 
+      {isQuote && processBlocks.length > 0 && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <h2 className="mb-4 font-headings text-base font-bold text-foreground">
+            Comment ça se passe
+          </h2>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-5">
+            {processBlocks.map((b, i) => (
+              <div key={b.id} className="flex flex-col gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-headings text-xs font-bold text-primary-foreground">
+                  {i + 1}
+                </div>
+                <p className="font-body text-sm font-semibold text-foreground">{b.primaryText}</p>
+                {b.secondaryText && (
+                  <p className="font-body text-xs text-muted-foreground">{b.secondaryText}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
         <h2 className="mb-4 font-headings text-base font-bold text-foreground">
-          {isQuote ? 'Offres' : 'Prestations'}
+          {isQuote ? 'Nos offres' : 'Prestations'}
         </h2>
 
         {isQuote ? (
           <div className="flex flex-col gap-4">
-            {invoice.packs.map((pack) => {
-              const packTotal = pack.items.reduce(
-                (sum, item) => sum + item.quantity * item.unitPrice,
-                0,
-              );
-              return (
-                <div key={pack.id} className="overflow-hidden rounded-md border border-border">
-                  <div className="border-b border-border bg-secondary px-4 py-2.5">
-                    <p className="font-body text-sm font-semibold text-foreground">{pack.title}</p>
-                    {pack.description && (
-                      <p className="mt-0.5 font-body text-xs text-muted-foreground">
-                        {pack.description}
-                      </p>
-                    )}
-                  </div>
-                  {pack.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-b-0"
-                    >
-                      <span className="font-body text-sm text-foreground">
-                        {item.designation} × {item.quantity}
-                      </span>
-                      <span className="font-body text-sm font-medium text-foreground">
-                        {formatPrice(item.quantity * item.unitPrice)}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-end gap-2 bg-secondary/50 px-4 py-2">
-                    <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
-                      Sous-total
-                    </span>
-                    <span className="font-body text-sm font-semibold text-foreground">
-                      {formatPrice(packTotal, invoice.currency)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+            {invoice.packs.map((pack, index) => (
+              <PackOfferCard
+                key={pack.id}
+                index={index + 1}
+                title={pack.title}
+                description={pack.description}
+                items={pack.items}
+                currency={invoice.currency}
+              />
+            ))}
           </div>
         ) : (
           <div className="overflow-hidden rounded-md border border-border">
@@ -741,48 +806,24 @@ function QuoteInvoiceDetail({
         )}
       </div>
 
-      {isQuote && (processBlocks.length > 0 || conditionBlocks.length > 0) && (
+      {isQuote && conditionBlocks.length > 0 && (
         <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          {processBlocks.length > 0 && (
-            <div>
-              <h2 className="mb-3 font-headings text-base font-bold text-foreground">
-                Processus de travail
-              </h2>
-              <ol className="flex flex-col gap-2">
-                {processBlocks.map((b, i) => (
-                  <li key={b.id} className="font-body text-sm text-foreground">
-                    <span className="font-medium">
-                      {i + 1}. {b.primaryText}
-                    </span>
-                    {b.secondaryText && (
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {b.secondaryText}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {conditionBlocks.length > 0 && (
-            <div className={processBlocks.length > 0 ? 'mt-6 border-t border-border pt-6' : ''}>
-              <h2 className="mb-3 font-headings text-base font-bold text-foreground">Conditions</h2>
-              <ol className="flex flex-col gap-2">
-                {conditionBlocks.map((b, i) => (
-                  <li key={b.id} className="font-body text-sm text-foreground">
-                    <span className="font-medium">
-                      {i + 1}. {b.primaryText}
-                    </span>
-                    {b.secondaryText && (
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {b.secondaryText}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+          <h2 className="mb-4 font-headings text-base font-bold text-foreground">Conditions</h2>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
+            {conditionBlocks.map((b) => (
+              <div key={b.id} className="flex gap-2.5 rounded-md border border-border p-3">
+                <Icon i="shield" size={15} className="mt-0.5 flex-shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="font-body text-sm font-medium text-foreground">{b.primaryText}</p>
+                  {b.secondaryText && (
+                    <p className="mt-0.5 font-body text-xs text-muted-foreground">
+                      {b.secondaryText}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -795,20 +836,23 @@ function QuoteInvoiceDetail({
             <p className="font-body text-sm text-foreground">{invoice.paymentTermsNote}</p>
           )}
           {paymentBlocks.length > 0 && (
-            <div className="mt-3 flex flex-col gap-1.5">
+            <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
               {paymentBlocks.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                  className="flex items-center gap-2.5 rounded-md border border-border px-3 py-2.5"
                 >
-                  <span className="font-body text-sm font-medium text-foreground">
-                    {b.primaryText}
-                  </span>
-                  {b.secondaryText && (
-                    <span className="font-body text-sm text-muted-foreground">
-                      {b.secondaryText}
-                    </span>
-                  )}
+                  <Icon i="credit-card" size={15} className="flex-shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="truncate font-body text-sm font-medium text-foreground">
+                      {b.primaryText}
+                    </p>
+                    {b.secondaryText && (
+                      <p className="truncate font-body text-xs text-muted-foreground">
+                        {b.secondaryText}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -824,52 +868,68 @@ function QuoteInvoiceDetail({
           <h2 className="mb-3 font-headings text-base font-bold text-foreground">
             Questions fréquentes
           </h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {faqBlocks.map((b) => (
-              <div key={b.id}>
-                <p className="font-body text-sm font-medium text-foreground">{b.primaryText}</p>
-                {b.secondaryText && (
-                  <p className="mt-0.5 font-body text-sm text-muted-foreground">
-                    {b.secondaryText}
-                  </p>
-                )}
-              </div>
+              <FaqItem
+                key={b.id}
+                question={b.primaryText}
+                answer={b.secondaryText}
+                forceOpen={forceFaqOpen}
+              />
             ))}
           </div>
         </div>
       )}
 
-      {isQuote && (
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          {invoice.status === 'ACCEPTED' ? (
-            <p className="flex items-center gap-2 font-body text-sm font-medium text-tag-green-fg">
-              <Icon i="check-circle" size={16} />
-              Vous avez validé ce devis.
+      <div className="sticky bottom-4 z-10 rounded-lg border border-border bg-canvas/95 p-4 shadow-xl backdrop-blur print:hidden sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-body text-[11px] text-muted-foreground uppercase">
+              {isQuote ? 'Total du devis' : 'Total à régler'}
             </p>
-          ) : invoice.status === 'SENT' ? (
-            <>
+            <p className="font-headings text-xl font-bold text-foreground">
+              {formatPrice(invoice.amount, invoice.currency)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2.5 font-body text-sm font-medium text-foreground hover:border-primary/40"
+            >
+              <Icon i="download" size={14} />
+              <span className="hidden sm:inline">Télécharger</span>
+            </button>
+            {isQuote && invoice.status === 'SENT' && (
               <button
                 type="button"
                 onClick={() => void validate()}
                 disabled={validating}
-                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-3 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
                 <Icon i="check-circle" size={15} />
                 {validating ? 'Validation…' : 'Valider ce devis'}
               </button>
-              {validateError && (
-                <p role="alert" className="mt-2 font-body text-sm text-tag-red-fg">
-                  {validateError}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="font-body text-sm text-muted-foreground">
-              Ce devis est {INVOICE_STATUS_LABELS[invoice.status].toLowerCase()}.
-            </p>
-          )}
+            )}
+          </div>
         </div>
-      )}
+        {isQuote && invoice.status === 'ACCEPTED' && (
+          <p className="mt-3 flex items-center gap-1.5 font-body text-sm font-medium text-tag-green-fg">
+            <Icon i="check-circle" size={15} />
+            Vous avez validé ce devis.
+          </p>
+        )}
+        {isQuote && invoice.status !== 'SENT' && invoice.status !== 'ACCEPTED' && (
+          <p className="mt-3 font-body text-sm text-muted-foreground">
+            Ce devis est {INVOICE_STATUS_LABELS[invoice.status].toLowerCase()}.
+          </p>
+        )}
+        {validateError && (
+          <p role="alert" className="mt-2 font-body text-sm text-tag-red-fg">
+            {validateError}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

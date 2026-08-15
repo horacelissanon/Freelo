@@ -13,6 +13,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
+import { PackOfferCard } from '@/components/invoices/PackOfferCard';
 import { InvoiceForm } from '@/components/forms/InvoiceForm';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
 import {
@@ -113,6 +114,25 @@ export default function InvoiceDetailPage() {
     }
   }
 
+  function sendClientLinkViaWhatsApp() {
+    if (!invoice) return;
+    const url = `${window.location.origin}/suivi/${invoice.trackingToken}`;
+    const docLabel = invoice.docType === 'QUOTE' ? 'devis' : 'facture';
+    const message = `Bonjour, voici votre ${docLabel} ${invoice.number} : ${url}`;
+    const phoneDigits = invoice.client.phone?.replace(/[^0-9]/g, '');
+    const waUrl = `https://wa.me/${phoneDigits || ''}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  function openClientLink() {
+    if (!invoice) return;
+    window.open(
+      `${window.location.origin}/suivi/${invoice.trackingToken}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  }
+
   async function changeStatus(status: InvoiceStatus) {
     if (!invoice) return;
     setChangingStatus(status);
@@ -162,7 +182,7 @@ export default function InvoiceDetailPage() {
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <Link
         href="/invoices"
-        className="mb-4 inline-flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground"
+        className="mb-4 inline-flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground print:hidden"
       >
         <Icon i="chevron-left" size={16} />
         Devis &amp; Factures
@@ -173,9 +193,9 @@ export default function InvoiceDetailPage() {
       ) : error || !invoice ? (
         <ErrorState message={error ?? 'Document introuvable.'} onRetry={refresh} />
       ) : (
-        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6 print:block">
           {/* Left: document-style preview */}
-          <div className="mb-6 overflow-hidden rounded-lg border border-border bg-canvas shadow-card lg:col-start-1 lg:row-start-1 lg:mb-0">
+          <div className="mb-6 overflow-hidden rounded-lg border border-border bg-canvas shadow-card lg:col-start-1 lg:row-start-1 lg:mb-0 print:border-0 print:shadow-none">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-6">
               <div className="flex items-center gap-3">
                 <Avatar
@@ -192,6 +212,14 @@ export default function InvoiceDetailPage() {
                 </div>
               </div>
               <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40 print:hidden"
+                >
+                  <Icon i="download" size={13} />
+                  Télécharger {invoice.docType === 'QUOTE' ? 'le devis' : 'la facture'}
+                </button>
                 <h1 className="font-headings text-2xl font-bold tracking-tight text-foreground">
                   {DOC_TYPE_LABELS[invoice.docType].long.toUpperCase()}
                 </h1>
@@ -270,56 +298,16 @@ export default function InvoiceDetailPage() {
                 </div>
               ) : invoice.docType === 'QUOTE' && invoice.packs.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                  {invoice.packs.map((pack) => {
-                    const packTotal = pack.items.reduce(
-                      (sum, item) => sum + item.quantity * item.unitPrice,
-                      0,
-                    );
-                    return (
-                      <div
-                        key={pack.id}
-                        className="overflow-hidden rounded-md border border-border"
-                      >
-                        <div className="border-b border-border bg-secondary px-4 py-2.5">
-                          <p className="font-body text-sm font-semibold text-foreground">
-                            {pack.title}
-                          </p>
-                          {pack.description && (
-                            <p className="mt-0.5 font-body text-xs text-muted-foreground">
-                              {pack.description}
-                            </p>
-                          )}
-                        </div>
-                        {pack.items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center border-b border-border px-4 py-3 last:border-b-0"
-                          >
-                            <span className="flex-1 font-body text-sm text-foreground">
-                              {item.designation}
-                            </span>
-                            <span className="w-12 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
-                              {item.quantity}
-                            </span>
-                            <span className="w-28 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
-                              {formatPrice(item.unitPrice)}
-                            </span>
-                            <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
-                              {formatPrice(item.quantity * item.unitPrice)}
-                            </span>
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-end gap-2 bg-secondary/50 px-4 py-2">
-                          <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
-                            Sous-total {pack.title}
-                          </span>
-                          <span className="font-body text-sm font-semibold text-foreground">
-                            {formatPrice(packTotal, invoice.currency)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {invoice.packs.map((pack, index) => (
+                    <PackOfferCard
+                      key={pack.id}
+                      index={index + 1}
+                      title={pack.title}
+                      description={pack.description}
+                      items={pack.items}
+                      currency={invoice.currency}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border">
@@ -548,7 +536,7 @@ export default function InvoiceDetailPage() {
           </div>
 
           {/* Right: status + actions */}
-          <div className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1">
+          <div className="flex flex-col gap-4 lg:col-start-2 lg:row-start-1 print:hidden">
             <div className="rounded-lg border border-border bg-canvas p-5 shadow-card">
               <p className="mb-3 font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
                 Statut
@@ -582,14 +570,40 @@ export default function InvoiceDetailPage() {
                 </div>
               </dl>
               {invoice.docType !== 'CREDIT_NOTE' && invoice.status !== 'DRAFT' && (
-                <button
-                  type="button"
-                  onClick={() => void copyClientLink()}
-                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-4 py-2 font-body text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                >
-                  <Icon i="link" size={13} />
-                  Copier le lien client
-                </button>
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="mb-2 font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                    Lien client
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyClientLink()}
+                    aria-label="Copier le lien client"
+                    className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-left hover:border-primary/40"
+                  >
+                    <Icon i="link" size={13} className="flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate font-body text-xs text-muted-foreground">
+                      /suivi/{invoice.trackingToken}
+                    </span>
+                  </button>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={sendClientLinkViaWhatsApp}
+                      className="flex items-center justify-center gap-1.5 rounded-md bg-tag-green px-3 py-2 font-body text-xs font-medium text-tag-green-fg hover:opacity-90"
+                    >
+                      <Icon i="message-circle" size={14} />
+                      WhatsApp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openClientLink}
+                      className="flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40"
+                    >
+                      <Icon i="external-link" size={14} />
+                      Ouvrir
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

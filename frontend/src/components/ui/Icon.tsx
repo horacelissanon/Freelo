@@ -61,6 +61,9 @@ import {
   Loader2,
   XCircle,
   Info,
+  Calendar,
+  Download,
+  ExternalLink,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -123,6 +126,9 @@ const ICONS: Record<string, LucideIcon> = {
   loader: Loader2,
   'x-circle': XCircle,
   info: Info,
+  calendar: Calendar,
+  download: Download,
+  'external-link': ExternalLink,
 };
 
 export interface IconProps {

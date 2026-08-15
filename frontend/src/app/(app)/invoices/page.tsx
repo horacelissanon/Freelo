@@ -362,65 +362,66 @@ export default function InvoicesPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-            Devis &amp; Factures
-          </h1>
-          <p className="font-body text-sm text-muted-foreground">
-            Gérez vos devis et factures en un seul endroit.
-          </p>
+      <div className="mb-6">
+        <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+          Devis &amp; Factures
+        </h1>
+        <p className="font-body text-sm text-muted-foreground">
+          Gérez vos devis et factures en un seul endroit.
+        </p>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border font-body">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('factures')}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'factures'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground'
+            }`}
+          >
+            <Icon i="file-text" size={15} />
+            Factures
+            {factureRows.length > 0 && (
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
+                {factureRows.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('devis')}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'devis'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground'
+            }`}
+          >
+            <Icon i="file-clock" size={15} />
+            Devis
+            {devisRows.length > 0 && (
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
+                {devisRows.length}
+              </span>
+            )}
+          </button>
         </div>
-        {items.length > 0 && (
+      </div>
+
+      {items.length > 0 && (
+        <div className="mb-6 flex justify-end">
           <button
             type="button"
             onClick={() => openCreate(activeTab === 'devis' ? 'quote' : 'invoice')}
-            className="flex flex-shrink-0 items-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground sm:w-auto"
           >
             <Icon i="plus" size={16} />
-            <span className="hidden sm:inline">
-              {activeTab === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
-            </span>
+            {activeTab === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
           </button>
-        )}
-      </div>
-
-      <div className="mb-6 flex items-center gap-1 border-b border-border font-body">
-        <button
-          type="button"
-          onClick={() => setActiveTab('factures')}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'factures'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground'
-          }`}
-        >
-          <Icon i="file-text" size={15} />
-          Factures
-          {factureRows.length > 0 && (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
-              {factureRows.length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('devis')}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'devis'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground'
-          }`}
-        >
-          <Icon i="file-clock" size={15} />
-          Devis
-          {devisRows.length > 0 && (
-            <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
-              {devisRows.length}
-            </span>
-          )}
-        </button>
-      </div>
+        </div>
+      )}
 
       {loading ? (
         <LoadingState />

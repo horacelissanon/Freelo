@@ -11,6 +11,7 @@ import { formatPrice } from '@/lib/utils';
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
@@ -520,12 +521,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           </div>
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Échéance
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className={inputClass}
-            />
+            <DatePicker value={dueDate} onChange={setDueDate} />
           </label>
         </div>
       </section>

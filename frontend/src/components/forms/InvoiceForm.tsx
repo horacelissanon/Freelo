@@ -15,6 +15,7 @@ import { formatPrice, formatDate } from '@/lib/utils';
 import { computeItemsTotal, computeBalance } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
@@ -92,6 +93,12 @@ export function InvoiceForm({
     { skip: !clientId },
   );
   const projects = projectsData?.items ?? [];
+  const { data: clientDetail } = useApi<{
+    invoices: { docType: string; status: string; amount: number }[];
+  }>(`/api/clients/${clientId}`, { skip: !clientId });
+  const clientTotalBilled = (clientDetail?.invoices ?? [])
+    .filter((inv) => inv.docType === 'INVOICE' && inv.status !== 'CANCELED')
+    .reduce((sum, inv) => sum + inv.amount, 0);
 
   const [projectId, setProjectId] = useState(invoice?.projectId ?? '');
   const [description, setDescription] = useState(invoice?.description ?? '');
@@ -384,12 +391,7 @@ export function InvoiceForm({
         </label>
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Date de livraison
-          <input
-            type="date"
-            value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
-            className={inputClass}
-          />
+          <DatePicker value={deliveryDate} onChange={setDeliveryDate} />
         </label>
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Note de bas de page
@@ -405,12 +407,7 @@ export function InvoiceForm({
 
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Échéance
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className={inputClass}
-          />
+          <DatePicker value={dueDate} onChange={setDueDate} />
         </label>
         {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
         {error && (
@@ -431,7 +428,7 @@ export function InvoiceForm({
         </button>
       </form>
 
-      <div className="lg:w-64 lg:flex-shrink-0">
+      <div className="lg:sticky lg:top-0 lg:w-64 lg:flex-shrink-0 lg:self-start">
         <p className="mb-2 font-body text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
           Aperçu en direct
         </p>
@@ -458,6 +455,11 @@ export function InvoiceForm({
                 ? `${selectedClient.code} — ${selectedClient.name}`
                 : 'Sélectionnez un client'}
             </p>
+            {selectedClient && clientTotalBilled > 0 && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Déjà facturé à ce client : {formatPrice(clientTotalBilled, currency)}
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             {lineItems
@@ -479,16 +481,55 @@ export function InvoiceForm({
               </p>
             </div>
             {depositValue !== null && depositValue > 0 && (
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-[11px] text-muted-foreground">Acompte</p>
-                <p className="flex-shrink-0 text-[11px] text-muted-foreground">
-                  {formatPrice(depositValue, currency)}
-                </p>
-              </div>
+              <>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">Acompte</p>
+                  <p className="flex-shrink-0 text-[11px] text-muted-foreground">
+                    {formatPrice(depositValue, currency)}
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] font-medium text-foreground">Reste</p>
+                  <p className="flex-shrink-0 text-[11px] font-medium text-foreground">
+                    {formatPrice(balance, currency)}
+                  </p>
+                </div>
+              </>
             )}
           </div>
           {dueDate && (
             <p className="text-[11px] text-muted-foreground">Échéance {formatDate(dueDate)}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile only — the desktop sidebar above is sticky on its own, but on
+          mobile it sits below a potentially long form, so pin a compact
+          Total/Acompte/Reste strip to the bottom of the modal instead of
+          losing the running total once the fields scroll past it. */}
+      <div className="sticky bottom-0 z-10 -mx-6 -mb-6 border-t border-border bg-canvas/95 px-4 py-3 shadow-xl backdrop-blur lg:hidden">
+        <div className="flex items-center justify-between gap-3 font-body">
+          <div>
+            <p className="text-[10px] tracking-wide text-muted-foreground uppercase">Total</p>
+            <p className="text-base font-bold text-foreground">
+              {formatPrice(lineItemsTotal, currency)}
+            </p>
+          </div>
+          {depositValue !== null && depositValue > 0 && (
+            <div className="text-center">
+              <p className="text-[10px] tracking-wide text-muted-foreground uppercase">Acompte</p>
+              <p className="text-sm font-semibold text-foreground">
+                {formatPrice(depositValue, currency)}
+              </p>
+            </div>
+          )}
+          {depositValue !== null && depositValue > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] tracking-wide text-muted-foreground uppercase">Reste</p>
+              <p className="text-base font-bold text-foreground">
+                {formatPrice(balance, currency)}
+              </p>
+            </div>
           )}
         </div>
       </div>

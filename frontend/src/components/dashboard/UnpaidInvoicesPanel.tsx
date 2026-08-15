@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Icon } from '@/components/ui/Icon';
 import { formatPrice } from '@/lib/utils';
 
 export interface UnpaidInvoiceItem {
@@ -49,9 +50,10 @@ export function UnpaidInvoicesPanel({
       </div>
       <Link
         href="/invoices"
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border border-border py-2 font-body text-sm font-medium text-foreground"
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-secondary py-2.5 font-body text-sm font-semibold text-foreground transition-colors hover:bg-secondary/70"
       >
         Voir toutes les factures
+        <Icon i="chevron-right" size={14} />
       </Link>
     </div>
   );

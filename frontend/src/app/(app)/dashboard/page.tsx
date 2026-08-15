@@ -7,16 +7,14 @@ import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ProjectRow, type ProjectRowData } from '@/components/dashboard/ProjectRow';
-import { ActivityItem, type ActivityItemData } from '@/components/dashboard/ActivityItem';
 import { AlertBanner } from '@/components/dashboard/AlertBanner';
-import { QuickActions } from '@/components/dashboard/QuickActions';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
 import { UnpaidInvoicesPanel } from '@/components/dashboard/UnpaidInvoicesPanel';
 import { RevenueTrendCard } from '@/components/dashboard/RevenueTrendCard';
 import { UpcomingDeadlinesCard } from '@/components/dashboard/UpcomingDeadlinesCard';
 import { Icon } from '@/components/ui/Icon';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
-import { formatPrice, formatDate, formatLongDate, relativeTime } from '@/lib/utils';
+import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
 import type { ProjectStatus, InvoiceStatus } from '@/lib/constants';
 
 interface DashboardStats {
@@ -82,14 +80,6 @@ export default function DashboardPage() {
     step: p.step,
     dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
     publicToken: p.publicToken,
-  }));
-
-  const activityItems: ActivityItemData[] = (notifications.data?.items ?? []).map((n) => ({
-    id: n.id,
-    type: n.type,
-    text: n.body || n.title,
-    timeLabel: relativeTime(n.createdAt),
-    unread: !n.readAt,
   }));
 
   async function markAllNotificationsRead() {
@@ -231,8 +221,23 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="mb-8">
-        <QuickActions onNewQuote={() => openCreate('quote')} />
+      <div className="mb-8 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => openCreate('quote')}
+          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+        >
+          <Icon i="file-plus" size={16} className="text-primary" />
+          Nouveau devis
+        </button>
+        <button
+          type="button"
+          onClick={() => openCreate('client')}
+          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+        >
+          <Icon i="users" size={16} className="text-primary" />
+          Nouveau client
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -265,29 +270,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-            <h2 className="mb-3 font-headings text-base font-semibold text-foreground">
-              Activité récente
-            </h2>
-            {notifications.loading ? (
-              <LoadingState />
-            ) : notifications.error ? (
-              <ErrorState message={notifications.error} onRetry={notifications.refresh} />
-            ) : activityItems.length === 0 ? (
-              <EmptyState
-                icon="bell"
-                title="Aucune activité"
-                description="Les notifications récentes apparaîtront ici."
-              />
-            ) : (
-              <div>
-                {activityItems.map((a) => (
-                  <ActivityItem key={a.id} activity={a} />
-                ))}
-              </div>
-            )}
-          </div>
-
           <UpcomingDeadlinesCard items={upcomingDeadlines} />
 
           {stats.data && (

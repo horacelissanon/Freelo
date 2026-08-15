@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import {
   PROJECT_STATUS_LABELS,
@@ -225,12 +226,7 @@ export function ProjectForm({
       </label>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Échéance
-        <input
-          type="date"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className={inputClass}
-        />
+        <DatePicker value={dueDate} onChange={setDueDate} />
       </label>
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Étapes du projet
