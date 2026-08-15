@@ -21,6 +21,7 @@ import { PrismaClient } from '@prisma/client';
 const BASE_URL = process.env.SMOKE_BASE_URL ?? 'http://localhost:3000';
 const TEST_EMAIL = `smoke-${Date.now()}@example.test`;
 const TEST_PASSWORD = 'SmokeTestPwd123!';
+const TEST_NAME = 'Smoke Test';
 
 interface ApiError extends Error {
   step?: string;
@@ -95,7 +96,7 @@ export async function main(): Promise<number> {
     const signupRes = await fetch(`${BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: TEST_EMAIL, password: TEST_PASSWORD }),
+      body: JSON.stringify({ name: TEST_NAME, email: TEST_EMAIL, password: TEST_PASSWORD }),
     });
     await assertStatus('signup', signupRes, 201);
 

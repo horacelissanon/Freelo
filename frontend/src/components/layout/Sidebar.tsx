@@ -159,7 +159,7 @@ export function Sidebar({
               collapsed ? 'h-12 w-12 justify-center' : 'px-2 py-2'
             }`}
           >
-            <Avatar name={user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
+            <Avatar name={user.name || user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <p className="truncate font-body text-sm font-medium text-sidebar-foreground">

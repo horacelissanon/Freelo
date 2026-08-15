@@ -22,8 +22,10 @@ model User {
   emailVerifiedAt   DateTime?
   tokenVersion      Int       @default(0)
   withdrawalPinHash String? // bcrypt hash of withdrawal PIN; null = no PIN set
-  // Optional display name — populated from OAuth profile on first sign-in.
-  // Email/password users can fill it later via /api/auth/me PATCH (future).
+  // Display name — collected at signup for email/password accounts (POST
+  // /api/auth/signup), populated from the OAuth profile on first sign-in for
+  // Google accounts, editable later via /api/auth/me PATCH. Stays nullable
+  // for rows created before this was required.
   name              String?
   // Optional avatar URL — populated from OAuth profile on first sign-in.
   avatarUrl         String?

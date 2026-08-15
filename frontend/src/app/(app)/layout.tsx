@@ -103,7 +103,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className="flex items-center gap-2 rounded-md py-1 pr-1 pl-2 text-sidebar-foreground/70"
               >
                 <span className="font-body text-xs font-medium">Mon compte</span>
-                <Avatar name={user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
+                <Avatar name={user.name || user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
               </Link>
             </div>
           </div>

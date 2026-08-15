@@ -19,6 +19,7 @@ const googleSignInHref = '/api/auth/oauth/google/start?next=/dashboard';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function SignupPage() {
     try {
       await api('/api/auth/signup', {
         method: 'POST',
-        body: { email, password },
+        body: { name, email, password },
       });
       // Signup never logs in directly — the user must verify their email.
       // Pre-fill the email so they don't have to re-type it.
@@ -47,6 +48,17 @@ export default function SignupPage() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4">
       <h1 className="text-2xl font-bold">Sign up</h1>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-sm">
+          Full name
+          <input
+            type="text"
+            required
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded-md border border-gray-300 px-3 py-2"
+          />
+        </label>
         <label className="flex flex-col gap-1 text-sm">
           Email
           <input

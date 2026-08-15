@@ -69,7 +69,7 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const firstName = user.email.split('@')[0];
+  const firstName = user.name?.trim().split(/\s+/)[0] || user.email.split('@')[0];
 
   const projectRows: ProjectRowData[] = (projects.data?.items ?? []).map((p) => ({
     id: p.id,

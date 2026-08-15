@@ -31,6 +31,7 @@ const VERIFICATION_TTL_MS = Number(process.env.AUTH_VERIFICATION_TTL_MIN ?? 15) 
 const Body = z.object({
   email: zEmail,
   password: z.string().min(1),
+  name: z.string().trim().min(1).max(200),
 });
 
 const limiter = createEmailLimiter(redis ? { redis } : {}, {
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       res.headers.set('x-request-id', ctx.requestId);
       return res;
     }
-    const { email, password } = parsed.data;
+    const { email, password, name } = parsed.data;
 
     // 2. Password policy gates BEFORE looking up user (D-22 — keep the no-user
     //    and existing-user branches symmetric below).
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email, passwordHash },
+        data: { email, passwordHash, name },
         select: { id: true },
       });
       await tx.verificationCode.create({

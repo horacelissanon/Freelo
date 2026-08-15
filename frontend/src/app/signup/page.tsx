@@ -7,6 +7,7 @@ import { api, ApiError } from '@/lib/api';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +18,7 @@ export default function SignupPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await api('/api/auth/signup', { method: 'POST', body: { email, password } });
+      await api('/api/auth/signup', { method: 'POST', body: { name, email, password } });
       // Signup never logs in directly — the user must verify their email.
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err) {
@@ -49,6 +50,18 @@ export default function SignupPage() {
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Nom complet
+            <input
+              type="text"
+              required
+              autoComplete="name"
+              maxLength={200}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+            />
+          </label>
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Email
             <input

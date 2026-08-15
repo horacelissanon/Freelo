@@ -57,12 +57,17 @@ describe('POST /api/auth/signup', () => {
     prismaMock.user.create.mockResolvedValue({ id: 'u-new' } as never);
     prismaMock.verificationCode.create.mockResolvedValue({} as never);
 
-    const res = await POST(makeReq({ email: 'new@example.com', password: 'a-strong-passphrase' }));
+    const res = await POST(
+      makeReq({ name: 'Jane Doe', email: 'new@example.com', password: 'a-strong-passphrase' }),
+    );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body).toEqual({ ok: true });
 
     expect(prismaMock.user.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.user.create.mock.calls[0]?.[0]).toMatchObject({
+      data: expect.objectContaining({ name: 'Jane Doe' }),
+    });
     expect(prismaMock.verificationCode.create).toHaveBeenCalledTimes(1);
     const codeArg = prismaMock.verificationCode.create.mock.calls[0]?.[0];
     expect(codeArg?.data?.type).toBe('EMAIL_VERIFY');
@@ -77,7 +82,7 @@ describe('POST /api/auth/signup', () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: 'u-existing' } as never);
 
     const res = await POST(
-      makeReq({ email: 'existing@example.com', password: 'a-strong-passphrase' }),
+      makeReq({ name: 'Jane Doe', email: 'existing@example.com', password: 'a-strong-passphrase' }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -90,7 +95,9 @@ describe('POST /api/auth/signup', () => {
   });
 
   it('rejects banned passwords with PASSWORD_BANNED before user lookup', async () => {
-    const res = await POST(makeReq({ email: 'foo@example.com', password: 'password' }));
+    const res = await POST(
+      makeReq({ name: 'Jane Doe', email: 'foo@example.com', password: 'password' }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('PASSWORD_BANNED');
@@ -98,7 +105,9 @@ describe('POST /api/auth/signup', () => {
   });
 
   it('rejects too-short passwords with PASSWORD_TOO_SHORT', async () => {
-    const res = await POST(makeReq({ email: 'foo@example.com', password: 'short' }));
+    const res = await POST(
+      makeReq({ name: 'Jane Doe', email: 'foo@example.com', password: 'short' }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('PASSWORD_TOO_SHORT');
@@ -107,11 +116,27 @@ describe('POST /api/auth/signup', () => {
   });
 
   it('returns VALIDATION_FAILED for malformed email', async () => {
-    const res = await POST(makeReq({ email: 'not-an-email', password: 'a-strong-passphrase' }));
+    const res = await POST(
+      makeReq({ name: 'Jane Doe', email: 'not-an-email', password: 'a-strong-passphrase' }),
+    );
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('VALIDATION_FAILED');
     expect(Array.isArray(body.issues)).toBe(true);
+  });
+
+  it('returns VALIDATION_FAILED when name is missing or blank', async () => {
+    const res = await POST(makeReq({ email: 'foo@example.com', password: 'a-strong-passphrase' }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+
+    const blank = await POST(
+      makeReq({ name: '   ', email: 'foo2@example.com', password: 'a-strong-passphrase' }),
+    );
+    expect(blank.status).toBe(400);
+    expect((await blank.json()).error).toBe('VALIDATION_FAILED');
   });
 
   it('returns 429 TOO_MANY_SIGNUP_ATTEMPTS when the per-email limit is hit', async () => {
@@ -123,6 +148,7 @@ describe('POST /api/auth/signup', () => {
       Array.from({ length: 6 }, () =>
         POST(
           makeReq({
+            name: 'Jane Doe',
             email: 'rate-target@example.com',
             password: 'a-strong-passphrase',
           }),
@@ -142,6 +168,7 @@ describe('POST /api/auth/signup', () => {
     try {
       const res = await POST(
         makeReq({
+          name: 'Jane Doe',
           email: 'hibp@example.com',
           password: 'a-very-unique-passphrase-1234',
         }),
