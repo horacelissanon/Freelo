@@ -7,7 +7,8 @@ import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
-import { formatPrice, formatLongDate } from '@/lib/utils';
+import { formatPrice, formatLongDate, formatDate } from '@/lib/utils';
+import { computeBalance } from '@/lib/invoiceTotals';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
@@ -40,6 +41,13 @@ interface InvoiceClient {
   city: string | null;
 }
 
+interface InvoiceLineItemRow {
+  id: string;
+  designation: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 interface InvoiceDetail {
   id: string;
   number: string;
@@ -54,6 +62,11 @@ interface InvoiceDetail {
   project: { id: string; name: string } | null;
   relatedInvoice: InvoiceRelation | null;
   creditNote: InvoiceRelation | null;
+  lineItems: InvoiceLineItemRow[];
+  depositAmount: number | null;
+  deliveryDate: string | null;
+  paymentMethodNote: string | null;
+  footerNote: string | null;
 }
 
 export default function InvoiceDetailPage() {
@@ -198,23 +211,53 @@ export default function InvoiceDetailPage() {
             </div>
 
             <div className="p-6">
-              <div className="overflow-hidden rounded-md border border-border">
-                <div className="flex bg-secondary px-4 py-2.5 font-body text-xs font-semibold text-muted-foreground">
-                  <span className="flex-1">Description</span>
-                  <span className="w-28 flex-shrink-0 text-right">Total</span>
+              {invoice.lineItems.length > 0 ? (
+                <div className="overflow-hidden rounded-md border border-border">
+                  <div className="flex bg-secondary px-4 py-2.5 font-body text-xs font-semibold text-muted-foreground">
+                    <span className="flex-1">Désignation</span>
+                    <span className="w-12 flex-shrink-0 text-right">Qté</span>
+                    <span className="w-28 flex-shrink-0 text-right">Prix unit.</span>
+                    <span className="w-28 flex-shrink-0 text-right">Total</span>
+                  </div>
+                  {invoice.lineItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center border-t border-border px-4 py-3"
+                    >
+                      <span className="flex-1 font-body text-sm text-foreground">
+                        {item.designation}
+                      </span>
+                      <span className="w-12 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
+                        {item.quantity}
+                      </span>
+                      <span className="w-28 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
+                        {formatPrice(item.unitPrice)}
+                      </span>
+                      <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
+                        {formatPrice(item.quantity * item.unitPrice)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center px-4 py-3">
-                  <span className="flex-1 font-body text-sm text-foreground">
-                    {invoice.description ||
-                      (invoice.project
-                        ? invoice.project.name
-                        : DOC_TYPE_LABELS[invoice.docType].long)}
-                  </span>
-                  <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
-                    {formatPrice(invoice.amount, invoice.currency)}
-                  </span>
+              ) : (
+                <div className="overflow-hidden rounded-md border border-border">
+                  <div className="flex bg-secondary px-4 py-2.5 font-body text-xs font-semibold text-muted-foreground">
+                    <span className="flex-1">Description</span>
+                    <span className="w-28 flex-shrink-0 text-right">Total</span>
+                  </div>
+                  <div className="flex items-center px-4 py-3">
+                    <span className="flex-1 font-body text-sm text-foreground">
+                      {invoice.description ||
+                        (invoice.project
+                          ? invoice.project.name
+                          : DOC_TYPE_LABELS[invoice.docType].long)}
+                    </span>
+                    <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
+                      {formatPrice(invoice.amount, invoice.currency)}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="mt-4 flex justify-end">
                 <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
                   <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
@@ -225,6 +268,51 @@ export default function InvoiceDetailPage() {
                   </span>
                 </div>
               </div>
+
+              {(invoice.depositAmount != null ||
+                invoice.paymentMethodNote ||
+                invoice.deliveryDate) && (
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 font-body text-sm sm:grid-cols-4">
+                  {invoice.depositAmount != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Acompte</p>
+                      <p className="font-medium text-foreground">
+                        {formatPrice(invoice.depositAmount, invoice.currency)}
+                      </p>
+                    </div>
+                  )}
+                  {invoice.depositAmount != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Solde</p>
+                      <p className="font-medium text-foreground">
+                        {formatPrice(
+                          computeBalance(invoice.amount, invoice.depositAmount),
+                          invoice.currency,
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {invoice.paymentMethodNote && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Règlement</p>
+                      <p className="font-medium text-foreground">{invoice.paymentMethodNote}</p>
+                    </div>
+                  )}
+                  {invoice.deliveryDate && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Livraison</p>
+                      <p className="font-medium text-foreground">
+                        {formatDate(invoice.deliveryDate)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {invoice.footerNote && (
+                <p className="mt-4 border-t border-border pt-4 font-body text-xs text-muted-foreground italic">
+                  {invoice.footerNote}
+                </p>
+              )}
 
               {invoice.docType === 'CREDIT_NOTE' && invoice.relatedInvoice && (
                 <p className="mt-4 font-body text-sm text-muted-foreground">
@@ -389,6 +477,15 @@ export default function InvoiceDetailPage() {
               amount: invoice.amount,
               currency: invoice.currency,
               dueDate: invoice.dueDate,
+              lineItems: invoice.lineItems.map((it) => ({
+                designation: it.designation,
+                quantity: it.quantity,
+                unitPrice: it.unitPrice,
+              })),
+              depositAmount: invoice.depositAmount,
+              deliveryDate: invoice.deliveryDate,
+              paymentMethodNote: invoice.paymentMethodNote,
+              footerNote: invoice.footerNote,
             }}
             onDone={() => {
               setEditOpen(false);

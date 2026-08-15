@@ -37,6 +37,10 @@ function makePost(body: unknown, opts: { csrf?: 'match' | 'missing' } = {}): Nex
   });
 }
 
+function oneLineItem(unitPrice: number) {
+  return [{ designation: 'Service', quantity: 1, unitPrice }];
+}
+
 function invoice(overrides: Partial<{ id: string; number: string }> = {}) {
   return {
     id: overrides.id ?? 'i-1',
@@ -100,7 +104,9 @@ describe('POST /api/invoices', () => {
 
   it('clientId not owned -> 404 CLIENT_NOT_FOUND', async () => {
     prismaMock.client.findFirst.mockResolvedValue(null as never);
-    const res = await POST(makePost({ clientId: 'x', docType: 'INVOICE', amount: 1000 }));
+    const res = await POST(
+      makePost({ clientId: 'x', docType: 'INVOICE', lineItems: oneLineItem(1000) }),
+    );
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('CLIENT_NOT_FOUND');
     expect(prismaMock.invoice.create).not.toHaveBeenCalled();
@@ -109,7 +115,12 @@ describe('POST /api/invoices', () => {
   it('projectId not owned -> 404 PROJECT_NOT_FOUND', async () => {
     prismaMock.project.findFirst.mockResolvedValue(null as never);
     const res = await POST(
-      makePost({ clientId: 'c-1', projectId: 'someone-elses', docType: 'INVOICE', amount: 1000 }),
+      makePost({
+        clientId: 'c-1',
+        projectId: 'someone-elses',
+        docType: 'INVOICE',
+        lineItems: oneLineItem(1000),
+      }),
     );
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('PROJECT_NOT_FOUND');
@@ -120,7 +131,9 @@ describe('POST /api/invoices', () => {
     const year = new Date().getFullYear();
     prismaMock.invoice.count.mockResolvedValue(0 as never);
     prismaMock.invoice.create.mockResolvedValue(invoice({ number: `${year}-001` }) as never);
-    const res = await POST(makePost({ clientId: 'c-1', docType: 'INVOICE', amount: 60000 }));
+    const res = await POST(
+      makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(60000) }),
+    );
     expect(res.status).toBe(201);
     const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
     expect(createArg?.data?.number).toBe(`${year}-001`);
@@ -144,7 +157,9 @@ describe('POST /api/invoices', () => {
     prismaMock.invoice.create
       .mockRejectedValueOnce(conflict as never)
       .mockResolvedValueOnce(invoice() as never);
-    const res = await POST(makePost({ clientId: 'c-1', docType: 'INVOICE', amount: 60000 }));
+    const res = await POST(
+      makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(60000) }),
+    );
     expect(res.status).toBe(201);
     expect(prismaMock.invoice.create).toHaveBeenCalledTimes(2);
   });
@@ -153,9 +168,120 @@ describe('POST /api/invoices', () => {
     prismaMock.invoice.count.mockResolvedValue(0 as never);
     const conflict = Object.assign(new Error('unique constraint'), { code: 'P2002' });
     prismaMock.invoice.create.mockRejectedValue(conflict as never);
-    const res = await POST(makePost({ clientId: 'c-1', docType: 'INVOICE', amount: 60000 }));
+    const res = await POST(
+      makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(60000) }),
+    );
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('NUMBER_GENERATION_FAILED');
+  });
+
+  describe('line items (INVOICE) / transitional amount (QUOTE)', () => {
+    it('INVOICE without lineItems -> 400 VALIDATION_FAILED', async () => {
+      const res = await POST(makePost({ clientId: 'c-1', docType: 'INVOICE' }));
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('INVOICE with lineItems -> amount is computed server-side, sequential order', async () => {
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice({ number: '2026-001' }) as never);
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          lineItems: [
+            { designation: 'Logo', quantity: 1, unitPrice: 100000 },
+            { designation: 'Charte graphique', quantity: 2, unitPrice: 25000 },
+          ],
+        }),
+      );
+      expect(res.status).toBe(201);
+      const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+      expect(createArg?.data?.amount).toBe(150000);
+      expect(createArg?.data?.lineItems?.create).toEqual([
+        expect.objectContaining({ order: 1, designation: 'Logo', quantity: 1, unitPrice: 100000 }),
+        expect.objectContaining({
+          order: 2,
+          designation: 'Charte graphique',
+          quantity: 2,
+          unitPrice: 25000,
+        }),
+      ]);
+    });
+
+    it('a stray amount on an INVOICE create is ignored in favor of the computed total', async () => {
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+      await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          amount: 999999,
+          lineItems: oneLineItem(1000),
+        }),
+      );
+      const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+      expect(createArg?.data?.amount).toBe(1000);
+    });
+
+    it('QUOTE without amount -> 400 VALIDATION_FAILED', async () => {
+      const res = await POST(makePost({ clientId: 'c-1', docType: 'QUOTE' }));
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('QUOTE with lineItems (unsupported yet) -> 400 VALIDATION_FAILED', async () => {
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'QUOTE',
+          amount: 1000,
+          lineItems: oneLineItem(1000),
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('QUOTE with an invoice-only field (depositAmount) -> 400 VALIDATION_FAILED', async () => {
+      const res = await POST(
+        makePost({ clientId: 'c-1', docType: 'QUOTE', amount: 1000, depositAmount: 500 }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it('depositAmount greater than the computed total -> 400 VALIDATION_FAILED', async () => {
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          lineItems: oneLineItem(1000),
+          depositAmount: 5000,
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('INVOICE with depositAmount/deliveryDate/paymentMethodNote/footerNote persists them', async () => {
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+      await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          lineItems: oneLineItem(10000),
+          depositAmount: 3000,
+          deliveryDate: '2026-09-01T00:00:00.000Z',
+          paymentMethodNote: 'Orange Money +221771234567',
+          footerNote: 'Merci pour votre confiance !',
+        }),
+      );
+      const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+      expect(createArg?.data?.depositAmount).toBe(3000);
+      expect(createArg?.data?.paymentMethodNote).toBe('Orange Money +221771234567');
+      expect(createArg?.data?.footerNote).toBe('Merci pour votre confiance !');
+    });
   });
 });
 

@@ -27,18 +27,39 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { computeItemsTotal } from '@/lib/invoiceTotals';
+import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const PATCHABLE_STATUSES = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'ACCEPTED'] as const;
+
+const LineItemInput = z.object({
+  designation: z.string().min(1).max(200),
+  quantity: zPositiveInt,
+  unitPrice: zPositiveInt,
+});
 
 const PatchBody = z.object({
   status: z.enum(PATCHABLE_STATUSES).optional(),
   clientId: z.string().min(1).optional(),
   projectId: z.string().min(1).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
+  // QUOTE only, transitional — same reasoning as POST /api/invoices: kept
+  // working exactly as today until PR3's pack builder replaces it with
+  // `packs`. Rejected for an INVOICE via the docType gate below.
   amount: z.number().int().positive().optional(),
   currency: z.string().length(3).optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  // INVOICE-only bulk replace — the whole array is sent every time and the
+  // handler deletes+recreates the flat (packId: null) lines to match, same
+  // shape as ProjectForm's steps but as a single edit-time PATCH instead of
+  // per-row endpoints (no concurrent-editor race to guard against on a
+  // DRAFT owned by a single user).
+  lineItems: z.array(LineItemInput).min(1).max(100).optional(),
+  depositAmount: z.number().int().min(0).nullable().optional(),
+  deliveryDate: z.string().datetime().nullable().optional(),
+  paymentMethodNote: z.string().max(300).nullable().optional(),
+  footerNote: z.string().max(1000).nullable().optional(),
 });
 
 export async function GET(
@@ -61,6 +82,11 @@ export async function GET(
         project: { select: { id: true, name: true } },
         relatedInvoice: { select: { id: true, number: true, docType: true, status: true } },
         creditNote: { select: { id: true, number: true, docType: true, status: true } },
+        // lineItems always carries invoiceId, even for a QUOTE's pack items —
+        // filter to packId:null for the flat (INVOICE) subset; packs.items
+        // is the real per-pack list for a QUOTE.
+        lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
+        packs: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
       },
     });
 
@@ -91,7 +117,7 @@ export async function PATCH(
 
     const existing = await prisma.invoice.findFirst({
       where: { id, userId: auth.user.sub },
-      select: { id: true, docType: true, status: true },
+      select: { id: true, docType: true, status: true, amount: true, depositAmount: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -131,7 +157,20 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    const { status, clientId, projectId, description, amount, currency, dueDate } = parsed.data;
+    const {
+      status,
+      clientId,
+      projectId,
+      description,
+      amount,
+      currency,
+      dueDate,
+      lineItems,
+      depositAmount,
+      deliveryDate,
+      paymentMethodNote,
+      footerNote,
+    } = parsed.data;
 
     const editingContent =
       clientId !== undefined ||
@@ -139,7 +178,12 @@ export async function PATCH(
       description !== undefined ||
       amount !== undefined ||
       currency !== undefined ||
-      dueDate !== undefined;
+      dueDate !== undefined ||
+      lineItems !== undefined ||
+      depositAmount !== undefined ||
+      deliveryDate !== undefined ||
+      paymentMethodNote !== undefined ||
+      footerNote !== undefined;
 
     if (editingContent && existing.status !== 'DRAFT') {
       return NextResponse.json(
@@ -149,6 +193,33 @@ export async function PATCH(
             'Seul un brouillon peut être modifié. Une facture déjà envoyée ne peut plus changer de contenu — émets un avoir pour la corriger.',
         },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    if (
+      existing.docType === 'QUOTE' &&
+      (lineItems !== undefined ||
+        depositAmount !== undefined ||
+        deliveryDate !== undefined ||
+        paymentMethodNote !== undefined ||
+        footerNote !== undefined)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message:
+            'lineItems/depositAmount/deliveryDate/paymentMethodNote/footerNote are invoice-only fields',
+        },
+        { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+    if (existing.docType === 'INVOICE' && amount !== undefined) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: 'amount is computed from lineItems for an invoice, do not send it directly',
+        },
+        { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
 
@@ -192,18 +263,54 @@ export async function PATCH(
       }
     }
 
-    const invoice = await prisma.invoice.update({
-      where: { id },
-      data: {
-        ...(status !== undefined ? { status } : {}),
-        ...(clientId !== undefined ? { clientId } : {}),
-        ...(projectId !== undefined ? { projectId } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(amount !== undefined ? { amount } : {}),
-        ...(currency !== undefined ? { currency } : {}),
-        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-      },
-    });
+    // newAmount: computed from lineItems (INVOICE) or taken as-is from
+    // `amount` (QUOTE, transitional) — the docType gate above guarantees
+    // these two are mutually exclusive, never both set on the same request.
+    const newAmount = lineItems !== undefined ? computeItemsTotal(lineItems) : amount;
+    const finalAmount = newAmount !== undefined ? newAmount : existing.amount;
+    const finalDeposit = depositAmount !== undefined ? depositAmount : existing.depositAmount;
+    if (finalDeposit !== null && finalDeposit !== undefined && finalDeposit > finalAmount) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: "L'acompte ne peut pas dépasser le sous-total de la facture.",
+        },
+        { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    const updateData = {
+      ...(status !== undefined ? { status } : {}),
+      ...(clientId !== undefined ? { clientId } : {}),
+      ...(projectId !== undefined ? { projectId } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(newAmount !== undefined ? { amount: newAmount } : {}),
+      ...(currency !== undefined ? { currency } : {}),
+      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      ...(depositAmount !== undefined ? { depositAmount } : {}),
+      ...(deliveryDate !== undefined
+        ? { deliveryDate: deliveryDate ? new Date(deliveryDate) : null }
+        : {}),
+      ...(paymentMethodNote !== undefined ? { paymentMethodNote } : {}),
+      ...(footerNote !== undefined ? { footerNote } : {}),
+    };
+
+    const invoice =
+      lineItems !== undefined
+        ? await prisma.$transaction(async (tx) => {
+            await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id, packId: null } });
+            await tx.invoiceLineItem.createMany({
+              data: lineItems.map((item, i) => ({
+                invoiceId: id,
+                order: i + 1,
+                designation: item.designation,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              })),
+            });
+            return tx.invoice.update({ where: { id }, data: updateData });
+          })
+        : await prisma.invoice.update({ where: { id }, data: updateData });
 
     return NextResponse.json(invoice, { headers: { 'x-request-id': reqCtx.requestId } });
   });

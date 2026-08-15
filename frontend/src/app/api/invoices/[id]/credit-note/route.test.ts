@@ -39,7 +39,12 @@ function makePost(opts: { csrf?: 'match' | 'missing' } = {}): NextRequest {
 }
 
 function original(
-  overrides: Partial<{ docType: string; status: string; creditNote: { id: string } | null }> = {},
+  overrides: Partial<{
+    docType: string;
+    status: string;
+    creditNote: { id: string } | null;
+    lineItems: { designation: string; quantity: number; unitPrice: number }[];
+  }> = {},
 ) {
   return {
     id: 'i-1',
@@ -52,6 +57,7 @@ function original(
     currency: 'XOF',
     status: overrides.status ?? 'SENT',
     creditNote: overrides.creditNote === undefined ? null : overrides.creditNote,
+    lineItems: overrides.lineItems ?? [],
   };
 }
 
@@ -137,6 +143,48 @@ describe('POST /api/invoices/[id]/credit-note', () => {
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
     expect(updateArg?.where).toEqual({ id: 'i-1' });
     expect(updateArg?.data).toEqual({ status: 'CANCELED' });
+  });
+
+  it('copies the original invoice line items onto the credit note', async () => {
+    prismaMock.invoice.findFirst.mockResolvedValue(
+      original({
+        lineItems: [
+          { designation: 'Logo', quantity: 1, unitPrice: 40000 },
+          { designation: 'Charte graphique', quantity: 1, unitPrice: 20000 },
+        ],
+      }) as never,
+    );
+    prismaMock.invoice.create.mockResolvedValue({ id: 'cn-1', docType: 'CREDIT_NOTE' } as never);
+    prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', status: 'CANCELED' } as never);
+
+    const res = await POST(makePost(), ctxWith('i-1'));
+    expect(res.status).toBe(201);
+
+    expect(prismaMock.invoiceLineItem.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          invoiceId: 'cn-1',
+          order: 1,
+          designation: 'Logo',
+          quantity: 1,
+          unitPrice: 40000,
+        }),
+        expect.objectContaining({
+          invoiceId: 'cn-1',
+          order: 2,
+          designation: 'Charte graphique',
+          quantity: 1,
+          unitPrice: 20000,
+        }),
+      ],
+    });
+  });
+
+  it('no line items on the original -> createMany not called', async () => {
+    prismaMock.invoice.create.mockResolvedValue({ id: 'cn-1', docType: 'CREDIT_NOTE' } as never);
+    prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', status: 'CANCELED' } as never);
+    await POST(makePost(), ctxWith('i-1'));
+    expect(prismaMock.invoiceLineItem.createMany).not.toHaveBeenCalled();
   });
 
   it('P2002 unique conflict retries with a higher sequence, then succeeds', async () => {

@@ -6,7 +6,9 @@ import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice, formatDate } from '@/lib/utils';
+import { computeItemsTotal, computeBalance } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
+import { Icon } from '@/components/ui/Icon';
 import { CURRENCIES, type InvoiceDocType } from '@/lib/constants';
 
 const inputClass =
@@ -22,6 +24,12 @@ interface ProjectOption {
   name: string;
 }
 
+interface LineItemDraft {
+  designation: string;
+  quantity: string;
+  unitPrice: string;
+}
+
 export interface InvoiceFormExisting {
   id: string;
   docType: InvoiceDocType;
@@ -31,6 +39,31 @@ export interface InvoiceFormExisting {
   amount: number;
   currency: string;
   dueDate: string | null;
+  // INVOICE only — QUOTE keeps using the flat amount field transitionally.
+  lineItems: { designation: string; quantity: number; unitPrice: number }[];
+  depositAmount: number | null;
+  deliveryDate: string | null;
+  paymentMethodNote: string | null;
+  footerNote: string | null;
+}
+
+function defaultLineItems(invoice?: InvoiceFormExisting): LineItemDraft[] {
+  if (invoice && invoice.docType === 'INVOICE') {
+    if (invoice.lineItems.length > 0) {
+      return invoice.lineItems.map((it) => ({
+        designation: it.designation,
+        quantity: String(it.quantity),
+        unitPrice: String(it.unitPrice),
+      }));
+    }
+    // Backward-compat: a legacy invoice created before line items existed —
+    // seed one row from its flat description/amount so the subtotal starts
+    // matching what was already there instead of an empty state.
+    return [
+      { designation: invoice.description ?? '', quantity: '1', unitPrice: String(invoice.amount) },
+    ];
+  }
+  return [{ designation: '', quantity: '1', unitPrice: '' }];
 }
 
 export function InvoiceForm({
@@ -61,9 +94,22 @@ export function InvoiceForm({
 
   const [projectId, setProjectId] = useState(invoice?.projectId ?? '');
   const [description, setDescription] = useState(invoice?.description ?? '');
+  // QUOTE only, transitional — the multi-pack builder replaces this.
   const [amount, setAmount] = useState(invoice ? String(invoice.amount) : '');
   const [currency, setCurrency] = useState(invoice?.currency ?? 'XOF');
   const [dueDate, setDueDate] = useState(invoice?.dueDate ? invoice.dueDate.slice(0, 10) : '');
+
+  // INVOICE only.
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>(() => defaultLineItems(invoice));
+  const [depositAmount, setDepositAmount] = useState(
+    invoice?.depositAmount != null ? String(invoice.depositAmount) : '',
+  );
+  const [deliveryDate, setDeliveryDate] = useState(
+    invoice?.deliveryDate ? invoice.deliveryDate.slice(0, 10) : '',
+  );
+  const [paymentMethodNote, setPaymentMethodNote] = useState(invoice?.paymentMethodNote ?? '');
+  const [footerNote, setFooterNote] = useState(invoice?.footerNote ?? '');
+
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -71,13 +117,80 @@ export function InvoiceForm({
   const selectedClient = clients.find((c) => c.id === clientId);
   const studioLabel = user?.studioName || user?.email || '';
 
+  function updateLineItem(index: number, field: keyof LineItemDraft, value: string) {
+    setLineItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+  }
+  function addLineItem() {
+    setLineItems((prev) => [...prev, { designation: '', quantity: '1', unitPrice: '' }]);
+  }
+  function removeLineItem(index: number) {
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const numericLineItems = lineItems.map((it) => ({
+    quantity: Number(it.quantity) || 0,
+    unitPrice: Number(it.unitPrice) || 0,
+  }));
+  const lineItemsTotal = computeItemsTotal(numericLineItems);
+  const depositValue = depositAmount ? Number(depositAmount) : null;
+  const balance = computeBalance(lineItemsTotal, depositValue);
+
+  function buildLineItemsPayload():
+    | { designation: string; quantity: number; unitPrice: number }[]
+    | null {
+    const items = lineItems
+      .map((it) => ({
+        designation: it.designation.trim(),
+        quantity: Number(it.quantity),
+        unitPrice: Number(it.unitPrice),
+      }))
+      .filter((it) => it.designation && it.quantity > 0 && it.unitPrice > 0);
+    if (items.length === 0) {
+      setError('Ajoutez au moins une ligne de prestation (désignation, quantité et prix).');
+      return null;
+    }
+    return items;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     setPlanLimitMessage(null);
     try {
-      if (invoice) {
+      if (docType === 'INVOICE') {
+        const items = buildLineItemsPayload();
+        if (!items) {
+          setSubmitting(false);
+          return;
+        }
+        const shared = {
+          clientId,
+          projectId: projectId || null,
+          description: description || null,
+          lineItems: items,
+          currency,
+          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          depositAmount: depositAmount ? Number(depositAmount) : null,
+          deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : null,
+          paymentMethodNote: paymentMethodNote || null,
+          footerNote: footerNote || null,
+        };
+        if (invoice) {
+          await api(`/api/invoices/${invoice.id}`, { method: 'PATCH', body: shared });
+          invalidateCachePrefix('/api/invoices');
+          invalidateCachePrefix(`/api/invoices/${invoice.id}`);
+          toast('Facture mise à jour.', 'success');
+        } else {
+          await api('/api/invoices', {
+            method: 'POST',
+            body: { ...shared, docType: 'INVOICE' },
+          });
+          invalidateCachePrefix('/api/invoices');
+          invalidateCachePrefix('/api/dashboard/stats');
+          toast('Facture créée.', 'success');
+        }
+      } else if (invoice) {
         await api(`/api/invoices/${invoice.id}`, {
           method: 'PATCH',
           body: {
@@ -91,7 +204,7 @@ export function InvoiceForm({
         });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix(`/api/invoices/${invoice.id}`);
-        toast(docType === 'QUOTE' ? 'Devis mis à jour.' : 'Facture mise à jour.', 'success');
+        toast('Devis mis à jour.', 'success');
       } else {
         await api('/api/invoices', {
           method: 'POST',
@@ -107,7 +220,7 @@ export function InvoiceForm({
         });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix('/api/dashboard/stats');
-        toast(docType === 'QUOTE' ? 'Devis créé.' : 'Facture créée.', 'success');
+        toast('Devis créé.', 'success');
       }
       onDone();
     } catch (err) {
@@ -235,18 +348,139 @@ export function InvoiceForm({
             ))}
           </div>
         </div>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Montant ({currency}) *
-          <input
-            type="number"
-            required
-            min={1}
-            step={1}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className={inputClass}
-          />
-        </label>
+
+        {docType === 'INVOICE' ? (
+          <>
+            <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Prestations *
+              <div className="flex flex-col gap-2">
+                {lineItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Désignation"
+                      value={item.designation}
+                      onChange={(e) => updateLineItem(index, 'designation', e.target.value)}
+                      maxLength={200}
+                      className={`${inputClass} min-w-0 flex-1`}
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder="Qté"
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(index, 'quantity', e.target.value)}
+                        className={`${inputClass} w-16 flex-shrink-0`}
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder={`Prix (${currency})`}
+                        value={item.unitPrice}
+                        onChange={(e) => updateLineItem(index, 'unitPrice', e.target.value)}
+                        className={`${inputClass} w-28 flex-shrink-0`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(index)}
+                        disabled={lineItems.length <= 1}
+                        aria-label="Retirer cette ligne"
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-30"
+                      >
+                        <Icon i="trash" size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="mt-1 flex w-fit items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <Icon i="plus" size={13} />
+                Ajouter une ligne
+              </button>
+              <p className="mt-1 flex items-center justify-between font-body text-sm font-semibold text-foreground">
+                Sous-total
+                <span>{formatPrice(lineItemsTotal, currency)}</span>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Acompte ({currency})
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Solde ({currency})
+                <input
+                  type="text"
+                  disabled
+                  value={formatPrice(balance, '')}
+                  className={`${inputClass} cursor-not-allowed opacity-70`}
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Règlement (moyen de paiement)
+              <input
+                type="text"
+                placeholder="Ex : Orange Money +221…"
+                value={paymentMethodNote}
+                onChange={(e) => setPaymentMethodNote(e.target.value)}
+                maxLength={300}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Date de livraison
+              <input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Note de bas de page
+              <input
+                type="text"
+                placeholder="Ex : Merci pour votre confiance !"
+                value={footerNote}
+                onChange={(e) => setFooterNote(e.target.value)}
+                maxLength={1000}
+                className={inputClass}
+              />
+            </label>
+          </>
+        ) : (
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Montant ({currency}) *
+            <input
+              type="number"
+              required
+              min={1}
+              step={1}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+        )}
+
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Échéance
           <input
@@ -307,17 +541,47 @@ export function InvoiceForm({
                 : 'Sélectionnez un client'}
             </p>
           </div>
-          <div className="border-t border-border pt-3">
-            <div className="flex items-start justify-between gap-2">
-              <p className="min-w-0 truncate text-sm text-foreground">
-                {description ||
-                  (docType === 'QUOTE' ? 'Prestation à définir' : 'Prestation facturée')}
-              </p>
-              <p className="flex-shrink-0 text-sm font-semibold text-foreground">
-                {amount ? formatPrice(Number(amount), currency) : '—'}
-              </p>
+          {docType === 'INVOICE' ? (
+            <div className="flex flex-col gap-2 border-t border-border pt-3">
+              {lineItems
+                .filter((it) => it.designation.trim())
+                .map((it, i) => (
+                  <div key={i} className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 truncate text-xs text-foreground">
+                      {it.designation} × {it.quantity || 0}
+                    </p>
+                    <p className="flex-shrink-0 text-xs font-medium text-foreground">
+                      {formatPrice((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), '')}
+                    </p>
+                  </div>
+                ))}
+              <div className="flex items-start justify-between gap-2 border-t border-border pt-2">
+                <p className="text-sm font-semibold text-foreground">Total</p>
+                <p className="flex-shrink-0 text-sm font-semibold text-foreground">
+                  {formatPrice(lineItemsTotal, currency)}
+                </p>
+              </div>
+              {depositValue !== null && depositValue > 0 && (
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground">Acompte</p>
+                  <p className="flex-shrink-0 text-[11px] text-muted-foreground">
+                    {formatPrice(depositValue, currency)}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
+          ) : (
+            <div className="border-t border-border pt-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate text-sm text-foreground">
+                  {description || 'Prestation à définir'}
+                </p>
+                <p className="flex-shrink-0 text-sm font-semibold text-foreground">
+                  {amount ? formatPrice(Number(amount), currency) : '—'}
+                </p>
+              </div>
+            </div>
+          )}
           {dueDate && (
             <p className="text-[11px] text-muted-foreground">Échéance {formatDate(dueDate)}</p>
           )}

@@ -8,6 +8,14 @@
 // (e.g. "QT-2025-008") — matches the Banani mock data format. The
 // `@@unique([userId, docType, number])` constraint is the real safety net;
 // on a rare double-submit race we retry the count once before giving up.
+//
+// Line items (added alongside the pack/content-block data model): an
+// INVOICE is created from a flat `lineItems` array — `amount` is computed
+// server-side via `computeItemsTotal`, never accepted from the client.
+// A QUOTE is transitional here — it still takes a flat `amount` until the
+// multi-pack builder ships (`packs` on this same Body will replace it) —
+// this keeps the existing "Nouveau devis" flow working unmodified while
+// the INVOICE side moves first.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -20,17 +28,73 @@ import { prisma } from '@/lib/server/prisma';
 import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/pagination/paginate';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { formatInvoiceNumber } from '@/lib/server/invoices/number';
+import { computeItemsTotal } from '@/lib/invoiceTotals';
+import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const Body = z.object({
-  clientId: z.string().min(1),
-  projectId: z.string().min(1).optional(),
-  docType: z.enum(['INVOICE', 'QUOTE']),
-  description: z.string().max(500).optional(),
-  amount: z.number().int().positive(),
-  currency: z.string().length(3).default('XOF'),
-  dueDate: z.string().datetime().optional(),
+const LineItemInput = z.object({
+  designation: z.string().min(1).max(200),
+  quantity: zPositiveInt,
+  unitPrice: zPositiveInt,
 });
+
+const Body = z
+  .object({
+    clientId: z.string().min(1),
+    projectId: z.string().min(1).optional(),
+    docType: z.enum(['INVOICE', 'QUOTE']),
+    description: z.string().max(500).optional(),
+    // QUOTE only, transitional (see file-header comment).
+    amount: z.number().int().positive().optional(),
+    // INVOICE only.
+    lineItems: z.array(LineItemInput).min(1).max(100).optional(),
+    currency: z.string().length(3).default('XOF'),
+    dueDate: z.string().datetime().optional(),
+    // INVOICE only — Acompte/Livraison/Règlement/Note de bas de page.
+    depositAmount: z.number().int().min(0).optional(),
+    deliveryDate: z.string().datetime().optional(),
+    paymentMethodNote: z.string().max(300).optional(),
+    footerNote: z.string().max(1000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.docType === 'INVOICE') {
+      if (!data.lineItems || data.lineItems.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['lineItems'],
+          message: 'lineItems is required to create an invoice',
+        });
+      }
+    } else {
+      if (data.lineItems !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['lineItems'],
+          message: 'lineItems is not supported for a QUOTE yet',
+        });
+      }
+      if (data.amount === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['amount'],
+          message: 'amount is required to create a quote',
+        });
+      }
+      if (
+        data.depositAmount !== undefined ||
+        data.deliveryDate !== undefined ||
+        data.paymentMethodNote !== undefined ||
+        data.footerNote !== undefined
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['docType'],
+          message:
+            'depositAmount/deliveryDate/paymentMethodNote/footerNote are invoice-only fields',
+        });
+      }
+    }
+  });
 
 const MAX_NUMBER_RETRIES = 3;
 
@@ -88,7 +152,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
     }
-    const { clientId, projectId, docType, description, amount, currency, dueDate } = parsed.data;
+    const {
+      clientId,
+      projectId,
+      docType,
+      description,
+      amount,
+      lineItems,
+      currency,
+      dueDate,
+      depositAmount,
+      deliveryDate,
+      paymentMethodNote,
+      footerNote,
+    } = parsed.data;
 
     const client = await prisma.client.findFirst({
       where: { id: clientId, userId: auth.user.sub },
@@ -130,6 +207,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
+    // computedAmount: server-truth total for an INVOICE (from lineItems);
+    // amount is still taken as-is for a QUOTE until PR3's pack builder ships.
+    const computedAmount = docType === 'INVOICE' ? computeItemsTotal(lineItems!) : amount!;
+
+    if (depositAmount !== undefined && depositAmount > computedAmount) {
+      return NextResponse.json(
+        {
+          error: 'VALIDATION_FAILED',
+          message: "L'acompte ne peut pas dépasser le sous-total de la facture.",
+        },
+        { status: 400, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
     const year = new Date().getFullYear();
 
     let invoice = null;
@@ -149,9 +240,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             docType,
             number,
             ...(description ? { description } : {}),
-            amount,
+            amount: computedAmount,
             currency,
             ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+            ...(docType === 'INVOICE'
+              ? {
+                  ...(depositAmount !== undefined ? { depositAmount } : {}),
+                  ...(deliveryDate ? { deliveryDate: new Date(deliveryDate) } : {}),
+                  ...(paymentMethodNote ? { paymentMethodNote } : {}),
+                  ...(footerNote ? { footerNote } : {}),
+                  lineItems: {
+                    create: lineItems!.map((item, i) => ({
+                      order: i + 1,
+                      designation: item.designation,
+                      quantity: item.quantity,
+                      unitPrice: item.unitPrice,
+                    })),
+                  },
+                }
+              : {}),
           },
         });
       } catch (err) {

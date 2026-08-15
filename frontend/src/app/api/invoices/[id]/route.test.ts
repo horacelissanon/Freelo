@@ -67,7 +67,14 @@ function subscription(overrides: Partial<{ plan: string; status: string }> = {})
   };
 }
 
-function invoice(overrides: Partial<{ docType: string; status: string }> = {}) {
+function invoice(
+  overrides: Partial<{
+    docType: string;
+    status: string;
+    amount: number;
+    depositAmount: number;
+  }> = {},
+) {
   return {
     id: 'i-1',
     userId: 'user-1',
@@ -76,7 +83,8 @@ function invoice(overrides: Partial<{ docType: string; status: string }> = {}) {
     docType: overrides.docType ?? 'INVOICE',
     number: '2026-001',
     description: null,
-    amount: 60000,
+    amount: overrides.amount ?? 60000,
+    depositAmount: overrides.depositAmount ?? null,
     currency: 'XOF',
     status: overrides.status ?? 'DRAFT',
     issueDate: new Date('2026-05-01T00:00:00Z'),
@@ -97,6 +105,12 @@ beforeEach(() => {
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.invoice.findFirst.mockResolvedValue(invoice() as never);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
 });
 
 describe('GET /api/invoices/[id]', () => {
@@ -113,6 +127,16 @@ describe('GET /api/invoices/[id]', () => {
     const body = await res.json();
     expect(body.id).toBe('i-1');
     expect(body.client.name).toBe('Bakeli Studio');
+  });
+
+  it('includes lineItems (flat, packId:null) and packs.items', async () => {
+    await GET(makeGet('i-1'), ctxWith('i-1'));
+    const findArg = prismaMock.invoice.findFirst.mock.calls[0]?.[0];
+    expect(findArg?.include?.lineItems).toEqual({
+      where: { packId: null },
+      orderBy: { order: 'asc' },
+    });
+    expect(findArg?.include?.packs).toBeTruthy();
   });
 });
 
@@ -162,19 +186,19 @@ describe('PATCH /api/invoices/[id]', () => {
 
   it('content edit on a DRAFT invoice -> 200, updates the provided fields', async () => {
     prismaMock.client.findFirst.mockResolvedValue({ id: 'c-2' } as never);
-    prismaMock.invoice.update.mockResolvedValue(invoice({ amount: 90000 } as never) as never);
+    prismaMock.invoice.update.mockResolvedValue(invoice() as never);
     const res = await PATCH(
-      makePatch({ clientId: 'c-2', description: 'Solde final', amount: 90000 }),
+      makePatch({ clientId: 'c-2', description: 'Solde final' }),
       ctxWith('i-1'),
     );
     expect(res.status).toBe(200);
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
-    expect(updateArg?.data).toEqual({ clientId: 'c-2', description: 'Solde final', amount: 90000 });
+    expect(updateArg?.data).toEqual({ clientId: 'c-2', description: 'Solde final' });
   });
 
   it('content edit on a non-DRAFT invoice -> 409 INVOICE_NOT_EDITABLE, no update', async () => {
     prismaMock.invoice.findFirst.mockResolvedValue(invoice({ status: 'SENT' }) as never);
-    const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
+    const res = await PATCH(makePatch({ description: 'Solde final' }), ctxWith('i-1'));
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('INVOICE_NOT_EDITABLE');
     expect(prismaMock.invoice.update).not.toHaveBeenCalled();
@@ -225,6 +249,122 @@ describe('PATCH /api/invoices/[id]', () => {
     await PATCH(makePatch({ dueDate: null }), ctxWith('i-1'));
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
     expect(updateArg?.data).toEqual({ dueDate: null });
+  });
+
+  describe('line items bulk-replace (INVOICE only)', () => {
+    it('lineItems on a DRAFT invoice -> deleteMany + createMany in a transaction, amount recomputed', async () => {
+      prismaMock.invoice.update.mockResolvedValue(invoice({ amount: 45000 }) as never);
+      const res = await PATCH(
+        makePatch({
+          lineItems: [
+            { designation: 'Logo', quantity: 1, unitPrice: 30000 },
+            { designation: 'Retouche', quantity: 3, unitPrice: 5000 },
+          ],
+        }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(200);
+      expect(prismaMock.invoiceLineItem.deleteMany).toHaveBeenCalledWith({
+        where: { invoiceId: 'i-1', packId: null },
+      });
+      expect(prismaMock.invoiceLineItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            order: 1,
+            designation: 'Logo',
+            quantity: 1,
+            unitPrice: 30000,
+          }),
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            order: 2,
+            designation: 'Retouche',
+            quantity: 3,
+            unitPrice: 5000,
+          }),
+        ],
+      });
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({ amount: 45000 });
+    });
+
+    it('lineItems against a QUOTE -> 400 VALIDATION_FAILED, no transaction', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(
+        makePatch({ lineItems: [{ designation: 'X', quantity: 1, unitPrice: 1000 }] }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('amount against an INVOICE -> 400 VALIDATION_FAILED, no update', async () => {
+      const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('amount against a QUOTE (transitional) still works -> 200', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
+      expect(res.status).toBe(200);
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({ amount: 90000 });
+    });
+
+    it('depositAmount alone (no lineItems) -> 200, amount left untouched', async () => {
+      prismaMock.invoice.update.mockResolvedValue(invoice({ depositAmount: 10000 }) as never);
+      const res = await PATCH(makePatch({ depositAmount: 10000 }), ctxWith('i-1'));
+      expect(res.status).toBe(200);
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({ depositAmount: 10000 });
+      expect(updateArg?.data).not.toHaveProperty('amount');
+    });
+
+    it('depositAmount greater than the existing amount -> 400 VALIDATION_FAILED, no update', async () => {
+      const res = await PATCH(makePatch({ depositAmount: 999999 }), ctxWith('i-1'));
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('depositAmount greater than a newly-provided lineItems total -> 400 VALIDATION_FAILED', async () => {
+      const res = await PATCH(
+        makePatch({
+          lineItems: [{ designation: 'X', quantity: 1, unitPrice: 1000 }],
+          depositAmount: 2000,
+        }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('deliveryDate/paymentMethodNote/footerNote update independently', async () => {
+      prismaMock.invoice.update.mockResolvedValue(invoice() as never);
+      await PATCH(
+        makePatch({
+          deliveryDate: '2026-09-01T00:00:00.000Z',
+          paymentMethodNote: 'Wave +221771234567',
+          footerNote: 'Merci !',
+        }),
+        ctxWith('i-1'),
+      );
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({
+        deliveryDate: new Date('2026-09-01T00:00:00.000Z'),
+        paymentMethodNote: 'Wave +221771234567',
+        footerNote: 'Merci !',
+      });
+    });
+
+    it('depositAmount/deliveryDate/paymentMethodNote/footerNote against a QUOTE -> 400', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(makePatch({ depositAmount: 1000 }), ctxWith('i-1'));
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
   });
 });
 

@@ -32,7 +32,10 @@ export async function POST(
 
     const original = await prisma.invoice.findFirst({
       where: { id, userId: auth.user.sub },
-      include: { creditNote: { select: { id: true } } },
+      include: {
+        creditNote: { select: { id: true } },
+        lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
+      },
     });
     if (!original) {
       return NextResponse.json(
@@ -91,6 +94,17 @@ export async function POST(
               relatedInvoiceId: original.id,
             },
           });
+          if (original.lineItems.length > 0) {
+            await tx.invoiceLineItem.createMany({
+              data: original.lineItems.map((item, i) => ({
+                invoiceId: note.id,
+                order: i + 1,
+                designation: item.designation,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              })),
+            });
+          }
           await tx.invoice.update({
             where: { id: original.id },
             data: { status: 'CANCELED' },
