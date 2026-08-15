@@ -29,8 +29,6 @@ import { ComparisonTable, type ComparisonRow } from '@/components/marketing/Comp
 import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 
-const PAYMENT_METHODS = ['Wave', 'Orange Money', 'MTN Mobile Money', 'Carte bancaire'];
-
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
 // — Freelo isn't scoped to graphic designers specifically, unlike the
 // competitor this page took structural inspiration from.
@@ -56,11 +54,6 @@ const CAPABILITIES: { icon: string; title: string; description: string }[] = [
     icon: 'globe',
     title: 'FCFA · EUR · USD',
     description: 'Devis et factures pros dans la devise du client — zéro Canva, zéro Photoshop.',
-  },
-  {
-    icon: 'smartphone',
-    title: 'Wave · Orange Money · MTN',
-    description: 'Indiqués sur le devis ou la facture — ton client te règle en direct.',
   },
   {
     icon: 'link',
@@ -240,8 +233,11 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+      {/* Floating, not flush — inset from the viewport edges with its own
+          rounded pill + shadow, staying pinned (sticky) through the whole
+          scroll rather than a bar stuck to top-0. */}
+      <header className="sticky top-3 z-30 mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="flex items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
               <span className="font-headings text-base font-bold text-primary-foreground">F</span>
@@ -302,8 +298,8 @@ export default function Home() {
             <RotatingWord words={TARGET_PROFESSIONS} className="text-primary" />.
           </h1>
           <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
-            Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures et
-            suivi client réunis en un seul endroit.
+            Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures
+            (FCFA, EUR, USD) et suivi client réunis en un seul endroit.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Link
@@ -340,100 +336,216 @@ export default function Home() {
         </div>
 
         {/* Product preview — built from the app's own visual language rather
-            than a screenshot, so it never goes stale as the UI evolves. */}
-        <div className="animate-slide-up-in relative mx-auto mt-14 max-w-4xl">
-          <div className="overflow-hidden rounded-xl border border-border bg-canvas shadow-card">
-            <div className="flex items-center gap-1.5 border-b border-border bg-secondary/60 px-4 py-2.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-tag-red-fg/50" />
-              <span className="h-2.5 w-2.5 rounded-full bg-tag-orange-fg/50" />
-              <span className="h-2.5 w-2.5 rounded-full bg-tag-green-fg/50" />
-              <span className="ml-3 truncate font-body text-xs text-muted-foreground">
-                freelo.app/dashboard
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3 sm:p-6">
-              <div className={inputCardClass}>
-                <p className="font-body text-xs text-muted-foreground">Projets actifs</p>
-                <p className="font-headings text-2xl font-bold text-foreground">4</p>
-                <p className="mt-1 font-body text-xs text-tag-green-fg">+2 ce mois-ci</p>
+            than a screenshot, so it never goes stale as the UI evolves.
+            Sidebar rows are icon-plus-bar placeholders, never real nav
+            labels — the mockup stays accurate even after the real menu
+            changes. Desktop + mobile side by side (desktop only — cramming
+            both next to each other on a phone screen would be unreadable,
+            so the phone visitor just sees the wide dashboard mockup). */}
+        <div className="animate-slide-up-in mx-auto mt-14 flex max-w-6xl flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-center">
+          <div className="relative w-full max-w-2xl">
+            <div className="overflow-hidden rounded-xl border border-border bg-canvas shadow-card">
+              <div className="flex items-center gap-1.5 border-b border-border bg-secondary/60 px-4 py-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-tag-red-fg/50" />
+                <span className="h-2.5 w-2.5 rounded-full bg-tag-orange-fg/50" />
+                <span className="h-2.5 w-2.5 rounded-full bg-tag-green-fg/50" />
+                <span className="ml-3 truncate font-body text-xs text-muted-foreground">
+                  freelo.app/dashboard
+                </span>
               </div>
-              <div className={inputCardClass}>
-                <p className="font-body text-xs text-muted-foreground">Encaissé ce mois</p>
-                <p className="font-headings text-2xl font-bold text-foreground">850 000 FCFA</p>
-                <p className="mt-1 font-body text-xs text-tag-green-fg">3 factures payées</p>
-              </div>
-              <div className={inputCardClass}>
-                <p className="font-body text-xs text-muted-foreground">Lien de suivi</p>
-                <p className="font-headings text-2xl font-bold text-foreground">100 %</p>
-                <p className="mt-1 font-body text-xs text-muted-foreground">
-                  Zéro inscription client
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating cards — the two moments that matter most: sending the
-              link, getting paid. Hidden below sm: nowhere to float on a
-              narrow viewport without overlapping the mockup itself. */}
-          <div className="animate-slide-up-in absolute -bottom-5 -left-3 hidden items-center gap-2 rounded-lg border border-border bg-canvas p-3 shadow-xl sm:flex">
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-tag-green">
-              <Icon i="check-circle" size={16} className="text-tag-green-fg" />
-            </div>
-            <div>
-              <p className="font-body text-xs font-semibold text-foreground">Facture payée</p>
-              <p className="font-body text-xs text-tag-green-fg">+150 000 FCFA</p>
-            </div>
-          </div>
-          <div className="absolute -top-5 -right-3 hidden items-center gap-2 rounded-lg border border-border bg-canvas p-3 shadow-xl sm:flex">
-            <Avatar name="Aïssatou" className="h-8 w-8 flex-shrink-0 text-xs" />
-            <div>
-              <p className="font-body text-xs font-semibold text-foreground">Lien envoyé</p>
-              <p className="font-body text-xs text-muted-foreground">à Aïssatou</p>
-            </div>
-          </div>
-
-          {/* The other half of the story — what the client sees on the
-              tracking link, no account required. Same "built from the app's
-              own visual language" rule as the dashboard mockup above: no
-              screenshot, so it never goes stale. */}
-          <div className="absolute -right-4 -bottom-8 hidden w-44 overflow-hidden rounded-[1.75rem] border-4 border-foreground bg-canvas shadow-xl lg:block xl:-right-8 xl:w-52">
-            <div className="flex items-center justify-center border-b border-border bg-sidebar px-3 py-2">
-              <span className="font-body text-[10px] font-semibold text-sidebar-foreground">
-                Ce que voit ton client
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 p-3">
-              <div className="flex items-center gap-2">
-                <Avatar name="Aïssatou" className="h-6 w-6 flex-shrink-0 text-[9px]" />
-                <div className="min-w-0">
-                  <p className="truncate font-body text-[10px] font-semibold text-foreground">
-                    Refonte identité
-                  </p>
-                  <p className="font-body text-[9px] text-muted-foreground">Projet en cours</p>
+              <div className="flex">
+                <div className="flex w-14 flex-shrink-0 flex-col gap-1.5 bg-sidebar p-2.5 sm:w-40 sm:p-3">
+                  <div className="mb-3 flex items-center gap-2 px-1">
+                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-primary">
+                      <span className="font-headings text-[10px] font-bold text-primary-foreground">
+                        F
+                      </span>
+                    </div>
+                    <span className="hidden font-headings text-xs font-bold text-sidebar-foreground sm:block">
+                      Freelo
+                    </span>
+                  </div>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className={`flex items-center gap-2 rounded-md px-2 py-2 ${i === 0 ? 'bg-sidebar-muted' : ''}`}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 flex-shrink-0 rounded-sm ${i === 0 ? 'bg-sidebar-foreground' : 'bg-sidebar-foreground/40'}`}
+                      />
+                      <span
+                        className={`hidden h-1.5 rounded-full sm:block ${i === 0 ? 'w-16 bg-sidebar-foreground/90' : 'w-10 bg-sidebar-foreground/30'}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="min-w-0 flex-1 p-4 sm:p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="font-headings text-sm font-bold text-foreground">
+                      Tableau de bord
+                    </p>
+                    <span className="rounded-full bg-tag-green px-2 py-0.5 font-body text-[9px] font-medium text-tag-green-fg">
+                      En ligne
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-lg bg-primary p-3">
+                      <p className="font-body text-[10px] text-primary-foreground/80">
+                        Revenus ce mois
+                      </p>
+                      <p className="font-headings text-lg font-bold text-primary-foreground">
+                        850 000
+                      </p>
+                    </div>
+                    <div className={inputCardClass}>
+                      <p className="font-body text-[10px] text-muted-foreground">Projets actifs</p>
+                      <p className="font-headings text-lg font-bold text-foreground">4</p>
+                    </div>
+                    <div className={inputCardClass}>
+                      <p className="font-body text-[10px] text-muted-foreground">
+                        Factures impayées
+                      </p>
+                      <p className="font-headings text-lg font-bold text-foreground">2</p>
+                    </div>
+                    <div className={inputCardClass}>
+                      <p className="font-body text-[10px] text-muted-foreground">
+                        Nouveaux clients
+                      </p>
+                      <p className="font-headings text-lg font-bold text-foreground">+3</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 rounded-lg border border-border p-3">
+                    <p className="font-body text-[10px] text-muted-foreground">
+                      Revenus de la semaine
+                    </p>
+                    <div className="mt-3 flex h-16 items-end gap-1.5 sm:gap-2">
+                      {[40, 65, 50, 70, 90, 55, 45].map((h, i) => (
+                        <div
+                          key={i}
+                          className={`flex-1 rounded-t ${i === 4 ? 'bg-primary' : 'bg-tag-green'}`}
+                          style={{ height: `${h}%` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-                <div className="h-full w-2/3 rounded-full bg-primary" />
+            </div>
+
+            {/* Sketchy teaser of the client-facing tracking link —
+                deliberately a skeleton, not a finished mockup like the
+                dashboard above: the point is to make someone curious enough
+                to click through and look, not to hand over the whole
+                design. */}
+            <div className="absolute -bottom-6 -left-3 hidden w-36 overflow-hidden rounded-xl border border-border bg-canvas shadow-xl sm:block">
+              <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
+                <Icon i="link" size={10} className="flex-shrink-0 text-primary" />
+                <span className="font-body text-[9px] font-semibold text-foreground">
+                  Suivi client
+                </span>
               </div>
-              <div className="rounded-md bg-tag-green px-2 py-1.5">
-                <p className="font-body text-[9px] font-semibold text-tag-green-fg">
-                  Devis accepté
-                </p>
+              <div className="flex flex-col gap-1.5 p-2.5">
+                <div className="h-1.5 w-3/4 rounded-full bg-muted" />
+                <div className="h-1.5 w-1/2 rounded-full bg-muted" />
+                <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-secondary">
+                  <div className="h-full w-2/3 rounded-full bg-primary/50" />
+                </div>
+                <div className="h-1.5 w-2/3 rounded-full bg-muted" />
               </div>
-              <div className="rounded-md border border-border p-2">
-                <p className="font-body text-[9px] text-muted-foreground">Moyen de paiement</p>
-                <p className="font-body text-[10px] font-medium text-foreground">
-                  Wave · +221 XX XXX XX XX
-                </p>
+              <div className="flex items-center justify-center gap-1 border-t border-border bg-secondary/50 py-1.5">
+                <Icon i="search" size={10} className="text-muted-foreground" />
+                <span className="font-body text-[9px] font-medium text-muted-foreground">
+                  Aperçu
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Same product, on a phone — a realistic modern-iPhone frame
+              (Dynamic Island, status bar, home indicator), not a shrunk-down
+              rectangle. Deliberately kept SMALLER than the desktop mockup
+              (h-72 vs. the desktop card's ~300px+) — a supporting visual,
+              not the dominant one. */}
+          <div className="relative hidden h-72 w-36 flex-shrink-0 rounded-[2rem] border-[6px] border-foreground bg-foreground shadow-2xl lg:block">
+            <div className="absolute top-2 left-1/2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-foreground" />
+            <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.5rem] bg-canvas">
+              <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5">
+                <span className="font-body text-[9px] font-semibold text-foreground">9:41</span>
+                <div className="flex items-center gap-0.5">
+                  <Icon i="signal" size={9} className="text-foreground" />
+                  <Icon i="wifi" size={9} className="text-foreground" />
+                  <Icon i="battery-full" size={11} className="text-foreground" />
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden px-2.5 pt-2 pb-9">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-primary">
+                      <span className="font-headings text-[7px] font-bold text-primary-foreground">
+                        F
+                      </span>
+                    </div>
+                    <span className="font-headings text-[10px] font-bold text-foreground">
+                      Freelo
+                    </span>
+                  </div>
+                  <Icon i="bell" size={11} className="text-muted-foreground" />
+                </div>
+                <div className="rounded-lg bg-primary p-2">
+                  <p className="font-body text-[7px] text-primary-foreground/80">Revenus ce mois</p>
+                  <p className="font-headings text-sm font-bold text-primary-foreground">
+                    850 000 FCFA
+                  </p>
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <div className="rounded-md border border-border p-1.5">
+                    <p className="font-body text-[7px] text-muted-foreground">Projets</p>
+                    <p className="font-headings text-xs font-bold text-foreground">4</p>
+                  </div>
+                  <div className="rounded-md border border-border p-1.5">
+                    <p className="font-body text-[7px] text-muted-foreground">Impayées</p>
+                    <p className="font-headings text-xs font-bold text-foreground">2</p>
+                  </div>
+                </div>
+                <div className="mt-1.5 rounded-md border border-border p-1.5">
+                  <p className="font-body text-[7px] text-muted-foreground">Revenus semaine</p>
+                  <div className="mt-1 flex h-8 items-end gap-1">
+                    {[40, 65, 50, 70, 90].map((h, i) => (
+                      <div
+                        key={i}
+                        className={`flex-1 rounded-t ${i === 4 ? 'bg-primary' : 'bg-tag-green'}`}
+                        style={{ height: `${h}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating bottom nav sketch — mirrors the real app's
+                  capsule-shaped BottomNav (Sidebar.tsx/BottomNav.tsx), same
+                  icon-only-no-labels rule as the desktop sidebar sketch
+                  above so it stays accurate if the real nav items change. */}
+              <div className="absolute inset-x-4 bottom-4 flex items-center justify-around rounded-full bg-sidebar px-2 py-2 shadow-lg">
+                {[0, 1, 2, 3].map((i) => (
+                  <span
+                    key={i}
+                    className={`h-2 w-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/40'}`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex justify-center pb-1.5">
+                <div className="h-0.5 w-14 rounded-full bg-foreground/30" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Capability strip — merges the former payment-only trust strip
-            with real product capabilities. No fabricated numbers: every
-            claim maps to a shipped feature (see FEATURES / CAPABILITIES). */}
-        <div className="mx-auto mt-16 grid max-w-4xl grid-cols-2 gap-4 sm:grid-cols-4">
+        {/* Capability strip — no fabricated numbers: every claim maps to a
+            shipped feature (see FEATURES / CAPABILITIES). Payment-method
+            mentions were removed from the hero entirely per feedback — that
+            story is told once, honestly, in the FAQ instead. */}
+        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-3">
           {CAPABILITIES.map((cap) => (
             <div key={cap.title} className="flex flex-col items-center gap-2 text-center">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
@@ -444,31 +556,17 @@ export default function Home() {
             </div>
           ))}
         </div>
-        <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-2 text-center">
-          <p className="font-body text-xs font-medium text-muted-foreground">
-            Indique le moyen de paiement de ton choix sur chaque devis et facture
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {PAYMENT_METHODS.map((method) => (
-              <span
-                key={method}
-                className="rounded-full border border-border bg-canvas px-3.5 py-1.5 font-body text-xs font-medium text-foreground"
-              >
-                {method}
-              </span>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* ── Problème / solution ────────────────────────────────────── */}
       <section className="border-y border-border bg-secondary/40">
-        <div className="mx-auto max-w-4xl px-4 py-10 text-center sm:px-6">
-          <p className="font-body text-sm text-muted-foreground italic">
-            « Canva pour la facture, Excel pour les chiffres, WhatsApp pour les échanges — et une
-            mise en page à refaire à chaque fois qu’un client paie dans une autre devise. »
+        <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
+          <Icon i="message-circle" size={30} className="mx-auto mb-4 text-primary/30" />
+          <p className="font-headings text-lg font-medium text-foreground italic sm:text-xl">
+            « Fini Canva pour la facture, Excel pour les chiffres, WhatsApp pour les échanges — et
+            la mise en page à refaire à chaque fois qu’un client paie dans une autre devise. »
           </p>
-          <p className="mt-3 font-body text-sm font-medium text-foreground">
+          <p className="mt-4 font-headings text-base font-bold text-primary sm:text-lg">
             Freelo remplace les 5 outils par un seul espace de travail.
           </p>
         </div>
@@ -603,15 +701,36 @@ export default function Home() {
       {/* ── Tarifs ──────────────────────────────────────────────────── */}
       <ScrollReveal>
         <section id="tarifs" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-              Des tarifs pensés pour l’Afrique francophone
-            </h2>
-            <p className="mt-2 font-body text-sm text-muted-foreground">
-              Commence gratuitement. Passe en Pro quand ton activité grandit.
+          {/* Immersive full-bleed panel — same brand gradient + dot texture
+              already used by the CTA finale section below, so this reads as
+              a deliberate second "bold" moment on the page, not a one-off. */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-accent px-4 py-14 sm:px-10 sm:py-16">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              style={{
+                backgroundImage: 'radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)',
+                backgroundSize: '20px 20px',
+              }}
+            />
+            <div className="relative mx-auto max-w-2xl text-center">
+              <span className="rounded-full bg-white/15 px-3 py-1 font-body text-xs font-semibold tracking-wide text-white uppercase">
+                Tarifs
+              </span>
+              <h2 className="mt-4 font-headings text-2xl font-bold text-white sm:text-3xl">
+                Des tarifs pensés pour l’Afrique francophone
+              </h2>
+              <p className="mt-2 font-body text-sm text-white/80">
+                Commence gratuitement. Passe en Pro quand ton activité grandit.
+              </p>
+            </div>
+            <div className="relative">
+              <PricingToggle freeFeatures={FREE_FEATURES} proFeatures={PRO_FEATURES} />
+            </div>
+            <p className="relative mt-8 text-center font-body text-xs text-white/70">
+              Crée ton compte gratuitement — aucun paiement requis pour démarrer.
             </p>
           </div>
-          <PricingToggle freeFeatures={FREE_FEATURES} proFeatures={PRO_FEATURES} />
         </section>
       </ScrollReveal>
 

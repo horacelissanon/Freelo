@@ -66,6 +66,9 @@ import {
   ExternalLink,
   Monitor,
   MoreVertical,
+  Signal,
+  Wifi,
+  BatteryFull,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -133,6 +136,9 @@ const ICONS: Record<string, LucideIcon> = {
   'external-link': ExternalLink,
   monitor: Monitor,
   'more-vertical': MoreVertical,
+  signal: Signal,
+  wifi: Wifi,
+  'battery-full': BatteryFull,
 };
 
 export interface IconProps {
