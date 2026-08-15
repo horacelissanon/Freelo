@@ -53,4 +53,16 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+  {
+    // public/sw.js runs in the service worker global scope, not Node or a
+    // regular browser window — `self`/`caches`/`clients` etc. come from
+    // globals.serviceworker, not globals.browser (which the frontend/**/*.ts
+    // override above provides instead).
+    files: ['frontend/public/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+      },
+    },
+  },
 );

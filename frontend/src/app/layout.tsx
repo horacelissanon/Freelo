@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -54,6 +54,14 @@ const ibmPlexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   title: 'Freelo',
   description: 'Espace freelance — clients, projets, devis, factures.',
+};
+
+// themeColor moved out of `metadata` in the App Router metadata API this
+// Next version ships (verified against node_modules/next/dist/docs/.../
+// generate-viewport.md) — colors the browser UI (address bar on Android
+// Chrome, PWA splash/status bar once installed) to match the brand primary.
+export const viewport: Viewport = {
+  themeColor: '#059669',
 };
 
 export default function RootLayout({

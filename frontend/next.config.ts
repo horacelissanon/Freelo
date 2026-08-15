@@ -36,6 +36,17 @@ const config: NextConfig = {
         source: '/:path*',
         headers: securityHeaders,
       },
+      {
+        // Recommended by Next's own PWA guide (progressive-web-apps.md):
+        // explicit content-type since some hosts guess .js wrong, and
+        // no-cache so a redeployed service worker is picked up on the next
+        // visit instead of serving a stale cached copy indefinitely.
+        source: '/sw.js',
+        headers: [
+          { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        ],
+      },
     ];
   },
 };

@@ -22,6 +22,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ScrollReveal } from '@/components/marketing/ScrollReveal';
 import { PricingToggle } from '@/components/marketing/PricingToggle';
 import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
+import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 
 const PAYMENT_METHODS = ['Wave', 'Orange Money', 'MTN Mobile Money', 'Carte bancaire'];
 
@@ -655,6 +656,8 @@ export default function Home() {
           © {new Date().getFullYear()} Freelo. Tous droits réservés.
         </div>
       </footer>
+
+      <InstallPromptWidget variant="public" />
     </div>
   );
 }

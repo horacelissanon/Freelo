@@ -12,6 +12,7 @@ import {
 import { useUser } from '@/contexts/AuthContext';
 import { useSidebarShape } from '@/contexts/SidebarShapeContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
+import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
 
@@ -112,6 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</main>
 
         <BottomNav />
+        <InstallPromptWidget variant="app" />
       </div>
     </CreateMenuProvider>
   );

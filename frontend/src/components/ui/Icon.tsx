@@ -64,6 +64,8 @@ import {
   Calendar,
   Download,
   ExternalLink,
+  Monitor,
+  MoreVertical,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -129,6 +131,8 @@ const ICONS: Record<string, LucideIcon> = {
   calendar: Calendar,
   download: Download,
   'external-link': ExternalLink,
+  monitor: Monitor,
+  'more-vertical': MoreVertical,
 };
 
 export interface IconProps {
