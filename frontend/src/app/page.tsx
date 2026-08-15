@@ -98,11 +98,9 @@ const STEPS: { icon: string; title: string; description: string }[] = [
 // same text sizes) — 2 clean rows of 3 at lg, no orphan card, no explicit
 // grid-position overrides needed. `inverted` flips only the color tokens
 // (solid bg-primary fill instead of bg-canvas + a pale bg-tag-green badge)
-// on the single most important card for a freelance's actual bottom line:
-// getting a devis accepted at a price that then can't be disputed. Devis
-// multi-offres (proposing several formulas) and the client's own validation
-// of one of them are the same underlying flow described from two ends, so
-// they're one card, not two.
+// on exactly one card at a time — descriptions are kept to a comparable
+// length across all six so the inverted card doesn't grow taller than its
+// neighbors and break the grid's uniformity.
 const FEATURES: {
   icon: string;
   title: string;
@@ -120,13 +118,13 @@ const FEATURES: {
     title: 'Projets & étapes personnalisables',
     description:
       'Ajoute, retire ou réordonne les étapes de chaque projet. Ton client voit l’avancement en temps réel.',
+    inverted: true,
   },
   {
     icon: 'file-check',
     title: 'Une validation qui fait foi',
     description:
-      'Propose plusieurs formules sur un même devis — ton client choisit et valide lui-même l’offre depuis son lien. Prix et contenu figés dès l’acceptation : fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
-    inverted: true,
+      'Propose plusieurs formules sur un devis — ton client choisit et valide la sienne, prix figé dès l’acceptation.',
   },
   {
     icon: 'receipt',
