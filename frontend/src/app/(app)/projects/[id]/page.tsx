@@ -12,6 +12,7 @@ import { uploadFile } from '@/lib/upload';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { Icon } from '@/components/ui/Icon';
+import { StarRating } from '@/components/ui/StarRating';
 import { Modal } from '@/components/ui/Modal';
 import { BackButton } from '@/components/ui/BackButton';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
@@ -87,6 +88,7 @@ interface ProjectDetail {
   };
   steps: ProjectDetailStep[];
   comments: ProjectDetailComment[];
+  review: { rating: number; comment: string | null; createdAt: string } | null;
   invoices: ProjectDetailInvoice[];
   files: ProjectDetailFile[];
   deposit: { amount: number; paid: boolean };
@@ -143,7 +145,7 @@ function ProjectDetailView({
   onCopyLink: () => void;
   onCreateInvoice: () => void;
 }) {
-  const { project, steps, comments, invoices, files, deposit, balance } = data;
+  const { project, steps, comments, review, invoices, files, deposit, balance } = data;
   const { toast } = useToast();
   const user = useUser();
   const statusColors = PROJECT_STATUS_COLORS[project.status];
@@ -751,6 +753,23 @@ function ProjectDetailView({
               </p>
             )}
           </div>
+
+          {review && (
+            <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5">
+              <h2 className="mb-3 font-headings text-sm font-bold text-foreground">
+                Avis du client
+              </h2>
+              <div className="flex items-center gap-3">
+                <StarRating value={review.rating} size={18} />
+                <p className="font-body text-xs text-muted-foreground">
+                  {formatDate(review.createdAt)}
+                </p>
+              </div>
+              {review.comment && (
+                <p className="mt-2 font-body text-sm text-foreground">{review.comment}</p>
+              )}
+            </div>
+          )}
 
           <div className="rounded-lg border border-border bg-canvas shadow-card">
             <div className="flex items-center justify-between px-5 pt-5">

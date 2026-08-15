@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { StarRating } from '@/components/ui/StarRating';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance, computePackDeposit } from '@/lib/invoiceTotals';
 import {
@@ -147,6 +148,7 @@ interface ProjectView {
   };
   steps: ProjectStep[];
   comments: ProjectComment[];
+  review: { rating: number; comment: string | null } | null;
   deposit: { amount: number; paid: boolean };
   balance: { amount: number; paid: boolean };
 }
@@ -306,7 +308,7 @@ function ProjectDetail({
   token: string;
   onRefresh: () => void;
 }) {
-  const { project, steps, comments, deposit, balance } = view;
+  const { project, steps, comments, review, deposit, balance } = view;
 
   const [payingKind, setPayingKind] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
@@ -314,6 +316,11 @@ function ProjectDetail({
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+
+  const [reviewRating, setReviewRating] = useState(review?.rating ?? 0);
+  const [reviewComment, setReviewComment] = useState(review?.comment ?? '');
+  const [reviewPosting, setReviewPosting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   async function pay(kind: 'DEPOSIT' | 'BALANCE') {
     setPayingKind(kind);
@@ -361,6 +368,30 @@ function ProjectDetail({
       setCommentError('Erreur réseau. Réessayez.');
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function onSubmitReview(e: FormEvent) {
+    e.preventDefault();
+    if (reviewRating < 1) return;
+    setReviewPosting(true);
+    setReviewError(null);
+    try {
+      const res = await fetch(`/api/track/${token}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReviewError(data.message ?? "L'avis n'a pas pu être envoyé.");
+        return;
+      }
+      onRefresh();
+    } catch {
+      setReviewError('Erreur réseau. Réessayez.');
+    } finally {
+      setReviewPosting(false);
     }
   }
 
@@ -560,6 +591,36 @@ function ProjectDetail({
           </p>
         )}
       </div>
+
+      {project.status === 'DELIVERED' && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <h2 className="mb-4 font-headings text-base font-bold text-foreground">Ton avis</h2>
+          <form onSubmit={onSubmitReview} className="flex flex-col gap-3">
+            <StarRating value={reviewRating} onChange={setReviewRating} size={26} />
+            <textarea
+              placeholder="Un mot sur le projet ? (facultatif)"
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              className="rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={reviewPosting || reviewRating < 1}
+              className="flex w-fit items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              <Icon i="star" size={14} />
+              {reviewPosting ? '…' : review ? "Mettre à jour l'avis" : "Envoyer l'avis"}
+            </button>
+            {reviewError && (
+              <p role="alert" className="font-body text-sm text-tag-red-fg">
+                {reviewError}
+              </p>
+            )}
+          </form>
+        </div>
+      )}
     </div>
   );
 }
