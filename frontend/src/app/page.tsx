@@ -94,7 +94,12 @@ const STEPS: { icon: string; title: string; description: string }[] = [
   },
 ];
 
-const FEATURES: { icon: string; title: string; description: string }[] = [
+// `inverted` keeps the exact same card shell (rounded-lg p-5 shadow-card,
+// same icon-badge size, same text sizes) as every other tile — only the
+// color tokens flip (solid bg-primary fill instead of bg-canvas + a pale
+// bg-tag-green badge) so "Une validation qui fait foi" still stands out
+// without being a different size or a separate spotlight bar.
+const FEATURES: { icon: string; title: string; description: string; inverted?: boolean }[] = [
   {
     icon: 'users',
     title: 'CRM clients simple',
@@ -120,6 +125,13 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
       'Un design pro généré automatiquement en FCFA, EUR ou USD selon le client — plus besoin de Canva ou Photoshop pour composer un devis.',
   },
   {
+    icon: 'file-check',
+    title: 'Une validation qui fait foi',
+    description:
+      'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
+    inverted: true,
+  },
+  {
     icon: 'link',
     title: 'Lien de suivi client',
     description:
@@ -132,17 +144,6 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
       'Échéance de projet qui approche, facture en retard — Freelo te prévient avant que ton client s’en inquiète.',
   },
 ];
-
-// Pulled out of FEATURES into its own spotlight bar below the grid — an odd
-// 7th card would otherwise sit alone on the last row, and this point (a
-// client's own validation becomes proof of what was agreed) is a stronger,
-// more persuasive claim than a plain capability blurb anyway.
-const TRUST_HIGHLIGHT = {
-  icon: 'file-check',
-  title: 'Une validation qui fait foi',
-  description:
-    'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
-};
 
 const COMPARISON_ROWS: ComparisonRow[] = [
   {
@@ -685,38 +686,41 @@ export default function Home() {
             </div>
             <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((feature) => (
-                <div key={feature.title} className={inputCardClass}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
-                    <Icon i={feature.icon} size={18} className="text-tag-green-fg" />
+                <div
+                  key={feature.title}
+                  className={
+                    feature.inverted
+                      ? 'rounded-lg border border-primary bg-primary p-5 shadow-card'
+                      : inputCardClass
+                  }
+                >
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                      feature.inverted ? 'bg-canvas' : 'bg-tag-green'
+                    }`}
+                  >
+                    <Icon
+                      i={feature.icon}
+                      size={18}
+                      className={feature.inverted ? 'text-primary' : 'text-tag-green-fg'}
+                    />
                   </div>
-                  <h3 className="mt-4 font-headings text-base font-semibold text-foreground">
+                  <h3
+                    className={`mt-4 font-headings text-base font-semibold ${
+                      feature.inverted ? 'text-primary-foreground' : 'text-foreground'
+                    }`}
+                  >
                     {feature.title}
                   </h3>
-                  <p className="mt-1.5 font-body text-sm text-muted-foreground">
+                  <p
+                    className={`mt-1.5 font-body text-sm ${
+                      feature.inverted ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                    }`}
+                  >
                     {feature.description}
                   </p>
                 </div>
               ))}
-            </div>
-
-            {/* Spotlight bar, not a 7th grid card — this point carries more
-                weight than a plain capability blurb (it's a direct answer to
-                a real dispute pattern), and a lone card on an odd row would
-                read as an accident, not a highlight. Saturated bg-primary
-                icon badge + a visible border set it apart from the plain
-                bg-canvas/bg-tag-green treatment of the cards above. */}
-            <div className="mt-5 flex flex-col items-start gap-4 rounded-lg border-2 border-primary/25 bg-canvas p-5 shadow-card sm:flex-row sm:items-center sm:gap-5">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
-                <Icon i={TRUST_HIGHLIGHT.icon} size={20} className="text-primary-foreground" />
-              </div>
-              <div>
-                <h3 className="font-headings text-base font-semibold text-foreground">
-                  {TRUST_HIGHLIGHT.title}
-                </h3>
-                <p className="mt-1 font-body text-sm text-muted-foreground">
-                  {TRUST_HIGHLIGHT.description}
-                </p>
-              </div>
             </div>
           </div>
         </section>
