@@ -6,30 +6,20 @@ import { useUser } from '@/contexts/AuthContext';
 import { Icon } from '@/components/ui/Icon';
 import { CompteTab } from '@/components/settings/CompteTab';
 import { EspaceTab } from '@/components/settings/EspaceTab';
-import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { SecuriteTab } from '@/components/settings/SecuriteTab';
 import { FacturationTab } from '@/components/settings/FacturationTab';
 
-type TabKey = 'compte' | 'espace' | 'notifications' | 'securite' | 'abonnement';
+type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement';
 
-// 'abonnement' stays a valid tab (so a direct link still resolves to it —
-// see Sidebar.tsx, which now links to /settings?tab=abonnement) even though
-// it's no longer one of the buttons rendered in the tab bar below: it moved
-// to its own permanently-amber entry in the main nav, just above
-// "Paramètres", instead of being just another tab a freelance has to click
-// into to notice.
-const ALL_TAB_KEYS: readonly TabKey[] = [
-  'compte',
-  'espace',
-  'notifications',
-  'securite',
-  'abonnement',
-];
+// 'abonnement' stays a valid tab key (so a direct link like
+// /settings?tab=abonnement still resolves) even though it's not one of the
+// buttons rendered in the tab bar below — it moved to its own entry in the
+// main nav instead (see Sidebar.tsx).
+const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement'];
 
 const VISIBLE_TABS: { key: Exclude<TabKey, 'abonnement'>; label: string; icon: string }[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
-  { key: 'notifications', label: 'Notifications', icon: 'bell' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
 ];
 
@@ -72,7 +62,6 @@ function SettingsPageInner() {
 
       {activeTab === 'compte' && <CompteTab user={user} />}
       {activeTab === 'espace' && <EspaceTab user={user} />}
-      {activeTab === 'notifications' && <NotificationsTab />}
       {activeTab === 'securite' && <SecuriteTab user={user} />}
       {activeTab === 'abonnement' && <FacturationTab />}
     </div>

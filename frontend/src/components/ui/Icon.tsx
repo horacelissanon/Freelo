@@ -70,6 +70,8 @@ import {
   Wifi,
   BatteryFull,
   Menu,
+  Sun,
+  Moon,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -141,6 +143,8 @@ const ICONS: Record<string, LucideIcon> = {
   wifi: Wifi,
   'battery-full': BatteryFull,
   menu: Menu,
+  sun: Sun,
+  moon: Moon,
 };
 
 export interface IconProps {

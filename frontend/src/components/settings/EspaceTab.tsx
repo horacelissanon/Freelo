@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useAccentColor, ACCENT_PRESET_HEX, type AccentColor } from '@/contexts/AccentColorContext';
 import { useSidebarColor, DEFAULT_SIDEBAR_COLOR } from '@/contexts/SidebarColorContext';
@@ -13,6 +13,12 @@ import { useMobileNavStyle, type MobileNavStyle } from '@/contexts/MobileNavStyl
 import { contrastRatio } from '@/lib/color';
 import { Toggle } from '@/components/ui/Toggle';
 import { Icon } from '@/components/ui/Icon';
+
+const THEME_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: 'light', label: 'Clair' },
+  { value: 'dark', label: 'Sombre' },
+  { value: 'system', label: 'Système' },
+];
 
 type AccentPreset = Exclude<AccentColor, 'custom'>;
 
@@ -207,7 +213,7 @@ function DuoSwatch({ sidebar, accent }: { sidebar: string; accent: string }) {
 export function EspaceTab({ user }: { user: User }) {
   const { refresh } = useAuth();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const { glass, setGlass } = useBottomNavStyle();
   const glassVariant: Exclude<BottomNavGlass, 'off'> =
     glass === 'tinted' ? 'tinted' : 'transparent';
@@ -238,16 +244,29 @@ export function EspaceTab({ user }: { user: User }) {
         <h2 className="mb-3 font-headings text-lg font-semibold text-foreground">Préférences</h2>
         <div className="flex items-center justify-between gap-4 py-4 first:pt-0">
           <div className="flex min-w-0 flex-col">
-            <span className="font-body text-sm font-medium text-foreground">Thème sombre</span>
+            <span className="font-body text-sm font-medium text-foreground">Thème</span>
             <span className="font-body text-xs text-muted-foreground">
-              Suit les réglages de ton appareil par défaut ; ce bouton force une préférence.
+              « Système » suit les réglages de ton appareil, y compris s&apos;ils changent en cours
+              de route — c&apos;est le réglage par défaut.
             </span>
           </div>
-          <Toggle
-            checked={theme === 'dark'}
-            onChange={(v) => setTheme(v ? 'dark' : 'light')}
-            label="Thème sombre"
-          />
+          <div className="flex flex-shrink-0 gap-1.5">
+            {THEME_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setThemeMode(opt.value)}
+                aria-pressed={themeMode === opt.value}
+                className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium ${
+                  themeMode === opt.value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-canvas text-foreground'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center justify-between gap-4 py-4">
           <div className="flex min-w-0 flex-col">

@@ -30,6 +30,7 @@ import { ComparisonTable, type ComparisonRow } from '@/components/marketing/Comp
 import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
 // — Freelo isn't scoped to graphic designers specifically, unlike the
@@ -313,7 +314,8 @@ export default function Home() {
               FAQ
             </a>
           </nav>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <ThemeToggle />
             <Link
               href="/login"
               className="hidden font-body text-sm font-medium text-foreground sm:inline"
@@ -612,28 +614,6 @@ export default function Home() {
               <p className="font-body text-xs text-muted-foreground">{cap.description}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ── Problème / solution ────────────────────────────────────── */}
-      {/* Section rhythm: alternates white (bg-background, no class) with a
-          full-strength pale mint wash (bg-tag-green — #ecfdf5, a genuinely
-          different hue from the near-white background/secondary tokens,
-          not just a few points of lightness apart). bg-secondary/40 was
-          too close to bg-background to read as a distinct section on
-          screenshot, which is what prompted this pass. The one saturated
-          bg-primary fill stays reserved for the CTA finale + the featured
-          Pro pricing card — this wash is deliberately calmer than those. */}
-      <section className="border-y border-border bg-tag-green">
-        <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
-          <Icon i="message-circle" size={30} className="mx-auto mb-4 text-primary/30" />
-          <p className="font-headings text-lg font-medium text-foreground italic sm:text-xl">
-            « Fini Canva pour la facture, Excel pour les chiffres, WhatsApp pour les échanges — et
-            la mise en page à refaire à chaque fois qu’un client paie dans une autre devise. »
-          </p>
-          <p className="mt-4 font-headings text-base font-bold text-primary sm:text-lg">
-            Freelo remplace les 5 outils par un seul espace de travail.
-          </p>
         </div>
       </section>
 
