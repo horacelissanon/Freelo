@@ -18,21 +18,11 @@ const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonne
 // permanently-amber entry in the Sidebar (see Sidebar.tsx) for desktop.
 // Keeps its own amber/orange identity here too, matching FacturationTab's
 // "don't blend into the rest of the workspace" styling.
-const VISIBLE_TABS: {
-  key: TabKey;
-  label: string;
-  icon: string;
-  activeClassName?: string;
-}[] = [
+const VISIBLE_TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
-  {
-    key: 'abonnement',
-    label: 'Abonnement',
-    icon: 'credit-card',
-    activeClassName: 'border-amber-500 text-amber-600 dark:text-amber-400',
-  },
+  { key: 'abonnement', label: 'Abonnement', icon: 'credit-card' },
 ];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -61,9 +51,13 @@ function SettingsPageInner() {
             type="button"
             onClick={() => setActiveTab(tab.key)}
             className={`flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? (tab.activeClassName ?? 'border-primary text-primary')
-                : 'border-transparent text-muted-foreground'
+              tab.key === 'abonnement'
+                ? `text-amber-500 dark:text-amber-400 ${
+                    activeTab === tab.key ? 'border-amber-500' : 'border-transparent'
+                  }`
+                : activeTab === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground'
             }`}
           >
             <Icon i={tab.icon} size={15} />
