@@ -58,7 +58,7 @@ interface InvoiceApiRow {
 }
 
 const URGENT_WINDOW_DAYS = 7;
-const REVENUE_MASK_KEY = 'merrudit-dashboard-revenue-masked';
+const MONEY_MASK_KEY = 'merrudit-dashboard-money-masked';
 
 export default function DashboardPage() {
   const user = useUser();
@@ -70,24 +70,26 @@ export default function DashboardPage() {
   const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');
 
   // Per-device preference, not a server setting — same pattern as
-  // sidebar-collapsed/bottom-nav-glass. Defaults to visible; a freelance
-  // working somewhere with a wandering eye can hide it behind the eye
-  // toggle on the StatCard itself.
-  const [revenueMasked, setRevenueMasked] = useState(false);
+  // sidebar-collapsed/bottom-nav-glass. Defaults to visible. The eye toggle
+  // lives on the "Factures en attente" card (not "Revenus") but masks every
+  // money figure on this page — both StatCards, the active-projects list,
+  // the unpaid-invoices panel, the revenue trend chart's bar labels, and
+  // the overdue-invoices alert banner.
+  const [moneyMasked, setMoneyMasked] = useState(false);
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(REVENUE_MASK_KEY) === '1') setRevenueMasked(true);
+      if (localStorage.getItem(MONEY_MASK_KEY) === '1') setMoneyMasked(true);
     } catch {
       // Storage unavailable — stays visible for this session.
     }
   }, []);
 
-  function toggleRevenueMasked() {
-    setRevenueMasked((prev) => {
+  function toggleMoneyMasked() {
+    setMoneyMasked((prev) => {
       const next = !prev;
       try {
-        localStorage.setItem(REVENUE_MASK_KEY, next ? '1' : '0');
+        localStorage.setItem(MONEY_MASK_KEY, next ? '1' : '0');
       } catch {
         // Preference still applies for this session, just won't persist.
       }
@@ -144,8 +146,11 @@ export default function DashboardPage() {
   let alert: { text: string; href: string } | null = null;
   if (stats.data && stats.data.pendingInvoices.overdueCount > 0) {
     const n = stats.data.pendingInvoices.overdueCount;
+    const amountText = moneyMasked
+      ? ''
+      : ` — ${formatPrice(stats.data.pendingInvoices.amount)} FCFA à encaisser`;
     alert = {
-      text: `${n} facture${n > 1 ? 's' : ''} en retard — ${formatPrice(stats.data.pendingInvoices.amount)} FCFA à encaisser`,
+      text: `${n} facture${n > 1 ? 's' : ''} en retard${amountText}`,
       href: '/invoices',
     };
   } else {
@@ -222,8 +227,7 @@ export default function DashboardPage() {
                     up: stats.data.revenue.trendPercent >= 0,
                   }
             }
-            masked={revenueMasked}
-            onToggleMasked={toggleRevenueMasked}
+            masked={moneyMasked}
           />
           <StatCard
             label="Projets actifs"
@@ -240,6 +244,8 @@ export default function DashboardPage() {
                 ? { text: `${stats.data.pendingInvoices.overdueCount} en retard`, up: false }
                 : undefined
             }
+            masked={moneyMasked}
+            onToggleMasked={toggleMoneyMasked}
           />
           <StatCard
             label="Nouveaux clients"
@@ -300,7 +306,7 @@ export default function DashboardPage() {
           ) : (
             <div>
               {projectRows.map((p) => (
-                <ProjectRow key={p.id} project={p} />
+                <ProjectRow key={p.id} project={p} masked={moneyMasked} />
               ))}
             </div>
           )}
@@ -313,6 +319,7 @@ export default function DashboardPage() {
             <UnpaidInvoicesPanel
               invoices={unpaidInvoices}
               total={stats.data.pendingInvoices.amount}
+              masked={moneyMasked}
             />
           )}
         </div>
@@ -320,7 +327,7 @@ export default function DashboardPage() {
 
       {stats.data && (
         <div className="mt-6">
-          <RevenueTrendCard data={stats.data.revenueTrend} />
+          <RevenueTrendCard data={stats.data.revenueTrend} masked={moneyMasked} />
         </div>
       )}
     </div>

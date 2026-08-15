@@ -15,7 +15,13 @@ function monthLabel(key: string): string {
     .replace('.', '');
 }
 
-export function RevenueTrendCard({ data }: { data: RevenueTrendPoint[] }) {
+export function RevenueTrendCard({
+  data,
+  masked,
+}: {
+  data: RevenueTrendPoint[];
+  masked?: boolean;
+}) {
   const max = Math.max(1, ...data.map((d) => d.amount));
   const hasRevenue = data.some((d) => d.amount > 0);
 
@@ -35,7 +41,7 @@ export function RevenueTrendCard({ data }: { data: RevenueTrendPoint[] }) {
           {data.map((d) => (
             <div key={d.month} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
               <span className="hidden font-body text-[10px] whitespace-nowrap text-muted-foreground sm:block">
-                {d.amount > 0 ? formatPrice(d.amount) : ''}
+                {masked ? '••••' : d.amount > 0 ? formatPrice(d.amount) : ''}
               </span>
               <div
                 className="flex w-full items-end justify-center"

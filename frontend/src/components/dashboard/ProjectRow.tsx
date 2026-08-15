@@ -19,7 +19,7 @@ export interface ProjectRowData {
   clientName?: string;
 }
 
-export function ProjectRow({ project }: { project: ProjectRowData }) {
+export function ProjectRow({ project, masked }: { project: ProjectRowData; masked?: boolean }) {
   const { toast } = useToast();
   const colors = PROJECT_STATUS_COLORS[project.status];
 
@@ -58,8 +58,16 @@ export function ProjectRow({ project }: { project: ProjectRowData }) {
         </div>
         <div className="hidden w-28 flex-shrink-0 text-right sm:block">
           <p className="text-sm font-medium text-foreground">
-            {formatPrice(project.amount)}{' '}
-            <span className="text-xs font-normal text-muted-foreground">{project.currency}</span>
+            {masked ? (
+              '••••••'
+            ) : (
+              <>
+                {formatPrice(project.amount)}{' '}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {project.currency}
+                </span>
+              </>
+            )}
           </p>
           {project.dueDateLabel && (
             <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>

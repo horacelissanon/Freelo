@@ -12,9 +12,11 @@ export interface UnpaidInvoiceItem {
 export function UnpaidInvoicesPanel({
   invoices,
   total,
+  masked,
 }: {
   invoices: UnpaidInvoiceItem[];
   total: number;
+  masked?: boolean;
 }) {
   if (invoices.length === 0) return null;
 
@@ -37,14 +39,20 @@ export function UnpaidInvoicesPanel({
               <p className="font-body text-xs text-muted-foreground">Facture #{inv.number}</p>
             </div>
             <p className="flex-shrink-0 font-body text-sm font-bold text-primary">
-              {formatPrice(inv.amount)}
+              {masked ? '••••••' : formatPrice(inv.amount)}
             </p>
           </Link>
         ))}
         <div className="flex items-center justify-between border-t border-border pt-2">
           <p className="font-body text-xs font-semibold text-foreground">Total</p>
           <p className="font-body text-sm font-bold text-foreground">
-            {formatPrice(total)} <span className="font-normal text-muted-foreground">FCFA</span>
+            {masked ? (
+              '••••••'
+            ) : (
+              <>
+                {formatPrice(total)} <span className="font-normal text-muted-foreground">FCFA</span>
+              </>
+            )}
           </p>
         </div>
       </div>
