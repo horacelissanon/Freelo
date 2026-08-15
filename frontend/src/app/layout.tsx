@@ -8,6 +8,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { BottomNavStyleProvider } from '@/contexts/BottomNavStyleContext';
 import { AccentColorProvider } from '@/contexts/AccentColorContext';
 import { SidebarColorProvider } from '@/contexts/SidebarColorContext';
+import { SidebarShapeProvider } from '@/contexts/SidebarShapeContext';
 
 // Runs before first paint (synchronous, first child of <body>) so an
 // explicit stored theme wins over `prefers-color-scheme` immediately —
@@ -61,11 +62,13 @@ export default function RootLayout({
         <ThemeProvider>
           <AccentColorProvider>
             <SidebarColorProvider>
-              <BottomNavStyleProvider>
-                <ToastProvider>
-                  <AuthProvider>{children}</AuthProvider>
-                </ToastProvider>
-              </BottomNavStyleProvider>
+              <SidebarShapeProvider>
+                <BottomNavStyleProvider>
+                  <ToastProvider>
+                    <AuthProvider>{children}</AuthProvider>
+                  </ToastProvider>
+                </BottomNavStyleProvider>
+              </SidebarShapeProvider>
             </SidebarColorProvider>
           </AccentColorProvider>
         </ThemeProvider>

@@ -10,6 +10,7 @@ import {
   type NotificationBellItem,
 } from '@/components/dashboard/NotificationBell';
 import { useUser } from '@/contexts/AuthContext';
+import { useSidebarShape } from '@/contexts/SidebarShapeContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
@@ -18,6 +19,8 @@ const COLLAPSE_STORAGE_KEY = 'merrudit-sidebar-collapsed';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser();
+  const { shape } = useSidebarShape();
+  const floating = shape === 'capsule' || shape === 'dock';
   const [collapsed, setCollapsed] = useState(false);
   const notifications = useApi<{ items: NotificationBellItem[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
@@ -50,10 +53,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <CreateMenuProvider>
       <div className="min-h-screen bg-background lg:flex">
-        {/* Desktop sidebar — fixed, lg and up, collapsible to icon-only */}
-        <div className={`hidden lg:block lg:flex-shrink-0 ${collapsed ? 'lg:w-16' : 'lg:w-56'}`}>
-          <div className={`fixed h-screen border-r border-border ${collapsed ? 'w-16' : 'w-56'}`}>
-            <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+        {/* Desktop sidebar — fixed, lg and up, collapsible to icon-only.
+            Shape is a user preference (Paramètres → Espace → Forme du
+            menu): 'classic' sits flush against the viewport edge like a
+            bordered column; 'capsule'/'dock' get a p-4 inset so they float
+            off the edges instead — 'dock' additionally centers vertically
+            since it doesn't stretch to fill the column like 'capsule'. */}
+        <div
+          className={`hidden lg:block lg:flex-shrink-0 ${
+            floating ? (collapsed ? 'lg:w-24' : 'lg:w-64') : collapsed ? 'lg:w-16' : 'lg:w-56'
+          }`}
+        >
+          <div
+            className={
+              floating
+                ? `fixed inset-y-0 left-0 p-4 ${shape === 'dock' ? 'flex items-center' : ''} ${collapsed ? 'w-24' : 'w-64'}`
+                : `fixed h-screen border-r border-border ${collapsed ? 'w-16' : 'w-56'}`
+            }
+          >
+            <Sidebar collapsed={collapsed} onToggleCollapsed={toggleCollapsed} shape={shape} />
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useCreateMenu, type CreateEntity } from '@/contexts/CreateMenuContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
+import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 
 // 'off' keeps the original solid brand-green bar untouched. Both glass
 // variants stay green on purpose (per product decision — a liquid-glass
@@ -21,6 +22,23 @@ const GLASS_NAV_CLASS: Record<BottomNavGlass, string> = {
   off: 'border-sidebar-muted bg-sidebar',
   transparent: 'border-white/15 bg-sidebar/75 backdrop-blur-2xl backdrop-saturate-150',
   tinted: 'border-white/20 bg-primary/60 backdrop-blur-2xl backdrop-saturate-150',
+};
+
+// Pairs the desktop sidebar's shape choice (Paramètres → Espace → Forme du
+// menu) with a matching mobile silhouette, so switching breakpoints reads
+// as the same pick, not a different nav entirely. 'classic' mirrors the
+// original flush edge-to-edge bar; 'capsule' is the full-width floating
+// pill (the shipped default look); 'dock' is a compact, centered floating
+// pill echoing the desktop dock's short, content-sized shape.
+const SHAPE_NAV_CLASS: Record<SidebarShape, string> = {
+  classic: 'inset-x-0 bottom-0 rounded-t-2xl',
+  capsule: 'inset-x-3 bottom-3 rounded-2xl',
+  dock: 'bottom-3 left-1/2 w-[min(92vw,420px)] -translate-x-1/2 rounded-full',
+};
+const SHAPE_OVERLAY_RADIUS: Record<SidebarShape, string> = {
+  classic: 'rounded-t-2xl',
+  capsule: 'rounded-2xl',
+  dock: 'rounded-full',
 };
 
 const LEFT_ITEMS = [
@@ -74,6 +92,7 @@ export function BottomNav() {
   const pathname = usePathname();
   const { openCreate } = useCreateMenu();
   const { glass } = useBottomNavStyle();
+  const { shape } = useSidebarShape();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -88,10 +107,12 @@ export function BottomNav() {
       )}
 
       <nav
-        className={`fixed inset-x-3 bottom-3 z-40 rounded-2xl border shadow-lg lg:hidden ${GLASS_NAV_CLASS[glass]}`}
+        className={`fixed z-40 border shadow-lg lg:hidden ${SHAPE_NAV_CLASS[shape]} ${GLASS_NAV_CLASS[glass]}`}
       >
         {glass !== 'off' && (
-          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-white/0 to-black/10" />
+          <div
+            className={`pointer-events-none absolute inset-0 ${SHAPE_OVERLAY_RADIUS[shape]} bg-gradient-to-b from-white/20 via-white/0 to-black/10`}
+          />
         )}
 
         {menuOpen && (

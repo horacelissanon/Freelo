@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useAccentColor, ACCENT_PRESET_HEX, type AccentColor } from '@/contexts/AccentColorContext';
 import { useSidebarColor, DEFAULT_SIDEBAR_COLOR } from '@/contexts/SidebarColorContext';
+import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 import { contrastRatio } from '@/lib/color';
 import { Toggle } from '@/components/ui/Toggle';
 import { Icon } from '@/components/ui/Icon';
@@ -96,6 +97,57 @@ function HexInput({
   );
 }
 
+// Miniature mockup of each sidebar silhouette, colored with the freelance's
+// actual chosen menu background so the preview matches what they'll really
+// see — not a fixed screenshot-derived color.
+function SidebarShapeCard({
+  label,
+  variant,
+  active,
+  sidebarColor,
+  onClick,
+}: {
+  label: string;
+  variant: SidebarShape;
+  active: boolean;
+  sidebarColor: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors ${
+        active ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'
+      }`}
+    >
+      <div className="flex h-16 w-full items-center gap-1.5 rounded-md bg-secondary/40 p-1.5">
+        <div
+          className={`flex w-5 flex-shrink-0 flex-col items-center justify-center gap-1.5 ${
+            variant === 'classic'
+              ? 'self-stretch rounded-sm'
+              : variant === 'capsule'
+                ? 'my-0.5 self-stretch rounded-full'
+                : 'h-8 rounded-full'
+          }`}
+          style={{ backgroundColor: sidebarColor }}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-white/70" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+        </div>
+        <div className="flex-1 rounded-sm bg-canvas" />
+      </div>
+      <span
+        className={`font-body text-xs font-medium ${active ? 'text-primary' : 'text-foreground'}`}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
 function DuoSwatch({ sidebar, accent }: { sidebar: string; accent: string }) {
   return (
     <span
@@ -116,6 +168,7 @@ export function EspaceTab({ user }: { user: User }) {
     glass === 'tinted' ? 'tinted' : 'transparent';
   const { accent, accentHex, setAccent, setCustomAccent } = useAccentColor();
   const { sidebarColor, setSidebarColor } = useSidebarColor();
+  const { shape, setShape } = useSidebarShape();
 
   const [togglePending, setTogglePending] = useState<
     'showPaidInvoicesDefault' | 'publicPortalEnabled' | null
@@ -189,8 +242,9 @@ export function EspaceTab({ user }: { user: User }) {
                 Menu liquid glass
               </span>
               <span className="font-body text-xs text-muted-foreground">
-                Rend le menu du bas translucide et flouté, façon verre liquide, en gardant sa teinte
-                verte. Désactivé, le menu actuel s&apos;applique — c&apos;est le réglage par défaut.
+                Rend le menu translucide et flouté, façon verre liquide, en gardant sa teinte verte
+                — s&apos;applique au menu du bas sur mobile et à la sidebar sur ordinateur.
+                Désactivé, le menu actuel s&apos;applique — c&apos;est le réglage par défaut.
               </span>
             </div>
             <Toggle
@@ -301,6 +355,47 @@ export function EspaceTab({ user }: { user: User }) {
             appliqué.
           </p>
         )}
+      </section>
+
+      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+        <h2 className="font-headings text-lg font-semibold text-foreground">Forme du menu</h2>
+        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+          L&apos;allure de la sidebar sur ordinateur — la couleur choisie ci-dessus s&apos;applique
+          aux trois formes, et le menu du bas sur mobile prend automatiquement la forme
+          correspondante.
+        </p>
+        <div className="grid grid-cols-3 gap-3 sm:max-w-sm">
+          <SidebarShapeCard
+            label="Classique"
+            variant="classic"
+            active={shape === 'classic'}
+            sidebarColor={sidebarColor}
+            onClick={() => {
+              setShape('classic');
+              toast('Forme du menu : Classique.', 'success');
+            }}
+          />
+          <SidebarShapeCard
+            label="Capsule"
+            variant="capsule"
+            active={shape === 'capsule'}
+            sidebarColor={sidebarColor}
+            onClick={() => {
+              setShape('capsule');
+              toast('Forme du menu : Capsule.', 'success');
+            }}
+          />
+          <SidebarShapeCard
+            label="Dock"
+            variant="dock"
+            active={shape === 'dock'}
+            sidebarColor={sidebarColor}
+            onClick={() => {
+              setShape('dock');
+              toast('Forme du menu : Dock.', 'success');
+            }}
+          />
+        </div>
       </section>
 
       <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
