@@ -6,6 +6,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { BottomNavStyleProvider } from '@/contexts/BottomNavStyleContext';
 import { AccentColorProvider } from '@/contexts/AccentColorContext';
+import { SidebarColorProvider } from '@/contexts/SidebarColorContext';
 
 // Runs before first paint (synchronous, first child of <body>) so an
 // explicit stored theme wins over `prefers-color-scheme` immediately —
@@ -17,8 +18,15 @@ const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('merrudit-
 
 // Same pre-paint pattern as THEME_INIT_SCRIPT — a custom accent touches
 // buttons/links/active-states all over the first paint, so without this a
-// user who picked e.g. blue would see a flash of the default green.
-const ACCENT_INIT_SCRIPT = `(function(){try{var a=localStorage.getItem('merrudit-accent');if(a&&a!=='green'){document.documentElement.setAttribute('data-accent',a);}}catch(e){}})();`;
+// user who picked e.g. blue would see a flash of the default green. Checks
+// the free-form custom hex first (merrudit-accent-custom) since it takes
+// priority over the 6 fixed presets when both happen to be stored.
+const ACCENT_INIT_SCRIPT = `(function(){try{var ch=localStorage.getItem('merrudit-accent-custom');if(ch&&/^#[0-9a-fA-F]{6}$/.test(ch)){var h2r=function(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};var rgb=h2r(ch).map(function(v){return Math.round(v*0.88);});var toH=function(v){return Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0');};var dark='#'+toH(rgb[0])+toH(rgb[1])+toH(rgb[2]);document.documentElement.style.setProperty('--color-primary',ch);document.documentElement.style.setProperty('--color-accent',dark);return;}}catch(e){}try{var a=localStorage.getItem('merrudit-accent');if(a&&a!=='green'){document.documentElement.setAttribute('data-accent',a);}}catch(e){}})();`;
+
+// Same pre-paint pattern, for the free-form sidebar/bottom-nav background
+// color (no fixed enum to key a data-attribute off, so this always goes
+// through inline custom properties — see contexts/SidebarColorContext.tsx).
+const SIDEBAR_INIT_SCRIPT = `(function(){try{var c=localStorage.getItem('merrudit-sidebar-color');if(c&&/^#[0-9a-fA-F]{6}$/.test(c)){var h2r=function(h){h=h.replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};var lum=function(h){var rgb=h2r(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return 0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2];};var ratio=function(a,b){var la=lum(a),lb=lum(b);var hi=Math.max(la,lb),lo=Math.min(la,lb);return(hi+0.05)/(lo+0.05);};var fg=ratio(c,'#ffffff')>=ratio(c,'#0a0a0a')?'#ffffff':'#0a0a0a';var a1=h2r(c),b1=h2r(fg);var mix=function(i){return Math.round(a1[i]+(b1[i]-a1[i])*0.14);};var toH=function(v){return Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0');};var muted='#'+toH(mix(0))+toH(mix(1))+toH(mix(2));var root=document.documentElement.style;root.setProperty('--color-sidebar',c);root.setProperty('--color-sidebar-foreground',fg);root.setProperty('--color-sidebar-muted',muted);}}catch(e){}})();`;
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
@@ -42,13 +50,16 @@ export default function RootLayout({
       <body className={ibmPlexSans.className} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: ACCENT_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: SIDEBAR_INIT_SCRIPT }} />
         <ThemeProvider>
           <AccentColorProvider>
-            <BottomNavStyleProvider>
-              <ToastProvider>
-                <AuthProvider>{children}</AuthProvider>
-              </ToastProvider>
-            </BottomNavStyleProvider>
+            <SidebarColorProvider>
+              <BottomNavStyleProvider>
+                <ToastProvider>
+                  <AuthProvider>{children}</AuthProvider>
+                </ToastProvider>
+              </BottomNavStyleProvider>
+            </SidebarColorProvider>
           </AccentColorProvider>
         </ThemeProvider>
       </body>
