@@ -3,9 +3,10 @@
 // Mensuel/Annuel + FCFA/EUR/USD switches for the landing page pricing
 // cards. Real Freelo figures only (Toggle component + math below, nothing
 // fabricated) — same numbers the settings/billing screens already quote
-// elsewhere in the app. Styled to sit on the dark gradient "Tarifs" panel
-// (page.tsx) — white floating cards for contrast, glass toggle pills — not
-// a standalone-on-white component, since that's its only usage.
+// elsewhere in the app. Sits on a light "Tarifs" panel (page.tsx) — green
+// is reserved for the featured Pro card itself, not the whole section, so
+// it's the one thing that actually pops instead of competing with a
+// saturated background.
 import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
@@ -37,17 +38,27 @@ function formatAmount(amountFcfa: number, currency: Currency): string {
   return `≈ ${converted.toLocaleString('fr-FR')} ${symbol}`;
 }
 
-const cardClass = 'rounded-2xl bg-canvas p-6 shadow-2xl';
+const cardClass = 'rounded-2xl p-6 shadow-card';
 
-function FeatureList({ items, tone }: { items: string[]; tone: 'muted' | 'foreground' }) {
+function FeatureList({
+  items,
+  tone,
+}: {
+  items: string[];
+  tone: 'muted' | 'foreground' | 'inverted';
+}) {
+  const textClass =
+    tone === 'muted'
+      ? 'text-muted-foreground'
+      : tone === 'inverted'
+        ? 'text-primary-foreground/90'
+        : 'text-foreground';
+  const iconClass = tone === 'inverted' ? 'text-primary-foreground' : 'text-primary';
   return (
     <ul className="mt-4 flex flex-col gap-2.5">
       {items.map((line) => (
-        <li
-          key={line}
-          className={`flex items-start gap-2 font-body text-sm ${tone === 'muted' ? 'text-muted-foreground' : 'text-foreground'}`}
-        >
-          <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-primary" />
+        <li key={line} className={`flex items-start gap-2 font-body text-sm ${textClass}`}>
+          <Icon i="check-circle" size={15} className={`mt-0.5 flex-shrink-0 ${iconClass}`} />
           {line}
         </li>
       ))}
@@ -68,15 +79,19 @@ export function PricingToggle({
   return (
     <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-5">
       <div className="flex flex-col items-center gap-1.5">
-        <p className="font-body text-xs font-medium text-white/70">Afficher les tarifs en</p>
-        <div className="flex items-center gap-1 rounded-full border border-white/25 bg-white/10 p-1 backdrop-blur">
+        <p className="font-body text-xs font-medium text-muted-foreground">
+          Afficher les tarifs en
+        </p>
+        <div className="flex items-center gap-1 rounded-full border border-border bg-canvas p-1 shadow-card">
           {CURRENCIES.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setCurrency(c)}
               className={`rounded-full px-3 py-1.5 font-body text-xs font-semibold transition-colors ${
-                currency === c ? 'bg-white text-primary' : 'text-white/70 hover:text-white'
+                currency === c
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {c}
@@ -85,25 +100,25 @@ export function PricingToggle({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 rounded-full border border-white/25 bg-white/10 px-4 py-2 backdrop-blur">
+      <div className="flex items-center gap-3 rounded-full border border-border bg-canvas px-4 py-2 shadow-card">
         <span
-          className={`font-body text-sm font-medium ${!annual ? 'text-white' : 'text-white/60'}`}
+          className={`font-body text-sm font-medium ${!annual ? 'text-foreground' : 'text-muted-foreground'}`}
         >
           Mensuel
         </span>
         <Toggle checked={annual} onChange={setAnnual} label="Facturation annuelle" />
         <span
-          className={`font-body text-sm font-medium ${annual ? 'text-white' : 'text-white/60'}`}
+          className={`font-body text-sm font-medium ${annual ? 'text-foreground' : 'text-muted-foreground'}`}
         >
           Annuel
         </span>
-        <span className="rounded-full bg-white px-2 py-0.5 font-body text-[11px] font-semibold text-primary">
+        <span className="rounded-full bg-tag-green px-2 py-0.5 font-body text-[11px] font-semibold text-tag-green-fg">
           -{Math.round((ANNUAL_SAVINGS / (MONTHLY_PRICE * 12)) * 100)}%
         </span>
       </div>
 
       <div className="mt-3 grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
-        <div className={cardClass}>
+        <div className={`${cardClass} border border-border bg-canvas`}>
           <p className="font-headings text-base font-semibold text-foreground">Gratuit</p>
           <p className="mt-1 font-headings text-3xl font-bold text-foreground">
             {formatAmount(0, currency)}
@@ -117,28 +132,32 @@ export function PricingToggle({
           </Link>
         </div>
 
-        <div className={`${cardClass} relative border-2 border-primary`}>
-          <span className="absolute -top-3 left-6 rounded-full bg-primary px-2.5 py-0.5 font-body text-[11px] font-semibold tracking-wide text-primary-foreground uppercase">
+        {/* The one deliberately green card — everything around it (panel,
+            toggles, the other card) stays light so this is unambiguously
+            the featured plan, not one of several green things fighting for
+            attention. */}
+        <div className={`${cardClass} relative bg-primary shadow-xl`}>
+          <span className="absolute -top-3 left-6 rounded-full bg-canvas px-2.5 py-0.5 font-body text-[11px] font-semibold tracking-wide text-primary uppercase shadow-card">
             Le plus choisi
           </span>
-          <p className="font-headings text-base font-semibold text-foreground">Pro</p>
+          <p className="font-headings text-base font-semibold text-primary-foreground">Pro</p>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <p className="font-headings text-3xl font-bold text-foreground">
+            <p className="font-headings text-3xl font-bold text-primary-foreground">
               {formatAmount(annual ? ANNUAL_PRICE : MONTHLY_PRICE, currency)}
             </p>
-            <span className="font-body text-xs text-muted-foreground">
+            <span className="font-body text-xs text-primary-foreground/70">
               {annual ? '/an' : '/mois'}
             </span>
           </div>
-          <p className="font-body text-xs text-muted-foreground">
+          <p className="font-body text-xs text-primary-foreground/70">
             {annual
               ? `Économise ${formatAmount(ANNUAL_SAVINGS, currency)} par an vs mensuel`
               : `ou ${formatAmount(ANNUAL_PRICE, currency)}/an`}
           </p>
-          <FeatureList items={proFeatures} tone="foreground" />
+          <FeatureList items={proFeatures} tone="inverted" />
           <Link
             href="/signup"
-            className="mt-6 block rounded-md bg-primary px-4 py-2.5 text-center font-body text-sm font-medium text-primary-foreground"
+            className="mt-6 block rounded-md bg-canvas px-4 py-2.5 text-center font-body text-sm font-medium text-primary"
           >
             Essayer le plan Pro
           </Link>
@@ -146,7 +165,7 @@ export function PricingToggle({
       </div>
 
       {currency !== 'FCFA' && (
-        <p className="font-body text-[11px] text-white/60">
+        <p className="font-body text-[11px] text-muted-foreground">
           Conversion {currency === 'EUR' ? 'officielle (parité fixe XOF/EUR)' : 'indicative'} —
           facturation en FCFA.
         </p>

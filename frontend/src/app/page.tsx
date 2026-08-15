@@ -234,10 +234,12 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-background">
       {/* ── Header ──────────────────────────────────────────────────── */}
       {/* Floating, not flush — inset from the viewport edges with its own
-          rounded pill + shadow, staying pinned (sticky) through the whole
-          scroll rather than a bar stuck to top-0. */}
-      <header className="sticky top-3 z-30 mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
+          rounded pill + shadow. Uses position: fixed (not sticky) so it
+          stays visible through the entire scroll — sticky was tried first
+          and reported as disappearing mid-scroll. Fixed removes it from
+          document flow, hence the extra hero top-padding below. */}
+      <header className="fixed inset-x-0 top-3 z-30 mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
               <span className="font-headings text-base font-bold text-primary-foreground">F</span>
@@ -249,9 +251,6 @@ export default function Home() {
           <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
             <a href="#comment-ca-marche" className="hover:text-foreground">
               Comment ça marche
-            </a>
-            <a href="#fonctionnalites" className="hover:text-foreground">
-              Fonctionnalités
             </a>
             <a href="#comparatif" className="hover:text-foreground">
               Comparatif
@@ -281,7 +280,10 @@ export default function Home() {
       </header>
 
       {/* ── Hero ────────────────────────────────────────────────────── */}
-      <section className="relative mx-auto max-w-6xl px-4 pt-14 pb-16 sm:px-6 sm:pt-20">
+      {/* Extra top padding clears the now-fixed (not in-flow) header pill —
+          pt-14/20 was sized for the old sticky-in-flow header, which
+          reserved its own space; a fixed header doesn't. */}
+      <section className="relative mx-auto max-w-6xl px-4 pt-28 pb-16 sm:px-6 sm:pt-32">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-gradient-to-b from-tag-green/60 to-transparent"
@@ -559,7 +561,15 @@ export default function Home() {
       </section>
 
       {/* ── Problème / solution ────────────────────────────────────── */}
-      <section className="border-y border-border bg-secondary/40">
+      {/* Section rhythm: alternates white (bg-background, no class) with a
+          full-strength pale mint wash (bg-tag-green — #ecfdf5, a genuinely
+          different hue from the near-white background/secondary tokens,
+          not just a few points of lightness apart). bg-secondary/40 was
+          too close to bg-background to read as a distinct section on
+          screenshot, which is what prompted this pass. The one saturated
+          bg-primary fill stays reserved for the CTA finale + the featured
+          Pro pricing card — this wash is deliberately calmer than those. */}
+      <section className="border-y border-border bg-tag-green">
         <div className="mx-auto max-w-3xl px-4 py-14 text-center sm:px-6">
           <Icon i="message-circle" size={30} className="mx-auto mb-4 text-primary/30" />
           <p className="font-headings text-lg font-medium text-foreground italic sm:text-xl">
@@ -610,7 +620,7 @@ export default function Home() {
 
       {/* ── Fonctionnalités ─────────────────────────────────────────── */}
       <ScrollReveal>
-        <section id="fonctionnalites" className="border-t border-border bg-secondary/40">
+        <section id="fonctionnalites" className="border-t border-border bg-tag-green">
           <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
@@ -641,24 +651,26 @@ export default function Home() {
 
       {/* ── Comparatif ──────────────────────────────────────────────── */}
       <ScrollReveal>
-        <section id="comparatif" className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-              Freelo remplace le patchwork, pas ta façon de travailler
-            </h2>
-            <p className="mt-2 font-body text-sm text-muted-foreground">
-              Ce que change concrètement un seul espace de travail, poste par poste.
-            </p>
-          </div>
-          <div className="mt-10">
-            <ComparisonTable rows={COMPARISON_ROWS} />
+        <section id="comparatif" className="border-t border-border px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-5xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+                Freelo remplace le patchwork, pas ta façon de travailler
+              </h2>
+              <p className="mt-2 font-body text-sm text-muted-foreground">
+                Ce que change concrètement un seul espace de travail, poste par poste.
+              </p>
+            </div>
+            <div className="mt-10">
+              <ComparisonTable rows={COMPARISON_ROWS} />
+            </div>
           </div>
         </section>
       </ScrollReveal>
 
       {/* ── Personas ("Pensé pour") ─────────────────────────────────── */}
       <ScrollReveal>
-        <section className="border-t border-border bg-secondary/40">
+        <section className="border-t border-border bg-tag-green">
           <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
@@ -701,33 +713,26 @@ export default function Home() {
       {/* ── Tarifs ──────────────────────────────────────────────────── */}
       <ScrollReveal>
         <section id="tarifs" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          {/* Immersive full-bleed panel — same brand gradient + dot texture
-              already used by the CTA finale section below, so this reads as
-              a deliberate second "bold" moment on the page, not a one-off. */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-accent px-4 py-14 sm:px-10 sm:py-16">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 opacity-[0.06]"
-              style={{
-                backgroundImage: 'radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)',
-                backgroundSize: '20px 20px',
-              }}
-            />
-            <div className="relative mx-auto max-w-2xl text-center">
-              <span className="rounded-full bg-white/15 px-3 py-1 font-body text-xs font-semibold tracking-wide text-white uppercase">
+          {/* Light panel, not a full green wash — green is reserved for the
+              featured Pro card itself so it's the one thing that actually
+              stands out, not competing with a saturated background. Sits on
+              the white section behind it, so the panel reads as "raised"
+              via border + shadow rather than a color fill (bg-secondary/40
+              was too close to the page background to register as a card). */}
+          <div className="relative overflow-hidden rounded-3xl border border-border bg-canvas px-4 py-14 shadow-xl sm:px-10 sm:py-16">
+            <div className="mx-auto max-w-2xl text-center">
+              <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-semibold tracking-wide text-tag-green-fg uppercase">
                 Tarifs
               </span>
-              <h2 className="mt-4 font-headings text-2xl font-bold text-white sm:text-3xl">
+              <h2 className="mt-4 font-headings text-2xl font-bold text-foreground sm:text-3xl">
                 Des tarifs pensés pour l’Afrique francophone
               </h2>
-              <p className="mt-2 font-body text-sm text-white/80">
+              <p className="mt-2 font-body text-sm text-muted-foreground">
                 Commence gratuitement. Passe en Pro quand ton activité grandit.
               </p>
             </div>
-            <div className="relative">
-              <PricingToggle freeFeatures={FREE_FEATURES} proFeatures={PRO_FEATURES} />
-            </div>
-            <p className="relative mt-8 text-center font-body text-xs text-white/70">
+            <PricingToggle freeFeatures={FREE_FEATURES} proFeatures={PRO_FEATURES} />
+            <p className="mt-8 text-center font-body text-xs text-muted-foreground">
               Crée ton compte gratuitement — aucun paiement requis pour démarrer.
             </p>
           </div>
@@ -736,7 +741,7 @@ export default function Home() {
 
       {/* ── FAQ ─────────────────────────────────────────────────────── */}
       <ScrollReveal>
-        <section id="faq" className="border-t border-border bg-secondary/40">
+        <section id="faq" className="border-t border-border bg-tag-green">
           <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
             <h2 className="text-center font-headings text-2xl font-bold text-foreground sm:text-3xl">
               Questions fréquentes
@@ -806,9 +811,6 @@ export default function Home() {
               <span className="font-body text-xs font-semibold text-foreground">Produit</span>
               <a href="#comment-ca-marche" className="font-body text-xs text-muted-foreground">
                 Comment ça marche
-              </a>
-              <a href="#fonctionnalites" className="font-body text-xs text-muted-foreground">
-                Fonctionnalités
               </a>
               <a href="#comparatif" className="font-body text-xs text-muted-foreground">
                 Comparatif
