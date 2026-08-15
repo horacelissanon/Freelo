@@ -290,11 +290,18 @@ export default function Home() {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-gradient-to-b from-tag-green/60 to-transparent"
         />
-        <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-5 text-center">
+        <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
           <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
-            Conçu pour les <RotatingWord words={TARGET_PROFESSIONS} /> freelances d’Afrique
-            francophone
+            Fait pour l’Afrique francophone
           </span>
+          {/* The Canva-style two-clause hero: a short line naming who this is
+              for (dynamic — cycles through professions so it reads as "made
+              for you" for more visitors, not just designers), then the fixed
+              emotional-hook headline. Distinct from the geography badge
+              above so the two don't repeat "freelances" twice. */}
+          <p className="font-body text-sm font-semibold text-primary sm:text-base">
+            Le CRM taillé pour les <RotatingWord words={TARGET_PROFESSIONS} /> freelances
+          </p>
           <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
             Arrête de courir après tes clients pour être payé.
           </h1>
