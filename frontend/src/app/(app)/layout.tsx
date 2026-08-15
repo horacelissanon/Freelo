@@ -5,18 +5,31 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Avatar } from '@/components/ui/Avatar';
+import {
+  NotificationBell,
+  type NotificationBellItem,
+} from '@/components/dashboard/NotificationBell';
 import { useUser } from '@/contexts/AuthContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
+import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { api } from '@/lib/api';
 
 const COLLAPSE_STORAGE_KEY = 'merrudit-sidebar-collapsed';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser();
   const [collapsed, setCollapsed] = useState(false);
+  const notifications = useApi<{ items: NotificationBellItem[] }>('/api/notifications?limit=8');
+  const notifCount = useApi<{ count: number }>('/api/notifications/count');
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1') setCollapsed(true);
   }, []);
+
+  async function markAllNotificationsRead() {
+    await api('/api/notifications', { method: 'PATCH', body: { ids: 'all' } });
+    invalidateCachePrefix('/api/notifications');
+  }
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -55,13 +68,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 Freelo
               </span>
             </div>
-            <Link
-              href="/settings"
-              className="flex items-center gap-2 rounded-md py-1 pr-1 pl-2 text-sidebar-foreground/70"
-            >
-              <span className="font-body text-xs font-medium">Mon compte</span>
-              <Avatar name={user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <NotificationBell
+                unreadCount={notifCount.data?.count ?? 0}
+                notifications={notifications.data?.items ?? []}
+                onMarkAllRead={() => void markAllNotificationsRead()}
+              />
+              <Link
+                href="/settings"
+                className="flex items-center gap-2 rounded-md py-1 pr-1 pl-2 text-sidebar-foreground/70"
+              >
+                <span className="font-body text-xs font-medium">Mon compte</span>
+                <Avatar name={user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
+              </Link>
+            </div>
           </div>
         </div>
 

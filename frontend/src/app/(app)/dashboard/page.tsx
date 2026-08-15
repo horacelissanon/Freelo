@@ -152,7 +152,10 @@ export default function DashboardPage() {
             {formatLongDate(new Date())}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* Desktop only — mobile gets the bell in the persistent top bar
+            ((app)/layout.tsx) and relies on BottomNav's central "+" for
+            quick creation instead of a second "Nouveau projet" button. */}
+        <div className="hidden lg:flex lg:items-center lg:gap-3">
           <NotificationBell
             unreadCount={notifCount.data?.count ?? 0}
             notifications={notifications.data?.items ?? []}
@@ -161,7 +164,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => openCreate('project')}
-            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground sm:flex-none"
+            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
           >
             <Icon i="plus" size={15} />
             Nouveau projet
