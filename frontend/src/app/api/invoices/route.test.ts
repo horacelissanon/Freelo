@@ -41,6 +41,10 @@ function oneLineItem(unitPrice: number) {
   return [{ designation: 'Service', quantity: 1, unitPrice }];
 }
 
+function onePack(unitPrice: number) {
+  return [{ title: 'Offre standard', items: oneLineItem(unitPrice) }];
+}
+
 function invoice(overrides: Partial<{ id: string; number: string }> = {}) {
   return {
     id: overrides.id ?? 'i-1',
@@ -67,6 +71,12 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
   prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
 });
 
 describe('GET /api/invoices', () => {
@@ -144,7 +154,8 @@ describe('POST /api/invoices', () => {
     const year = new Date().getFullYear();
     prismaMock.invoice.count.mockResolvedValue(7 as never);
     prismaMock.invoice.create.mockResolvedValue(invoice({ number: `QT-${year}-008` }) as never);
-    const res = await POST(makePost({ clientId: 'c-1', docType: 'QUOTE', amount: 85000 }));
+    prismaMock.invoicePack.create.mockResolvedValue({ id: 'pack-1' } as never);
+    const res = await POST(makePost({ clientId: 'c-1', docType: 'QUOTE', packs: onePack(85000) }));
     expect(res.status).toBe(201);
     const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
     expect(createArg?.data?.number).toBe(`QT-${year}-008`);
@@ -175,7 +186,7 @@ describe('POST /api/invoices', () => {
     expect((await res.json()).error).toBe('NUMBER_GENERATION_FAILED');
   });
 
-  describe('line items (INVOICE) / transitional amount (QUOTE)', () => {
+  describe('line items (INVOICE) / packs (QUOTE)', () => {
     it('INVOICE without lineItems -> 400 VALIDATION_FAILED', async () => {
       const res = await POST(makePost({ clientId: 'c-1', docType: 'INVOICE' }));
       expect(res.status).toBe(400);
@@ -224,18 +235,17 @@ describe('POST /api/invoices', () => {
       expect(createArg?.data?.amount).toBe(1000);
     });
 
-    it('QUOTE without amount -> 400 VALIDATION_FAILED', async () => {
+    it('QUOTE without packs -> 400 VALIDATION_FAILED', async () => {
       const res = await POST(makePost({ clientId: 'c-1', docType: 'QUOTE' }));
       expect(res.status).toBe(400);
       expect(prismaMock.invoice.create).not.toHaveBeenCalled();
     });
 
-    it('QUOTE with lineItems (unsupported yet) -> 400 VALIDATION_FAILED', async () => {
+    it('QUOTE with lineItems instead of packs -> 400 VALIDATION_FAILED', async () => {
       const res = await POST(
         makePost({
           clientId: 'c-1',
           docType: 'QUOTE',
-          amount: 1000,
           lineItems: oneLineItem(1000),
         }),
       );
@@ -245,9 +255,53 @@ describe('POST /api/invoices', () => {
 
     it('QUOTE with an invoice-only field (depositAmount) -> 400 VALIDATION_FAILED', async () => {
       const res = await POST(
-        makePost({ clientId: 'c-1', docType: 'QUOTE', amount: 1000, depositAmount: 500 }),
+        makePost({
+          clientId: 'c-1',
+          docType: 'QUOTE',
+          packs: onePack(1000),
+          depositAmount: 500,
+        }),
       );
       expect(res.status).toBe(400);
+    });
+
+    it('QUOTE with packs -> amount is computed server-side across all packs, invoice created inside a transaction', async () => {
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice({ number: 'QT-2026-001' }) as never);
+      prismaMock.invoicePack.create.mockResolvedValue({ id: 'pack-1' } as never);
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'QUOTE',
+          packs: [
+            { title: 'Essentiel', items: [{ designation: 'Logo', quantity: 1, unitPrice: 50000 }] },
+            {
+              title: 'Premium',
+              items: [
+                { designation: 'Logo', quantity: 1, unitPrice: 50000 },
+                { designation: 'Charte graphique', quantity: 1, unitPrice: 30000 },
+              ],
+            },
+          ],
+        }),
+      );
+      expect(res.status).toBe(201);
+      const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+      // computeQuoteTotal sums every pack's items, not just the first —
+      // guards against a regression that only totals pack[0].
+      expect(createArg?.data?.amount).toBe(130000);
+      expect(prismaMock.invoicePack.create).toHaveBeenCalledTimes(2);
+      const firstPackArg = prismaMock.invoicePack.create.mock.calls[0]?.[0];
+      expect(firstPackArg?.data?.title).toBe('Essentiel');
+      expect(firstPackArg?.data?.items?.create).toEqual([
+        expect.objectContaining({
+          invoiceId: 'i-1',
+          order: 1,
+          designation: 'Logo',
+          quantity: 1,
+          unitPrice: 50000,
+        }),
+      ]);
     });
 
     it('depositAmount greater than the computed total -> 400 VALIDATION_FAILED', async () => {

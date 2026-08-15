@@ -9,13 +9,11 @@
 // `@@unique([userId, docType, number])` constraint is the real safety net;
 // on a rare double-submit race we retry the count once before giving up.
 //
-// Line items (added alongside the pack/content-block data model): an
-// INVOICE is created from a flat `lineItems` array — `amount` is computed
-// server-side via `computeItemsTotal`, never accepted from the client.
-// A QUOTE is transitional here — it still takes a flat `amount` until the
-// multi-pack builder ships (`packs` on this same Body will replace it) —
-// this keeps the existing "Nouveau devis" flow working unmodified while
-// the INVOICE side moves first.
+// Line items / packs: an INVOICE is created from a flat `lineItems` array;
+// a QUOTE is created from `packs` (each with its own repeatable items) —
+// one or more selectable offers/tiers, per the "Nouveau devis" builder.
+// `amount` is never accepted from the client for either docType — it's
+// always computed server-side (computeItemsTotal / computeQuoteTotal).
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -28,7 +26,7 @@ import { prisma } from '@/lib/server/prisma';
 import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/pagination/paginate';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { formatInvoiceNumber } from '@/lib/server/invoices/number';
-import { computeItemsTotal } from '@/lib/invoiceTotals';
+import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -38,16 +36,22 @@ const LineItemInput = z.object({
   unitPrice: zPositiveInt,
 });
 
+const PackInput = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  items: z.array(LineItemInput).min(1).max(50),
+});
+
 const Body = z
   .object({
     clientId: z.string().min(1),
     projectId: z.string().min(1).optional(),
     docType: z.enum(['INVOICE', 'QUOTE']),
     description: z.string().max(500).optional(),
-    // QUOTE only, transitional (see file-header comment).
-    amount: z.number().int().positive().optional(),
     // INVOICE only.
     lineItems: z.array(LineItemInput).min(1).max(100).optional(),
+    // QUOTE only.
+    packs: z.array(PackInput).min(1).max(20).optional(),
     currency: z.string().length(3).default('XOF'),
     dueDate: z.string().datetime().optional(),
     // INVOICE only — Acompte/Livraison/Règlement/Note de bas de page.
@@ -65,19 +69,26 @@ const Body = z
           message: 'lineItems is required to create an invoice',
         });
       }
+      if (data.packs !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['packs'],
+          message: 'packs is not supported for an invoice',
+        });
+      }
     } else {
+      if (!data.packs || data.packs.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['packs'],
+          message: 'packs is required to create a quote',
+        });
+      }
       if (data.lineItems !== undefined) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['lineItems'],
-          message: 'lineItems is not supported for a QUOTE yet',
-        });
-      }
-      if (data.amount === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['amount'],
-          message: 'amount is required to create a quote',
+          message: 'lineItems is not supported for a quote — use packs',
         });
       }
       if (
@@ -157,8 +168,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       projectId,
       docType,
       description,
-      amount,
       lineItems,
+      packs,
       currency,
       dueDate,
       depositAmount,
@@ -207,9 +218,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // computedAmount: server-truth total for an INVOICE (from lineItems);
-    // amount is still taken as-is for a QUOTE until PR3's pack builder ships.
-    const computedAmount = docType === 'INVOICE' ? computeItemsTotal(lineItems!) : amount!;
+    // computedAmount: server-truth total, from lineItems (INVOICE) or packs (QUOTE).
+    const computedAmount =
+      docType === 'INVOICE' ? computeItemsTotal(lineItems!) : computeQuoteTotal(packs!);
 
     if (depositAmount !== undefined && depositAmount > computedAmount) {
       return NextResponse.json(
@@ -231,36 +242,67 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
       const number = formatInvoiceNumber(docType, year, count + 1 + attempt);
 
+      const baseData = {
+        userId: auth.user.sub,
+        clientId,
+        ...(projectId ? { projectId } : {}),
+        docType,
+        number,
+        ...(description ? { description } : {}),
+        amount: computedAmount,
+        currency,
+        ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+      };
+
       try {
-        invoice = await prisma.invoice.create({
-          data: {
-            userId: auth.user.sub,
-            clientId,
-            ...(projectId ? { projectId } : {}),
-            docType,
-            number,
-            ...(description ? { description } : {}),
-            amount: computedAmount,
-            currency,
-            ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
-            ...(docType === 'INVOICE'
-              ? {
-                  ...(depositAmount !== undefined ? { depositAmount } : {}),
-                  ...(deliveryDate ? { deliveryDate: new Date(deliveryDate) } : {}),
-                  ...(paymentMethodNote ? { paymentMethodNote } : {}),
-                  ...(footerNote ? { footerNote } : {}),
-                  lineItems: {
-                    create: lineItems!.map((item, i) => ({
-                      order: i + 1,
+        if (docType === 'INVOICE') {
+          invoice = await prisma.invoice.create({
+            data: {
+              ...baseData,
+              ...(depositAmount !== undefined ? { depositAmount } : {}),
+              ...(deliveryDate ? { deliveryDate: new Date(deliveryDate) } : {}),
+              ...(paymentMethodNote ? { paymentMethodNote } : {}),
+              ...(footerNote ? { footerNote } : {}),
+              lineItems: {
+                create: lineItems!.map((item, i) => ({
+                  order: i + 1,
+                  designation: item.designation,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                })),
+              },
+            },
+          });
+        } else {
+          // Packs are created in a follow-up loop rather than a single nested
+          // write: InvoiceLineItem.invoiceId is a sibling relation to
+          // InvoicePack (not the immediate parent), so Prisma cannot infer it
+          // from a `pack.items.create` nesting — it must be passed explicitly,
+          // which requires the Invoice's id up front.
+          invoice = await prisma.$transaction(async (tx) => {
+            const created = await tx.invoice.create({ data: baseData });
+            for (const [pi, pack] of packs!.entries()) {
+              await tx.invoicePack.create({
+                data: {
+                  invoiceId: created.id,
+                  order: pi + 1,
+                  title: pack.title,
+                  ...(pack.description ? { description: pack.description } : {}),
+                  items: {
+                    create: pack.items.map((item, ii) => ({
+                      invoiceId: created.id,
+                      order: ii + 1,
                       designation: item.designation,
                       quantity: item.quantity,
                       unitPrice: item.unitPrice,
                     })),
                   },
-                }
-              : {}),
-          },
-        });
+                },
+              });
+            }
+            return created;
+          });
+        }
       } catch (err) {
         const isUniqueConflict =
           typeof err === 'object' &&

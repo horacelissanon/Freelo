@@ -27,7 +27,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
-import { computeItemsTotal } from '@/lib/invoiceTotals';
+import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -39,15 +39,17 @@ const LineItemInput = z.object({
   unitPrice: zPositiveInt,
 });
 
+const PackInput = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  items: z.array(LineItemInput).min(1).max(50),
+});
+
 const PatchBody = z.object({
   status: z.enum(PATCHABLE_STATUSES).optional(),
   clientId: z.string().min(1).optional(),
   projectId: z.string().min(1).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
-  // QUOTE only, transitional — same reasoning as POST /api/invoices: kept
-  // working exactly as today until PR3's pack builder replaces it with
-  // `packs`. Rejected for an INVOICE via the docType gate below.
-  amount: z.number().int().positive().optional(),
   currency: z.string().length(3).optional(),
   dueDate: z.string().datetime().nullable().optional(),
   // INVOICE-only bulk replace — the whole array is sent every time and the
@@ -56,6 +58,8 @@ const PatchBody = z.object({
   // per-row endpoints (no concurrent-editor race to guard against on a
   // DRAFT owned by a single user).
   lineItems: z.array(LineItemInput).min(1).max(100).optional(),
+  // QUOTE-only bulk replace, same reasoning as lineItems above.
+  packs: z.array(PackInput).min(1).max(20).optional(),
   depositAmount: z.number().int().min(0).nullable().optional(),
   deliveryDate: z.string().datetime().nullable().optional(),
   paymentMethodNote: z.string().max(300).nullable().optional(),
@@ -162,10 +166,10 @@ export async function PATCH(
       clientId,
       projectId,
       description,
-      amount,
       currency,
       dueDate,
       lineItems,
+      packs,
       depositAmount,
       deliveryDate,
       paymentMethodNote,
@@ -176,10 +180,10 @@ export async function PATCH(
       clientId !== undefined ||
       projectId !== undefined ||
       description !== undefined ||
-      amount !== undefined ||
       currency !== undefined ||
       dueDate !== undefined ||
       lineItems !== undefined ||
+      packs !== undefined ||
       depositAmount !== undefined ||
       deliveryDate !== undefined ||
       paymentMethodNote !== undefined ||
@@ -213,11 +217,11 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (existing.docType === 'INVOICE' && amount !== undefined) {
+    if (existing.docType === 'INVOICE' && packs !== undefined) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
-          message: 'amount is computed from lineItems for an invoice, do not send it directly',
+          message: 'packs is not supported for an invoice — use lineItems',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -263,10 +267,15 @@ export async function PATCH(
       }
     }
 
-    // newAmount: computed from lineItems (INVOICE) or taken as-is from
-    // `amount` (QUOTE, transitional) — the docType gate above guarantees
-    // these two are mutually exclusive, never both set on the same request.
-    const newAmount = lineItems !== undefined ? computeItemsTotal(lineItems) : amount;
+    // newAmount: computed from lineItems (INVOICE) or packs (QUOTE) — the
+    // docType gate above guarantees these two are mutually exclusive, never
+    // both set on the same request.
+    const newAmount =
+      lineItems !== undefined
+        ? computeItemsTotal(lineItems)
+        : packs !== undefined
+          ? computeQuoteTotal(packs)
+          : undefined;
     const finalAmount = newAmount !== undefined ? newAmount : existing.amount;
     const finalDeposit = depositAmount !== undefined ? depositAmount : existing.depositAmount;
     if (finalDeposit !== null && finalDeposit !== undefined && finalDeposit > finalAmount) {
@@ -295,22 +304,50 @@ export async function PATCH(
       ...(footerNote !== undefined ? { footerNote } : {}),
     };
 
-    const invoice =
-      lineItems !== undefined
-        ? await prisma.$transaction(async (tx) => {
-            await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id, packId: null } });
-            await tx.invoiceLineItem.createMany({
-              data: lineItems.map((item, i) => ({
-                invoiceId: id,
-                order: i + 1,
-                designation: item.designation,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-              })),
-            });
-            return tx.invoice.update({ where: { id }, data: updateData });
-          })
-        : await prisma.invoice.update({ where: { id }, data: updateData });
+    let invoice;
+    if (lineItems !== undefined) {
+      invoice = await prisma.$transaction(async (tx) => {
+        await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id, packId: null } });
+        await tx.invoiceLineItem.createMany({
+          data: lineItems.map((item, i) => ({
+            invoiceId: id,
+            order: i + 1,
+            designation: item.designation,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+        });
+        return tx.invoice.update({ where: { id }, data: updateData });
+      });
+    } else if (packs !== undefined) {
+      invoice = await prisma.$transaction(async (tx) => {
+        // Deleting the packs cascades their items (InvoiceLineItem.packId
+        // has onDelete: Cascade) — no separate item cleanup needed.
+        await tx.invoicePack.deleteMany({ where: { invoiceId: id } });
+        for (const [pi, pack] of packs.entries()) {
+          await tx.invoicePack.create({
+            data: {
+              invoiceId: id,
+              order: pi + 1,
+              title: pack.title,
+              ...(pack.description ? { description: pack.description } : {}),
+              items: {
+                create: pack.items.map((item, ii) => ({
+                  invoiceId: id,
+                  order: ii + 1,
+                  designation: item.designation,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                })),
+              },
+            },
+          });
+        }
+        return tx.invoice.update({ where: { id }, data: updateData });
+      });
+    } else {
+      invoice = await prisma.invoice.update({ where: { id }, data: updateData });
+    }
 
     return NextResponse.json(invoice, { headers: { 'x-request-id': reqCtx.requestId } });
   });

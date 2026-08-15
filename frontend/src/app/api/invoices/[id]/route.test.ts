@@ -299,19 +299,15 @@ describe('PATCH /api/invoices/[id]', () => {
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
 
-    it('amount against an INVOICE -> 400 VALIDATION_FAILED, no update', async () => {
-      const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
+    it('packs against an INVOICE -> 400 VALIDATION_FAILED, no update', async () => {
+      const res = await PATCH(
+        makePatch({
+          packs: [{ title: 'Offre', items: [{ designation: 'X', quantity: 1, unitPrice: 1000 }] }],
+        }),
+        ctxWith('i-1'),
+      );
       expect(res.status).toBe(400);
       expect(prismaMock.invoice.update).not.toHaveBeenCalled();
-    });
-
-    it('amount against a QUOTE (transitional) still works -> 200', async () => {
-      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
-      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
-      const res = await PATCH(makePatch({ amount: 90000 }), ctxWith('i-1'));
-      expect(res.status).toBe(200);
-      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
-      expect(updateArg?.data).toEqual({ amount: 90000 });
     });
 
     it('depositAmount alone (no lineItems) -> 200, amount left untouched', async () => {
@@ -364,6 +360,63 @@ describe('PATCH /api/invoices/[id]', () => {
       const res = await PATCH(makePatch({ depositAmount: 1000 }), ctxWith('i-1'));
       expect(res.status).toBe(400);
       expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('packs bulk-replace (QUOTE only)', () => {
+    it('packs on a DRAFT quote -> deleteMany + create loop in a transaction, amount recomputed across all packs', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      prismaMock.invoice.update.mockResolvedValue(
+        invoice({ docType: 'QUOTE', amount: 130000 }) as never,
+      );
+      prismaMock.invoicePack.create.mockResolvedValue({ id: 'pack-1' } as never);
+      const res = await PATCH(
+        makePatch({
+          packs: [
+            { title: 'Essentiel', items: [{ designation: 'Logo', quantity: 1, unitPrice: 50000 }] },
+            {
+              title: 'Premium',
+              items: [
+                { designation: 'Logo', quantity: 1, unitPrice: 50000 },
+                { designation: 'Charte graphique', quantity: 1, unitPrice: 30000 },
+              ],
+            },
+          ],
+        }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(200);
+      expect(prismaMock.invoicePack.deleteMany).toHaveBeenCalledWith({
+        where: { invoiceId: 'i-1' },
+      });
+      expect(prismaMock.invoicePack.create).toHaveBeenCalledTimes(2);
+      const firstPackArg = prismaMock.invoicePack.create.mock.calls[0]?.[0];
+      expect(firstPackArg?.data?.title).toBe('Essentiel');
+      expect(firstPackArg?.data?.items?.create).toEqual([
+        expect.objectContaining({
+          invoiceId: 'i-1',
+          order: 1,
+          designation: 'Logo',
+          quantity: 1,
+          unitPrice: 50000,
+        }),
+      ]);
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      // computeQuoteTotal across both packs (50000) + (50000+30000), not
+      // just the first pack — guards against a regression that only totals
+      // pack[0].
+      expect(updateArg?.data).toEqual({ amount: 130000 });
+    });
+
+    it('packs against an INVOICE -> 400 VALIDATION_FAILED, no transaction', async () => {
+      const res = await PATCH(
+        makePatch({
+          packs: [{ title: 'Offre', items: [{ designation: 'X', quantity: 1, unitPrice: 1000 }] }],
+        }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
   });
 });

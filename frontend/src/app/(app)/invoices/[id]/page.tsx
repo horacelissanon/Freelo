@@ -48,6 +48,13 @@ interface InvoiceLineItemRow {
   unitPrice: number;
 }
 
+interface InvoicePackRow {
+  id: string;
+  title: string;
+  description: string | null;
+  items: InvoiceLineItemRow[];
+}
+
 interface InvoiceDetail {
   id: string;
   number: string;
@@ -63,6 +70,7 @@ interface InvoiceDetail {
   relatedInvoice: InvoiceRelation | null;
   creditNote: InvoiceRelation | null;
   lineItems: InvoiceLineItemRow[];
+  packs: InvoicePackRow[];
   depositAmount: number | null;
   deliveryDate: string | null;
   paymentMethodNote: string | null;
@@ -238,6 +246,59 @@ export default function InvoiceDetailPage() {
                       </span>
                     </div>
                   ))}
+                </div>
+              ) : invoice.docType === 'QUOTE' && invoice.packs.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {invoice.packs.map((pack) => {
+                    const packTotal = pack.items.reduce(
+                      (sum, item) => sum + item.quantity * item.unitPrice,
+                      0,
+                    );
+                    return (
+                      <div
+                        key={pack.id}
+                        className="overflow-hidden rounded-md border border-border"
+                      >
+                        <div className="border-b border-border bg-secondary px-4 py-2.5">
+                          <p className="font-body text-sm font-semibold text-foreground">
+                            {pack.title}
+                          </p>
+                          {pack.description && (
+                            <p className="mt-0.5 font-body text-xs text-muted-foreground">
+                              {pack.description}
+                            </p>
+                          )}
+                        </div>
+                        {pack.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center border-b border-border px-4 py-3 last:border-b-0"
+                          >
+                            <span className="flex-1 font-body text-sm text-foreground">
+                              {item.designation}
+                            </span>
+                            <span className="w-12 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
+                              {item.quantity}
+                            </span>
+                            <span className="w-28 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
+                              {formatPrice(item.unitPrice)}
+                            </span>
+                            <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
+                              {formatPrice(item.quantity * item.unitPrice)}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-end gap-2 bg-secondary/50 px-4 py-2">
+                          <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
+                            Sous-total {pack.title}
+                          </span>
+                          <span className="font-body text-sm font-semibold text-foreground">
+                            {formatPrice(packTotal, invoice.currency)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border">
@@ -422,11 +483,15 @@ export default function InvoiceDetailPage() {
                     <button
                       type="button"
                       disabled={invoice.status !== 'DRAFT'}
-                      onClick={() => setEditOpen(true)}
+                      onClick={() =>
+                        invoice.docType === 'QUOTE'
+                          ? router.push(`/invoices/${invoice.id}/edit-quote`)
+                          : setEditOpen(true)
+                      }
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-40"
                     >
                       <Icon i="pen-line" size={14} />
-                      Modifier la facture
+                      {invoice.docType === 'QUOTE' ? 'Modifier le devis' : 'Modifier la facture'}
                     </button>
                     <InfoTooltip text="Modification possible uniquement au statut Brouillon, pour ne jamais changer une facture déjà envoyée au client." />
                   </div>
@@ -467,10 +532,8 @@ export default function InvoiceDetailPage() {
       {invoice && editOpen && (
         <Modal title="Modifier la facture" onClose={() => setEditOpen(false)} size="lg">
           <InvoiceForm
-            initialDocType={invoice.docType}
             invoice={{
               id: invoice.id,
-              docType: invoice.docType,
               clientId: invoice.client.id,
               projectId: invoice.project?.id ?? null,
               description: invoice.description,
