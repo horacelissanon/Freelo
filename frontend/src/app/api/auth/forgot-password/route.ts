@@ -105,6 +105,13 @@ export async function POST(req: NextRequest): Promise<Response> {
         });
       });
       log.info('forgot-password code issued', { userId: user.id });
+      // See signup/route.ts for why this is gated the same way.
+      if (process.env.NODE_ENV !== 'production' && !process.env.RESEND_API_KEY) {
+        log.info('forgot-password: no email provider — reset code for local testing', {
+          email,
+          code,
+        });
+      }
     } else {
       log.info('forgot-password no-user (enumeration-resist)');
     }

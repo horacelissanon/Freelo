@@ -143,6 +143,19 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
 
     log.info('signup new user');
+    // No email provider configured (local dev without RESEND_API_KEY) — the
+    // outbox event above will just retry-then-die since nothing can send it,
+    // so surface the code here instead. Gated on NODE_ENV as defense in
+    // depth: `!RESEND_API_KEY` alone already can't be true in a correctly
+    // configured prod deploy, but this ensures a misconfigured one still
+    // never prints a live code. logger.ts only redacts in production, so in
+    // dev this reaches the terminal in full — that's the point.
+    if (process.env.NODE_ENV !== 'production' && !process.env.RESEND_API_KEY) {
+      log.info('signup: no email provider — verification code for local testing', {
+        email,
+        code,
+      });
+    }
     const res = NextResponse.json({ ok: true }, { status: 201 });
     res.headers.set('x-request-id', ctx.requestId);
     return res;
