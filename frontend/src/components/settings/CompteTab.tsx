@@ -63,8 +63,6 @@ export function CompteTab({ user }: { user: User }) {
   );
   const [defaultCurrency, setDefaultCurrency] = useState(user.defaultCurrency);
   const [language, setLanguage] = useState(user.language);
-  const [entrepriseSubmitting, setEntrepriseSubmitting] = useState(false);
-  const [entrepriseError, setEntrepriseError] = useState<string | null>(null);
 
   const [exportPending, setExportPending] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -94,6 +92,10 @@ export function CompteTab({ user }: { user: User }) {
     }
   }
 
+  // Single unified save for the whole page — the bottom sticky bar is the
+  // only save action now (Personnel + Entreprise used to be two separate
+  // forms with their own submit buttons; the Entreprise card's own button
+  // was removed so every field on this page goes through one PATCH).
   async function saveProfile() {
     setSubmitting(true);
     setError(null);
@@ -101,7 +103,18 @@ export function CompteTab({ user }: { user: User }) {
       const name = [firstName.trim(), lastName.trim()].filter(Boolean).join(' ');
       await api('/api/auth/me', {
         method: 'PATCH',
-        body: { name, phone: phone.trim(), bio: bio.trim() },
+        body: {
+          name,
+          phone: phone.trim(),
+          bio: bio.trim(),
+          studioName: studioName.trim(),
+          taxId: taxId.trim(),
+          commerceRegistry: commerceRegistry.trim(),
+          address: address.trim(),
+          documentIdentity,
+          defaultCurrency,
+          language,
+        },
       });
       await refresh();
       setDirty(false);
@@ -118,37 +131,18 @@ export function CompteTab({ user }: { user: User }) {
     void saveProfile();
   }
 
-  async function onSubmitEntreprise(e: FormEvent) {
-    e.preventDefault();
-    setEntrepriseSubmitting(true);
-    setEntrepriseError(null);
-    try {
-      await api('/api/auth/me', {
-        method: 'PATCH',
-        body: {
-          studioName: studioName.trim(),
-          taxId: taxId.trim(),
-          commerceRegistry: commerceRegistry.trim(),
-          address: address.trim(),
-          documentIdentity,
-          defaultCurrency,
-          language,
-        },
-      });
-      await refresh();
-      toast('Informations mises à jour.', 'success');
-    } catch (err) {
-      setEntrepriseError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
-    } finally {
-      setEntrepriseSubmitting(false);
-    }
-  }
-
   function onCancel() {
     setFirstName(initialName.firstName);
     setLastName(initialName.lastName);
     setPhone(user.phone ?? '');
     setBio(user.bio ?? '');
+    setStudioName(user.studioName ?? '');
+    setTaxId(user.taxId ?? '');
+    setCommerceRegistry(user.commerceRegistry ?? '');
+    setAddress(user.address ?? '');
+    setDocumentIdentity(user.documentIdentity);
+    setDefaultCurrency(user.defaultCurrency);
+    setLanguage(user.language);
     setDirty(false);
     setError(null);
   }
@@ -220,225 +214,236 @@ export function CompteTab({ user }: { user: User }) {
         </div>
       </section>
 
-      <form
-        onSubmit={onSubmit}
-        className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card"
-      >
-        <h2 className="font-headings text-lg font-semibold text-foreground">
-          Informations personnelles
-        </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* One shared form for both cards below — display:contents so it
+          doesn't add an extra flex item and break the parent's gap-6. The
+          bottom sticky bar is the single save action for the whole page. */}
+      <form onSubmit={onSubmit} className="contents">
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <h2 className="font-headings text-lg font-semibold text-foreground">
+            Informations personnelles
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Prénom
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  markDirty();
+                }}
+                maxLength={100}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Nom
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => {
+                  setLastName(e.target.value);
+                  markDirty();
+                }}
+                maxLength={100}
+                className={inputClass}
+              />
+            </label>
+          </div>
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Prénom
+            Email
+            <div className="flex items-center gap-2">
+              <input
+                type="email"
+                value={user.email}
+                disabled
+                readOnly
+                className={`${inputClass} flex-1 opacity-60`}
+              />
+              {user.emailVerifiedAt ? (
+                <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-tag-green px-2.5 py-1 font-body text-xs font-medium text-tag-green-fg">
+                  <Icon i="check-circle" size={12} />
+                  Vérifié
+                </span>
+              ) : (
+                <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-tag-orange px-2.5 py-1 font-body text-xs font-medium text-tag-orange-fg">
+                  Non vérifié
+                </span>
+              )}
+            </div>
+          </label>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Téléphone
             <input
-              type="text"
-              value={firstName}
+              type="tel"
+              value={phone}
               onChange={(e) => {
-                setFirstName(e.target.value);
+                setPhone(e.target.value);
                 markDirty();
               }}
-              maxLength={100}
+              maxLength={30}
               className={inputClass}
             />
           </label>
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Nom
-            <input
-              type="text"
-              value={lastName}
+            Bio
+            <textarea
+              value={bio}
               onChange={(e) => {
-                setLastName(e.target.value);
+                setBio(e.target.value);
                 markDirty();
               }}
-              maxLength={100}
+              maxLength={1000}
+              rows={3}
               className={inputClass}
             />
           </label>
         </div>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Email
-          <div className="flex items-center gap-2">
-            <input
-              type="email"
-              value={user.email}
-              disabled
-              readOnly
-              className={`${inputClass} flex-1 opacity-60`}
-            />
-            {user.emailVerifiedAt ? (
-              <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-tag-green px-2.5 py-1 font-body text-xs font-medium text-tag-green-fg">
-                <Icon i="check-circle" size={12} />
-                Vérifié
-              </span>
-            ) : (
-              <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-tag-orange px-2.5 py-1 font-body text-xs font-medium text-tag-orange-fg">
-                Non vérifié
-              </span>
-            )}
+
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <div>
+            <h2 className="font-headings text-lg font-semibold text-foreground">Entreprise</h2>
+            <p className="font-body text-xs text-muted-foreground">
+              Ces informations apparaissent sur tes devis et factures.
+            </p>
           </div>
-        </label>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Téléphone
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value);
-              markDirty();
-            }}
-            maxLength={30}
-            className={inputClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Bio
-          <textarea
-            value={bio}
-            onChange={(e) => {
-              setBio(e.target.value);
-              markDirty();
-            }}
-            maxLength={1000}
-            rows={3}
-            className={inputClass}
-          />
-        </label>
+
+          <div>
+            <p className="font-body text-sm font-medium text-foreground">
+              Informations affichées sur tes documents
+            </p>
+            <p className="mb-2 font-body text-xs text-muted-foreground">
+              Choisis ce que tes clients voient en en-tête de tes devis et factures : ton identité
+              personnelle ou celle de ton entreprise.
+            </p>
+            <div className="inline-flex rounded-md border border-border p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setDocumentIdentity('PERSONAL');
+                  markDirty();
+                }}
+                className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                  documentIdentity === 'PERSONAL'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Personnelles
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDocumentIdentity('COMPANY');
+                  markDirty();
+                }}
+                className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                  documentIdentity === 'COMPANY'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Entreprise
+              </button>
+            </div>
+          </div>
+
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Nom de l&apos;entreprise
+            <input
+              type="text"
+              value={studioName}
+              onChange={(e) => {
+                setStudioName(e.target.value);
+                markDirty();
+              }}
+              maxLength={200}
+              className={inputClass}
+            />
+          </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Numéro fiscal / NIF
+              <input
+                type="text"
+                value={taxId}
+                onChange={(e) => {
+                  setTaxId(e.target.value);
+                  markDirty();
+                }}
+                maxLength={60}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Registre de commerce
+              <input
+                type="text"
+                value={commerceRegistry}
+                onChange={(e) => {
+                  setCommerceRegistry(e.target.value);
+                  markDirty();
+                }}
+                maxLength={60}
+                className={inputClass}
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Adresse
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                markDirty();
+              }}
+              maxLength={300}
+              className={inputClass}
+            />
+          </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Devise par défaut
+              <select
+                value={defaultCurrency}
+                onChange={(e) => {
+                  setDefaultCurrency(e.target.value);
+                  markDirty();
+                }}
+                className={inputClass}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Langue
+              <select
+                value={language}
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  markDirty();
+                }}
+                className={inputClass}
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </div>
         {error && (
           <p role="alert" className="font-body text-sm text-tag-red-fg">
             {error}
           </p>
         )}
-      </form>
-
-      <form
-        onSubmit={onSubmitEntreprise}
-        className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card"
-      >
-        <div>
-          <h2 className="font-headings text-lg font-semibold text-foreground">Entreprise</h2>
-          <p className="font-body text-xs text-muted-foreground">
-            Ces informations apparaissent sur tes devis et factures.
-          </p>
-        </div>
-
-        <div>
-          <p className="font-body text-sm font-medium text-foreground">
-            Informations affichées sur tes documents
-          </p>
-          <p className="mb-2 font-body text-xs text-muted-foreground">
-            Choisis ce que tes clients voient en en-tête de tes devis et factures : ton identité
-            personnelle ou celle de ton entreprise.
-          </p>
-          <div className="inline-flex rounded-md border border-border p-1">
-            <button
-              type="button"
-              onClick={() => setDocumentIdentity('PERSONAL')}
-              className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
-                documentIdentity === 'PERSONAL'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Personnelles
-            </button>
-            <button
-              type="button"
-              onClick={() => setDocumentIdentity('COMPANY')}
-              className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
-                documentIdentity === 'COMPANY'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Entreprise
-            </button>
-          </div>
-        </div>
-
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Nom de l&apos;entreprise
-          <input
-            type="text"
-            value={studioName}
-            onChange={(e) => setStudioName(e.target.value)}
-            maxLength={200}
-            className={inputClass}
-          />
-        </label>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Numéro fiscal / NIF
-            <input
-              type="text"
-              value={taxId}
-              onChange={(e) => setTaxId(e.target.value)}
-              maxLength={60}
-              className={inputClass}
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Registre de commerce
-            <input
-              type="text"
-              value={commerceRegistry}
-              onChange={(e) => setCommerceRegistry(e.target.value)}
-              maxLength={60}
-              className={inputClass}
-            />
-          </label>
-        </div>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Adresse
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            maxLength={300}
-            className={inputClass}
-          />
-        </label>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Devise par défaut
-            <select
-              value={defaultCurrency}
-              onChange={(e) => setDefaultCurrency(e.target.value)}
-              className={inputClass}
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Langue
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className={inputClass}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {entrepriseError && (
-          <p role="alert" className="font-body text-sm text-tag-red-fg">
-            {entrepriseError}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={entrepriseSubmitting}
-          className="mt-1 w-fit rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {entrepriseSubmitting ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
       </form>
 
       <section className="flex flex-col gap-4 rounded-lg border border-tag-red-fg/30 bg-canvas p-5 shadow-card">
