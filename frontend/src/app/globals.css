@@ -248,3 +248,30 @@ body {
 @utility animate-slide-up-in {
   animation: slide-up-in 180ms ease-out;
 }
+
+/* Scroll-reveal (components/marketing/ScrollReveal.tsx) — a transition, not
+   an @keyframes animation, since it's triggered by a class toggle on
+   intersection rather than on mount. Content stays fully visible with no
+   `.reveal` class at all (progressive enhancement — see the component's
+   comment), so this only ever makes things fade in earlier, never hides
+   content a no-JS visitor would otherwise see. */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 500ms ease-out,
+    transform 500ms ease-out;
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
