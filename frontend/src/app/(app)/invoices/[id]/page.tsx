@@ -220,14 +220,13 @@ export default function InvoiceDetailPage() {
                 </div>
               </div>
               <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => window.print()}
+                <a
+                  href={`/api/invoices/${invoice.id}/pdf`}
                   className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40 print:hidden"
                 >
                   <Icon i="download" size={13} />
                   Télécharger {invoice.docType === 'QUOTE' ? 'le devis' : 'la facture'}
-                </button>
+                </a>
                 <h1 className="font-headings text-2xl font-bold tracking-tight text-foreground">
                   {DOC_TYPE_LABELS[invoice.docType].long.toUpperCase()}
                 </h1>

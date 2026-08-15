@@ -688,14 +688,13 @@ function QuoteInvoiceDetail({
               <Icon i={statusColors.icon} size={12} />
               {INVOICE_STATUS_LABELS[invoice.status]}
             </div>
-            <button
-              type="button"
-              onClick={() => window.print()}
+            <a
+              href={`/api/track/${token}/pdf`}
               className="flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 font-body text-xs font-medium text-foreground shadow-sm print:hidden"
             >
               <Icon i="download" size={13} />
               Télécharger
-            </button>
+            </a>
           </div>
         </div>
 
@@ -943,14 +942,13 @@ function QuoteInvoiceDetail({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.print()}
+            <a
+              href={`/api/track/${token}/pdf`}
               className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2.5 font-body text-sm font-medium text-foreground hover:border-primary/40"
             >
               <Icon i="download" size={14} />
               <span className="hidden sm:inline">Télécharger</span>
-            </button>
+            </a>
             {isQuote && invoice.status === 'SENT' && (
               <button
                 type="button"
