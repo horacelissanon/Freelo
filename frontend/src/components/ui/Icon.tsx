@@ -74,6 +74,7 @@ import {
   Moon,
   Eye,
   EyeOff,
+  Star,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -149,6 +150,7 @@ const ICONS: Record<string, LucideIcon> = {
   moon: Moon,
   eye: Eye,
   'eye-off': EyeOff,
+  star: Star,
 };
 
 export interface IconProps {

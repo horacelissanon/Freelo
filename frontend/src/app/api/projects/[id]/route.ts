@@ -54,6 +54,7 @@ export async function GET(
         client: { select: { id: true, name: true, trackingToken: true } },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
+        review: { select: { rating: true, comment: true, createdAt: true } },
         invoices: {
           orderBy: [{ createdAt: 'desc' }],
           select: {
@@ -98,12 +99,13 @@ export async function GET(
     const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
     const balanceAmount = project.amount - depositAmount;
 
-    const { steps, comments, invoices, files, ...projectFields } = project;
+    const { steps, comments, review, invoices, files, ...projectFields } = project;
     return NextResponse.json(
       {
         project: projectFields,
         steps,
         comments,
+        review: review ?? null,
         invoices,
         files,
         deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },

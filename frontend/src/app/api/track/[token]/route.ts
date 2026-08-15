@@ -102,6 +102,7 @@ export async function GET(
         user: { select: { publicPortalEnabled: true } },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
+        review: { select: { rating: true, comment: true } },
       },
     });
 
@@ -123,7 +124,7 @@ export async function GET(
       const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
       const balanceAmount = project.amount - depositAmount;
 
-      const { steps, comments, client: projectClient, user, ...projectFields } = project;
+      const { steps, comments, review, client: projectClient, user, ...projectFields } = project;
       void user; // consumed above for the publicPortalEnabled gate; excluded from the response
       return NextResponse.json(
         {
@@ -131,6 +132,7 @@ export async function GET(
           project: { ...projectFields, client: { name: projectClient.name } },
           steps,
           comments,
+          review: review ?? null,
           deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
           balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
         },
