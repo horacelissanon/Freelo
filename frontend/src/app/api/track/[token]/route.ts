@@ -15,6 +15,7 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 
 interface PaidOrderMeta {
   projectId?: string;
@@ -150,7 +151,20 @@ export async function GET(
         issueDate: true,
         dueDate: true,
         client: { select: { name: true } },
-        user: { select: { publicPortalEnabled: true, studioName: true, name: true, bio: true } },
+        user: {
+          select: {
+            publicPortalEnabled: true,
+            documentIdentity: true,
+            studioName: true,
+            name: true,
+            email: true,
+            phone: true,
+            bio: true,
+            address: true,
+            taxId: true,
+            commerceRegistry: true,
+          },
+        },
         // lineItems always carries invoiceId, even for a QUOTE's pack items —
         // filter to packId:null for the flat (INVOICE) subset.
         lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
@@ -173,7 +187,10 @@ export async function GET(
       {
         kind: invoice.docType === 'QUOTE' ? 'quote' : 'invoice',
         invoice: invoiceFields,
-        provider: { name: invoiceUser.studioName || invoiceUser.name, bio: invoiceUser.bio },
+        provider: resolveDocumentIdentity({
+          ...invoiceUser,
+          documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+        }),
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

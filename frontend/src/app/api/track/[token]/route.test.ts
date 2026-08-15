@@ -127,9 +127,15 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       client: { name: 'Tekki Foods' },
       user: {
         publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
         studioName: 'Atelier X',
         name: null,
+        email: 'atelier@example.com',
+        phone: null,
         bio: 'Designer freelance.',
+        address: null,
+        taxId: null,
+        commerceRegistry: null,
       },
       lineItems: [],
       packs: [
@@ -156,7 +162,14 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
     expect(body.kind).toBe('quote');
     expect(body.invoice.packs).toHaveLength(1);
     expect(body.invoice.contentBlocks).toHaveLength(1);
-    expect(body.provider).toEqual({ name: 'Atelier X', bio: 'Designer freelance.' });
+    expect(body.provider).toEqual({
+      name: 'Atelier X',
+      bio: 'Designer freelance.',
+      phone: null,
+      address: null,
+      taxId: null,
+      commerceRegistry: null,
+    });
     expect(body.invoice.user).toBeUndefined();
   });
 

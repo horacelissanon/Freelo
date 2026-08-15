@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeItemsTotal, computeBalance } from '@/lib/invoiceTotals';
+import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -124,7 +125,7 @@ export function InvoiceForm({
   const lineItemsRef = useRef<HTMLDivElement>(null);
 
   const selectedClient = clients.find((c) => c.id === clientId);
-  const studioLabel = user?.studioName || user?.email || '';
+  const studioLabel = user ? resolveDocumentIdentity(user).name : '';
 
   function updateLineItem(index: number, field: keyof LineItemDraft, value: string) {
     setLineItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));

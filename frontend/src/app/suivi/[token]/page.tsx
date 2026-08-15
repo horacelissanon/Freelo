@@ -98,7 +98,14 @@ interface QuoteOrInvoiceView {
     paymentMethodNote: string | null;
     footerNote: string | null;
   };
-  provider: { name: string | null; bio: string | null };
+  provider: {
+    name: string;
+    bio: string | null;
+    phone: string | null;
+    address: string | null;
+    taxId: string | null;
+    commerceRegistry: string | null;
+  };
 }
 
 interface ProjectStep {
@@ -670,6 +677,11 @@ function QuoteInvoiceDetail({
             {provider.name && (
               <p className="mt-1 font-body text-sm text-white/80">Préparé par {provider.name}</p>
             )}
+            {(provider.address || provider.phone) && (
+              <p className="mt-0.5 font-body text-xs text-white/60">
+                {provider.address || provider.phone}
+              </p>
+            )}
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1.5 font-body text-xs font-medium text-white backdrop-blur-sm">
@@ -704,6 +716,16 @@ function QuoteInvoiceDetail({
         {provider.bio && (
           <p className="relative mt-4 border-t border-white/20 pt-4 font-body text-sm whitespace-pre-wrap text-white/90">
             {provider.bio}
+          </p>
+        )}
+        {(provider.taxId || provider.commerceRegistry) && (
+          <p className="relative mt-2 font-body text-xs text-white/60">
+            {[
+              provider.taxId && `NIF ${provider.taxId}`,
+              provider.commerceRegistry && `RCCM ${provider.commerceRegistry}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         )}
       </div>

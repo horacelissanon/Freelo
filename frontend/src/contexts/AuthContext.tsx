@@ -26,6 +26,7 @@ export interface User {
   taxId: string | null;
   commerceRegistry: string | null;
   address: string | null;
+  documentIdentity: 'PERSONAL' | 'COMPANY';
   defaultCurrency: string;
   language: string;
   showPaidInvoicesDefault: boolean;

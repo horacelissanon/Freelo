@@ -9,6 +9,7 @@ import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { formatPrice, formatLongDate, formatDate } from '@/lib/utils';
 import { computeBalance } from '@/lib/invoiceTotals';
+import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
@@ -103,6 +104,8 @@ export default function InvoiceDetailPage() {
 
   if (!user) return null;
 
+  const providerIdentity = resolveDocumentIdentity(user);
+
   async function copyClientLink() {
     if (!invoice) return;
     const url = `${window.location.origin}/suivi/${invoice.trackingToken}`;
@@ -117,11 +120,11 @@ export default function InvoiceDetailPage() {
   function sendClientLinkViaWhatsApp() {
     if (!invoice) return;
     const url = `${window.location.origin}/suivi/${invoice.trackingToken}`;
-    const studioLabel = user?.studioName || user?.name || user?.email || '';
+    const providerLabel = providerIdentity.name;
     const message =
       invoice.docType === 'QUOTE'
-        ? `Bonjour ${invoice.client.name}, voici votre devis ${invoice.number} de la part de ${studioLabel}. Vous pouvez le consulter et le valider directement en ligne ici : ${url}`
-        : `Bonjour ${invoice.client.name}, voici votre facture ${invoice.number} de la part de ${studioLabel}. Vous pouvez la consulter et suivre son règlement ici : ${url}`;
+        ? `Bonjour ${invoice.client.name}, voici votre devis ${invoice.number} de la part de ${providerLabel}. Vous pouvez le consulter et le valider directement en ligne ici : ${url}`
+        : `Bonjour ${invoice.client.name}, voici votre facture ${invoice.number} de la part de ${providerLabel}. Vous pouvez la consulter et suivre son règlement ici : ${url}`;
     const phoneDigits = invoice.client.phone?.replace(/[^0-9]/g, '');
     const waUrl = `https://wa.me/${phoneDigits || ''}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -202,15 +205,17 @@ export default function InvoiceDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-6">
               <div className="flex items-center gap-3">
                 <Avatar
-                  name={user.studioName || user.name || user.email}
+                  name={providerIdentity.name}
                   className="h-11 w-11 flex-shrink-0 text-base"
                 />
                 <div>
                   <p className="font-headings text-sm font-bold text-foreground">
-                    {user.studioName || user.name || user.email}
+                    {providerIdentity.name}
                   </p>
-                  {user.address && (
-                    <p className="font-body text-xs text-muted-foreground">{user.address}</p>
+                  {providerIdentity.address && (
+                    <p className="font-body text-xs text-muted-foreground">
+                      {providerIdentity.address}
+                    </p>
                   )}
                 </div>
               </div>
@@ -239,11 +244,24 @@ export default function InvoiceDetailPage() {
                   Prestataire
                 </p>
                 <p className="mt-1 font-body text-sm font-medium text-foreground">
-                  {user.studioName || user.name || user.email}
+                  {providerIdentity.name}
                 </p>
                 <p className="font-body text-xs text-muted-foreground">{user.email}</p>
-                {user.phone && (
-                  <p className="font-body text-xs text-muted-foreground">{user.phone}</p>
+                {providerIdentity.phone && (
+                  <p className="font-body text-xs text-muted-foreground">
+                    {providerIdentity.phone}
+                  </p>
+                )}
+                {(providerIdentity.taxId || providerIdentity.commerceRegistry) && (
+                  <p className="font-body text-xs text-muted-foreground">
+                    {[
+                      providerIdentity.taxId && `NIF ${providerIdentity.taxId}`,
+                      providerIdentity.commerceRegistry &&
+                        `RCCM ${providerIdentity.commerceRegistry}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
                 )}
               </div>
               <div>

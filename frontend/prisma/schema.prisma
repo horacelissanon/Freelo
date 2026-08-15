@@ -37,6 +37,11 @@ model User {
   // devis/factures alongside the tax ID once the freelancer fills it in.
   commerceRegistry  String?
   address           String?
+  // Which identity shows in the header of this user's devis/factures:
+  // PERSONAL (name/phone/bio) or COMPANY (studioName/address/taxId/
+  // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to
+  // COMPANY (matches the pre-existing studioName-first fallback behavior).
+  documentIdentity  String    @default("COMPANY") // PERSONAL | COMPANY
   defaultCurrency   String    @default("XOF")
   language          String    @default("fr")
   // showPaidInvoicesDefault: when false, /invoices pre-filters PAID docs out

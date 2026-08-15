@@ -58,10 +58,13 @@ export function CompteTab({ user }: { user: User }) {
   const [taxId, setTaxId] = useState(user.taxId ?? '');
   const [commerceRegistry, setCommerceRegistry] = useState(user.commerceRegistry ?? '');
   const [address, setAddress] = useState(user.address ?? '');
+  const [documentIdentity, setDocumentIdentity] = useState<'PERSONAL' | 'COMPANY'>(
+    user.documentIdentity,
+  );
   const [defaultCurrency, setDefaultCurrency] = useState(user.defaultCurrency);
   const [language, setLanguage] = useState(user.language);
-  const [studioSubmitting, setStudioSubmitting] = useState(false);
-  const [studioError, setStudioError] = useState<string | null>(null);
+  const [entrepriseSubmitting, setEntrepriseSubmitting] = useState(false);
+  const [entrepriseError, setEntrepriseError] = useState<string | null>(null);
 
   const [exportPending, setExportPending] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -115,10 +118,10 @@ export function CompteTab({ user }: { user: User }) {
     void saveProfile();
   }
 
-  async function onSubmitStudio(e: FormEvent) {
+  async function onSubmitEntreprise(e: FormEvent) {
     e.preventDefault();
-    setStudioSubmitting(true);
-    setStudioError(null);
+    setEntrepriseSubmitting(true);
+    setEntrepriseError(null);
     try {
       await api('/api/auth/me', {
         method: 'PATCH',
@@ -127,16 +130,17 @@ export function CompteTab({ user }: { user: User }) {
           taxId: taxId.trim(),
           commerceRegistry: commerceRegistry.trim(),
           address: address.trim(),
+          documentIdentity,
           defaultCurrency,
           language,
         },
       });
       await refresh();
-      toast('Informations du studio mises à jour.', 'success');
+      toast('Informations mises à jour.', 'success');
     } catch (err) {
-      setStudioError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+      setEntrepriseError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     } finally {
-      setStudioSubmitting(false);
+      setEntrepriseSubmitting(false);
     }
   }
 
@@ -307,17 +311,52 @@ export function CompteTab({ user }: { user: User }) {
       </form>
 
       <form
-        onSubmit={onSubmitStudio}
+        onSubmit={onSubmitEntreprise}
         className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card"
       >
         <div>
-          <h2 className="font-headings text-lg font-semibold text-foreground">Studio</h2>
+          <h2 className="font-headings text-lg font-semibold text-foreground">Entreprise</h2>
           <p className="font-body text-xs text-muted-foreground">
             Ces informations apparaissent sur tes devis et factures.
           </p>
         </div>
+
+        <div>
+          <p className="font-body text-sm font-medium text-foreground">
+            Informations affichées sur tes documents
+          </p>
+          <p className="mb-2 font-body text-xs text-muted-foreground">
+            Choisis ce que tes clients voient en en-tête de tes devis et factures : ton identité
+            personnelle ou celle de ton entreprise.
+          </p>
+          <div className="inline-flex rounded-md border border-border p-1">
+            <button
+              type="button"
+              onClick={() => setDocumentIdentity('PERSONAL')}
+              className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                documentIdentity === 'PERSONAL'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Personnelles
+            </button>
+            <button
+              type="button"
+              onClick={() => setDocumentIdentity('COMPANY')}
+              className={`rounded px-3 py-1.5 font-body text-sm font-medium transition-colors ${
+                documentIdentity === 'COMPANY'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Entreprise
+            </button>
+          </div>
+        </div>
+
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Nom du studio
+          Nom de l&apos;entreprise
           <input
             type="text"
             value={studioName}
@@ -388,17 +427,17 @@ export function CompteTab({ user }: { user: User }) {
             </select>
           </label>
         </div>
-        {studioError && (
+        {entrepriseError && (
           <p role="alert" className="font-body text-sm text-tag-red-fg">
-            {studioError}
+            {entrepriseError}
           </p>
         )}
         <button
           type="submit"
-          disabled={studioSubmitting}
+          disabled={entrepriseSubmitting}
           className="mt-1 w-fit rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
         >
-          {studioSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+          {entrepriseSubmitting ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
 

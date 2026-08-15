@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -37,11 +37,64 @@ const COLOR_DUOS: { name: string; sidebar: string; accent: AccentPreset }[] = [
   { name: 'Ardoise', sidebar: '#18181b', accent: 'slate' },
   { name: 'Bordeaux', sidebar: '#450a0a', accent: 'rose' },
   { name: 'Ambre', sidebar: '#431407', accent: 'orange' },
+  { name: 'Prune', sidebar: '#3b0e3f', accent: 'rose' },
 ];
 
 // Purely indicative — never blocks the freelance's choice, just flags when
 // the active-nav-item accent risks blending into the menu background.
 const HARMONY_THRESHOLD = 2.2;
+
+// Lets a freelance paste a brand hex code instead of dragging the native
+// color picker. Local draft state so mid-typing input (e.g. "#0" before the
+// rest of the digits) doesn't get rejected — only committed to the real
+// color state on blur/Enter, and only if it's a valid 6-digit hex; an
+// invalid value reverts to the last known-good color rather than erroring.
+function HexInput({
+  value,
+  onCommit,
+  ariaLabel,
+}: {
+  value: string;
+  onCommit: (hex: string) => void;
+  ariaLabel: string;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    const normalized = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+      const hex = normalized.toLowerCase();
+      onCommit(hex);
+      setDraft(hex);
+    } else {
+      setDraft(value);
+    }
+  }
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        }
+      }}
+      placeholder="#059669"
+      maxLength={7}
+      aria-label={ariaLabel}
+      className="w-24 flex-shrink-0 rounded-md border border-border bg-input px-2.5 py-2 font-mono text-xs text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+    />
+  );
+}
 
 function DuoSwatch({ sidebar, accent }: { sidebar: string; accent: string }) {
   return (
@@ -216,6 +269,11 @@ export function EspaceTab({ user }: { user: User }) {
               style={{ backgroundColor: sidebarColor }}
             />
           </label>
+          <HexInput
+            value={sidebarColor}
+            onCommit={setSidebarColor}
+            ariaLabel="Code hexadécimal du fond du menu"
+          />
           {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
             <button
               type="button"
@@ -244,7 +302,7 @@ export function EspaceTab({ user }: { user: User }) {
         <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
           S&apos;applique aux boutons, liens et éléments actifs de tout l&apos;espace de travail.
         </p>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {ACCENT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -281,6 +339,11 @@ export function EspaceTab({ user }: { user: User }) {
               <Icon i="palette" size={16} className="text-muted-foreground" />
             )}
           </label>
+          <HexInput
+            value={accentHex}
+            onCommit={setCustomAccent}
+            ariaLabel="Code hexadécimal de la couleur d'accent"
+          />
         </div>
       </section>
     </div>

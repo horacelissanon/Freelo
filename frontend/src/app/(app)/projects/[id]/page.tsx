@@ -10,6 +10,7 @@ import { useApi, invalidateCache } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
+import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
@@ -153,7 +154,7 @@ function ProjectDetailView({
   const statusColors = PROJECT_STATUS_COLORS[project.status];
   const trackingUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/suivi/${project.publicToken}` : '';
-  const studioLabel = user?.studioName || user?.name || user?.email || '';
+  const studioLabel = user ? resolveDocumentIdentity(user).name : '';
   const whatsappMessage = `Bonjour ${project.client.name}, voici le lien de suivi de votre projet « ${project.name} » avec ${studioLabel} : vous pourrez y consulter l'avancement, les étapes et les paiements en temps réel.\n\n${trackingUrl}`;
 
   const [pendingStepId, setPendingStepId] = useState<string | null>(null);
