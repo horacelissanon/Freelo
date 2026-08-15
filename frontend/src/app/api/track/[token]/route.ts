@@ -1,8 +1,14 @@
 // Public, unauthenticated project-tracking endpoint (Client Link Portal,
-// Phase C). One `token` param resolves against EITHER a Client.trackingToken
-// (client shares one link, sees all their projects) or a Project.publicToken
-// (a single project's rich detail: steps, comments, deposit/balance status).
-// The token IS the authorization — no login/CSRF involved. Read-only.
+// Phase C). One `token` param resolves against a Client.trackingToken
+// (client shares one link, sees all their projects + devis/factures), a
+// Project.publicToken (a single project's rich detail: steps, comments,
+// deposit/balance status), or an Invoice.trackingToken (a single devis/
+// facture, read-only — a QUOTE additionally exposes POST .../validate).
+// The token IS the authorization — no login/CSRF involved.
+//
+// An invoice/quote is only served once it has left DRAFT (never share a
+// link to something that hasn't been sent yet) — same anti-leak shape as
+// everywhere else here: 404, not a distinct "not ready" error.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -49,13 +55,31 @@ export async function GET(
             publicToken: true,
           },
         },
+        invoices: {
+          where: { status: { not: 'DRAFT' } },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            number: true,
+            docType: true,
+            status: true,
+            amount: true,
+            currency: true,
+            trackingToken: true,
+          },
+        },
       },
     });
 
     if (client) {
       if (!client.user.publicPortalEnabled) return notFound();
       return NextResponse.json(
-        { kind: 'client', client: { name: client.name }, projects: client.projects },
+        {
+          kind: 'client',
+          client: { name: client.name },
+          projects: client.projects,
+          invoices: client.invoices,
+        },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
@@ -80,35 +104,76 @@ export async function GET(
       },
     });
 
-    if (!project || !project.user.publicPortalEnabled) {
+    if (project) {
+      if (!project.user.publicPortalEnabled) return notFound();
+
+      // Deposit/balance status is derived from PAID Orders tagged with this
+      // project in `metadata` — no dedicated payment table (reuses the
+      // existing Order model rather than inventing a parallel one). Filtered
+      // at the DB level via a JSON path match, not loaded-then-filtered.
+      const paidOrders = await prisma.order.findMany({
+        where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
+        select: { metadata: true },
+      });
+      const paidKinds = new Set(
+        paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
+      );
+
+      const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
+      const balanceAmount = project.amount - depositAmount;
+
+      const { steps, comments, client: projectClient, user, ...projectFields } = project;
+      void user; // consumed above for the publicPortalEnabled gate; excluded from the response
+      return NextResponse.json(
+        {
+          kind: 'project',
+          project: { ...projectFields, client: { name: projectClient.name } },
+          steps,
+          comments,
+          deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
+          balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
+        },
+        { headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { trackingToken: token },
+      select: {
+        id: true,
+        number: true,
+        docType: true,
+        status: true,
+        description: true,
+        amount: true,
+        currency: true,
+        issueDate: true,
+        dueDate: true,
+        client: { select: { name: true } },
+        user: { select: { publicPortalEnabled: true, studioName: true, name: true, bio: true } },
+        // lineItems always carries invoiceId, even for a QUOTE's pack items —
+        // filter to packId:null for the flat (INVOICE) subset.
+        lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
+        packs: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
+        contentBlocks: { orderBy: [{ kind: 'asc' }, { order: 'asc' }] },
+        paymentTermsNote: true,
+        depositAmount: true,
+        deliveryDate: true,
+        paymentMethodNote: true,
+        footerNote: true,
+      },
+    });
+
+    if (!invoice || !invoice.user.publicPortalEnabled || invoice.status === 'DRAFT') {
       return notFound();
     }
 
-    // Deposit/balance status is derived from PAID Orders tagged with this
-    // project in `metadata` — no dedicated payment table (reuses the
-    // existing Order model rather than inventing a parallel one). Filtered
-    // at the DB level via a JSON path match, not loaded-then-filtered.
-    const paidOrders = await prisma.order.findMany({
-      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
-      select: { metadata: true },
-    });
-    const paidKinds = new Set(
-      paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
-    );
-
-    const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
-    const balanceAmount = project.amount - depositAmount;
-
-    const { steps, comments, client: projectClient, user, ...projectFields } = project;
-    void user; // consumed above for the publicPortalEnabled gate; excluded from the response
+    const { user: invoiceUser, ...invoiceFields } = invoice;
     return NextResponse.json(
       {
-        kind: 'project',
-        project: { ...projectFields, client: { name: projectClient.name } },
-        steps,
-        comments,
-        deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
-        balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
+        kind: invoice.docType === 'QUOTE' ? 'quote' : 'invoice',
+        invoice: invoiceFields,
+        provider: { name: invoiceUser.studioName || invoiceUser.name, bio: invoiceUser.bio },
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

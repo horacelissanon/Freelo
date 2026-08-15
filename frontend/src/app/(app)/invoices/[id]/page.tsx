@@ -84,6 +84,7 @@ interface InvoiceDetail {
   footerNote: string | null;
   paymentTermsNote: string | null;
   contentBlocks: QuoteContentBlockRow[];
+  trackingToken: string;
 }
 
 export default function InvoiceDetailPage() {
@@ -100,6 +101,17 @@ export default function InvoiceDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   if (!user) return null;
+
+  async function copyClientLink() {
+    if (!invoice) return;
+    const url = `${window.location.origin}/suivi/${invoice.trackingToken}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Lien copié.', 'success');
+    } catch {
+      toast('Impossible de copier le lien.', 'error');
+    }
+  }
 
   async function changeStatus(status: InvoiceStatus) {
     if (!invoice) return;
@@ -569,6 +581,16 @@ export default function InvoiceDetailPage() {
                   </dd>
                 </div>
               </dl>
+              {invoice.docType !== 'CREDIT_NOTE' && invoice.status !== 'DRAFT' && (
+                <button
+                  type="button"
+                  onClick={() => void copyClientLink()}
+                  className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-4 py-2 font-body text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                >
+                  <Icon i="link" size={13} />
+                  Copier le lien client
+                </button>
+              )}
             </div>
 
             {invoice.docType !== 'CREDIT_NOTE' && invoice.status !== 'CANCELED' && (

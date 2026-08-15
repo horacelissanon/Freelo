@@ -10,13 +10,19 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { formatPrice, formatDate } from '@/lib/utils';
+import { computeBalance } from '@/lib/invoiceTotals';
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
   STEP_STATUS_LABELS,
   STEP_STATUS_COLORS,
+  INVOICE_STATUS_LABELS,
+  INVOICE_STATUS_COLORS,
+  DOC_TYPE_LABELS,
   type ProjectStatus,
   type ProjectStepStatus,
+  type InvoiceStatus,
+  type InvoiceDocType,
 } from '@/lib/constants';
 
 interface ClientProjectRow {
@@ -31,10 +37,67 @@ interface ClientProjectRow {
   publicToken: string;
 }
 
+interface ClientInvoiceRow {
+  id: string;
+  number: string;
+  docType: InvoiceDocType;
+  status: InvoiceStatus;
+  amount: number;
+  currency: string;
+  trackingToken: string;
+}
+
 interface ClientView {
   kind: 'client';
   client: { name: string };
   projects: ClientProjectRow[];
+  invoices: ClientInvoiceRow[];
+}
+
+interface TrackedLineItem {
+  id: string;
+  designation: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+interface TrackedPack {
+  id: string;
+  title: string;
+  description: string | null;
+  items: TrackedLineItem[];
+}
+
+interface TrackedContentBlock {
+  id: string;
+  kind: string;
+  primaryText: string;
+  secondaryText: string | null;
+}
+
+interface QuoteOrInvoiceView {
+  kind: 'quote' | 'invoice';
+  invoice: {
+    id: string;
+    number: string;
+    docType: InvoiceDocType;
+    status: InvoiceStatus;
+    description: string | null;
+    amount: number;
+    currency: string;
+    issueDate: string;
+    dueDate: string | null;
+    client: { name: string };
+    lineItems: TrackedLineItem[];
+    packs: TrackedPack[];
+    contentBlocks: TrackedContentBlock[];
+    paymentTermsNote: string | null;
+    depositAmount: number | null;
+    deliveryDate: string | null;
+    paymentMethodNote: string | null;
+    footerNote: string | null;
+  };
+  provider: { name: string | null; bio: string | null };
 }
 
 interface ProjectStep {
@@ -74,7 +137,7 @@ interface ProjectView {
   balance: { amount: number; paid: boolean };
 }
 
-type TrackView = ClientView | ProjectView;
+type TrackView = ClientView | ProjectView | QuoteOrInvoiceView;
 
 function Brand() {
   return (
@@ -129,8 +192,10 @@ export default function TrackingPage() {
         </div>
       ) : view.kind === 'client' ? (
         <ClientProjectsList view={view} />
-      ) : (
+      ) : view.kind === 'project' ? (
         <ProjectDetail view={view} token={token} onRefresh={load} />
+      ) : (
+        <QuoteInvoiceDetail view={view} token={token} onRefresh={load} />
       )}
     </main>
   );
@@ -175,6 +240,40 @@ function ClientProjectsList({ view }: { view: ClientView }) {
           })
         )}
       </div>
+
+      {view.invoices.length > 0 && (
+        <>
+          <p className="mt-8 font-body text-xs tracking-widest text-muted-foreground uppercase">
+            Devis &amp; factures
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            {view.invoices.map((inv) => {
+              const colors = INVOICE_STATUS_COLORS[inv.status];
+              return (
+                <Link
+                  key={inv.id}
+                  href={`/suivi/${inv.trackingToken}`}
+                  className="flex items-center justify-between gap-4 rounded-md border border-border p-4 font-body hover:border-primary/40"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {DOC_TYPE_LABELS[inv.docType].long} {inv.number}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatPrice(inv.amount)} {inv.currency}
+                    </p>
+                  </div>
+                  <div
+                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${colors.bg} ${colors.fg}`}
+                  >
+                    {INVOICE_STATUS_LABELS[inv.status]}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -440,6 +539,337 @@ function ProjectDetail({
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function QuoteInvoiceDetail({
+  view,
+  token,
+  onRefresh,
+}: {
+  view: QuoteOrInvoiceView;
+  token: string;
+  onRefresh: () => void;
+}) {
+  const { invoice, provider } = view;
+  const isQuote = invoice.docType === 'QUOTE';
+  const statusColors = INVOICE_STATUS_COLORS[invoice.status];
+
+  const [validating, setValidating] = useState(false);
+  const [validateError, setValidateError] = useState<string | null>(null);
+
+  async function validate() {
+    setValidating(true);
+    setValidateError(null);
+    try {
+      const res = await fetch(`/api/track/${token}/validate`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setValidateError(data.message ?? 'Le devis n’a pas pu être validé.');
+        return;
+      }
+      onRefresh();
+    } catch {
+      setValidateError('Erreur réseau. Réessayez.');
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  const processBlocks = invoice.contentBlocks.filter((b) => b.kind === 'PROCESS');
+  const conditionBlocks = invoice.contentBlocks.filter((b) => b.kind === 'CONDITIONS');
+  const paymentBlocks = invoice.contentBlocks.filter((b) => b.kind === 'PAYMENT_METHOD');
+  const faqBlocks = invoice.contentBlocks.filter((b) => b.kind === 'FAQ');
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-body text-xs tracking-widest text-muted-foreground uppercase">
+              {DOC_TYPE_LABELS[invoice.docType].long} — {invoice.client.name}
+            </p>
+            <h1 className="mt-1 font-headings text-2xl font-bold text-foreground">
+              {invoice.number}
+            </h1>
+            {provider.name && (
+              <p className="mt-1 font-body text-sm text-muted-foreground">De {provider.name}</p>
+            )}
+          </div>
+          <div
+            className={`flex-shrink-0 rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${statusColors.bg} ${statusColors.fg}`}
+          >
+            {INVOICE_STATUS_LABELS[invoice.status]}
+          </div>
+        </div>
+
+        {provider.bio && (
+          <p className="mt-4 border-t border-border pt-4 font-body text-sm whitespace-pre-wrap text-foreground">
+            {provider.bio}
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+        <h2 className="mb-4 font-headings text-base font-bold text-foreground">
+          {isQuote ? 'Offres' : 'Prestations'}
+        </h2>
+
+        {isQuote ? (
+          <div className="flex flex-col gap-4">
+            {invoice.packs.map((pack) => {
+              const packTotal = pack.items.reduce(
+                (sum, item) => sum + item.quantity * item.unitPrice,
+                0,
+              );
+              return (
+                <div key={pack.id} className="overflow-hidden rounded-md border border-border">
+                  <div className="border-b border-border bg-secondary px-4 py-2.5">
+                    <p className="font-body text-sm font-semibold text-foreground">{pack.title}</p>
+                    {pack.description && (
+                      <p className="mt-0.5 font-body text-xs text-muted-foreground">
+                        {pack.description}
+                      </p>
+                    )}
+                  </div>
+                  {pack.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-b-0"
+                    >
+                      <span className="font-body text-sm text-foreground">
+                        {item.designation} × {item.quantity}
+                      </span>
+                      <span className="font-body text-sm font-medium text-foreground">
+                        {formatPrice(item.quantity * item.unitPrice)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-end gap-2 bg-secondary/50 px-4 py-2">
+                    <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
+                      Sous-total
+                    </span>
+                    <span className="font-body text-sm font-semibold text-foreground">
+                      {formatPrice(packTotal, invoice.currency)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-md border border-border">
+            {invoice.lineItems.length > 0 ? (
+              invoice.lineItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between border-b border-border px-4 py-2.5 last:border-b-0"
+                >
+                  <span className="font-body text-sm text-foreground">
+                    {item.designation} × {item.quantity}
+                  </span>
+                  <span className="font-body text-sm font-medium text-foreground">
+                    {formatPrice(item.quantity * item.unitPrice)}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="font-body text-sm text-foreground">
+                  {invoice.description || DOC_TYPE_LABELS[invoice.docType].long}
+                </span>
+                <span className="font-body text-sm font-medium text-foreground">
+                  {formatPrice(invoice.amount, invoice.currency)}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4 flex justify-end">
+          <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
+            <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
+              Total
+            </span>
+            <span className="font-headings text-base font-bold text-foreground">
+              {formatPrice(invoice.amount, invoice.currency)}
+            </span>
+          </div>
+        </div>
+
+        {!isQuote &&
+          (invoice.depositAmount != null || invoice.paymentMethodNote || invoice.deliveryDate) && (
+            <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 font-body text-sm sm:grid-cols-4">
+              {invoice.depositAmount != null && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Acompte</p>
+                  <p className="font-medium text-foreground">
+                    {formatPrice(invoice.depositAmount, invoice.currency)}
+                  </p>
+                </div>
+              )}
+              {invoice.depositAmount != null && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Solde</p>
+                  <p className="font-medium text-foreground">
+                    {formatPrice(
+                      computeBalance(invoice.amount, invoice.depositAmount),
+                      invoice.currency,
+                    )}
+                  </p>
+                </div>
+              )}
+              {invoice.paymentMethodNote && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Règlement</p>
+                  <p className="font-medium text-foreground">{invoice.paymentMethodNote}</p>
+                </div>
+              )}
+              {invoice.deliveryDate && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Livraison</p>
+                  <p className="font-medium text-foreground">{formatDate(invoice.deliveryDate)}</p>
+                </div>
+              )}
+            </div>
+          )}
+        {!isQuote && invoice.footerNote && (
+          <p className="mt-4 border-t border-border pt-4 font-body text-xs text-muted-foreground italic">
+            {invoice.footerNote}
+          </p>
+        )}
+      </div>
+
+      {isQuote && (processBlocks.length > 0 || conditionBlocks.length > 0) && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          {processBlocks.length > 0 && (
+            <div>
+              <h2 className="mb-3 font-headings text-base font-bold text-foreground">
+                Processus de travail
+              </h2>
+              <ol className="flex flex-col gap-2">
+                {processBlocks.map((b, i) => (
+                  <li key={b.id} className="font-body text-sm text-foreground">
+                    <span className="font-medium">
+                      {i + 1}. {b.primaryText}
+                    </span>
+                    {b.secondaryText && (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {b.secondaryText}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {conditionBlocks.length > 0 && (
+            <div className={processBlocks.length > 0 ? 'mt-6 border-t border-border pt-6' : ''}>
+              <h2 className="mb-3 font-headings text-base font-bold text-foreground">Conditions</h2>
+              <ol className="flex flex-col gap-2">
+                {conditionBlocks.map((b, i) => (
+                  <li key={b.id} className="font-body text-sm text-foreground">
+                    <span className="font-medium">
+                      {i + 1}. {b.primaryText}
+                    </span>
+                    {b.secondaryText && (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {b.secondaryText}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isQuote && (invoice.paymentTermsNote || paymentBlocks.length > 0) && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <h2 className="mb-3 font-headings text-base font-bold text-foreground">
+            Modalités de paiement
+          </h2>
+          {invoice.paymentTermsNote && (
+            <p className="font-body text-sm text-foreground">{invoice.paymentTermsNote}</p>
+          )}
+          {paymentBlocks.length > 0 && (
+            <div className="mt-3 flex flex-col gap-1.5">
+              {paymentBlocks.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                >
+                  <span className="font-body text-sm font-medium text-foreground">
+                    {b.primaryText}
+                  </span>
+                  {b.secondaryText && (
+                    <span className="font-body text-sm text-muted-foreground">
+                      {b.secondaryText}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 font-body text-xs text-muted-foreground">
+            À titre indicatif — aucun paiement en ligne n&apos;est traité à l&apos;étape du devis.
+          </p>
+        </div>
+      )}
+
+      {isQuote && faqBlocks.length > 0 && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <h2 className="mb-3 font-headings text-base font-bold text-foreground">
+            Questions fréquentes
+          </h2>
+          <div className="flex flex-col gap-3">
+            {faqBlocks.map((b) => (
+              <div key={b.id}>
+                <p className="font-body text-sm font-medium text-foreground">{b.primaryText}</p>
+                {b.secondaryText && (
+                  <p className="mt-0.5 font-body text-sm text-muted-foreground">
+                    {b.secondaryText}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isQuote && (
+        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          {invoice.status === 'ACCEPTED' ? (
+            <p className="flex items-center gap-2 font-body text-sm font-medium text-tag-green-fg">
+              <Icon i="check-circle" size={16} />
+              Vous avez validé ce devis.
+            </p>
+          ) : invoice.status === 'SENT' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void validate()}
+                disabled={validating}
+                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-3 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                <Icon i="check-circle" size={15} />
+                {validating ? 'Validation…' : 'Valider ce devis'}
+              </button>
+              {validateError && (
+                <p role="alert" className="mt-2 font-body text-sm text-tag-red-fg">
+                  {validateError}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="font-body text-sm text-muted-foreground">
+              Ce devis est {INVOICE_STATUS_LABELS[invoice.status].toLowerCase()}.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
