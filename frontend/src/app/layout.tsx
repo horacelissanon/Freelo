@@ -9,6 +9,7 @@ import { BottomNavStyleProvider } from '@/contexts/BottomNavStyleContext';
 import { AccentColorProvider } from '@/contexts/AccentColorContext';
 import { SidebarColorProvider } from '@/contexts/SidebarColorContext';
 import { SidebarShapeProvider } from '@/contexts/SidebarShapeContext';
+import { MobileNavStyleProvider } from '@/contexts/MobileNavStyleContext';
 import { ScopedColorGuard } from '@/components/ScopedColorGuard';
 import { APP_ROUTE_SEGMENTS } from '@/lib/appRoutes';
 
@@ -86,12 +87,14 @@ export default function RootLayout({
             <SidebarColorProvider>
               <SidebarShapeProvider>
                 <BottomNavStyleProvider>
-                  <ToastProvider>
-                    <AuthProvider>
-                      <ScopedColorGuard />
-                      {children}
-                    </AuthProvider>
-                  </ToastProvider>
+                  <MobileNavStyleProvider>
+                    <ToastProvider>
+                      <AuthProvider>
+                        <ScopedColorGuard />
+                        {children}
+                      </AuthProvider>
+                    </ToastProvider>
+                  </MobileNavStyleProvider>
                 </BottomNavStyleProvider>
               </SidebarShapeProvider>
             </SidebarColorProvider>

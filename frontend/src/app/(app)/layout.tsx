@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { MobileDrawer } from '@/components/layout/MobileDrawer';
 import { Avatar } from '@/components/ui/Avatar';
+import { Icon } from '@/components/ui/Icon';
 import {
   NotificationBell,
   type NotificationBellItem,
 } from '@/components/dashboard/NotificationBell';
 import { useUser } from '@/contexts/AuthContext';
 import { useSidebarShape } from '@/contexts/SidebarShapeContext';
+import { useMobileNavStyle } from '@/contexts/MobileNavStyleContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
@@ -21,8 +24,10 @@ const COLLAPSE_STORAGE_KEY = 'merrudit-sidebar-collapsed';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser();
   const { shape } = useSidebarShape();
+  const { navStyle } = useMobileNavStyle();
   const floating = shape === 'capsule' || shape === 'dock';
   const [collapsed, setCollapsed] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const notifications = useApi<{ items: NotificationBellItem[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
 
@@ -85,6 +90,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="border-b border-border bg-sidebar lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
+              {/* Hamburger only shown in 'drawer' mode (Paramètres → Espace →
+                  Navigation mobile) — in the default 'bottom' mode, BottomNav
+                  is the way to reach navigation, so there's nothing for this
+                  button to open. */}
+              {navStyle === 'drawer' && (
+                <button
+                  type="button"
+                  aria-label="Ouvrir le menu"
+                  onClick={() => setDrawerOpen(true)}
+                  className="-ml-1.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground"
+                >
+                  <Icon i="menu" size={20} />
+                </button>
+              )}
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
                 <span className="font-headings text-base font-bold text-primary-foreground">F</span>
               </div>
@@ -110,10 +129,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <main className="min-w-0 flex-1 pb-24 lg:pb-0">{children}</main>
+        {/* pb-24 reserves room for the floating BottomNav — not needed in
+            'drawer' mode, where mobile has no bottom-docked element. */}
+        <main className={`min-w-0 flex-1 ${navStyle === 'drawer' ? 'pb-6' : 'pb-24'} lg:pb-0`}>
+          {children}
+        </main>
 
-        <BottomNav />
-        <InstallPromptWidget variant="app" />
+        {navStyle === 'drawer' ? (
+          <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} shape={shape} />
+        ) : (
+          <BottomNav />
+        )}
+        <InstallPromptWidget variant="app" bottomNavVisible={navStyle === 'bottom'} />
       </div>
     </CreateMenuProvider>
   );

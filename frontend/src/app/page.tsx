@@ -112,6 +112,12 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
       'Propose plusieurs formules sur un même devis, chacune avec son acompte — ton client choisit en un clic.',
   },
   {
+    icon: 'file-check',
+    title: 'Une validation qui fait foi',
+    description:
+      'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
+  },
+  {
     icon: 'receipt',
     title: 'Factures multi-devises',
     description:
@@ -199,6 +205,12 @@ const FAQS: { question: string; answer: string }[] = [
     question: 'Mes clients doivent-ils créer un compte ?',
     answer:
       'Non. Le lien de suivi que tu partages s’ouvre directement — aucune inscription, aucun mot de passe côté client.',
+  },
+  {
+    question:
+      'Comment éviter qu’un client dise ne pas être au courant du prix ou de ce qui a été convenu ?',
+    answer:
+      'Ton client choisit et valide lui-même l’offre depuis son lien de suivi, sans compte à créer. Une fois le devis envoyé, son contenu est figé — impossible de le modifier après coup, côté freelance comme côté client. En cas de désaccord sur le prix ou de demande de modification, tu as toujours une référence claire de ce qui a réellement été accepté.',
   },
   {
     question: 'Mes clients paient-ils directement depuis Freelo ?',

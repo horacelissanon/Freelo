@@ -21,7 +21,16 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export function InstallPromptWidget({ variant = 'public' }: { variant?: 'public' | 'app' }) {
+export function InstallPromptWidget({
+  variant = 'public',
+  bottomNavVisible = true,
+}: {
+  variant?: 'public' | 'app';
+  /** Only relevant for variant='app' — false when the freelance uses the
+   *  'drawer' mobile nav style instead of BottomNav (Paramètres → Espace →
+   *  Navigation mobile), so there's nothing docked to the bottom to clear. */
+  bottomNavVisible?: boolean;
+}) {
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissed] = useState(true);
   const [platform, setPlatform] = useState<InstallPlatform>('desktop');
@@ -79,10 +88,13 @@ export function InstallPromptWidget({ variant = 'public' }: { variant?: 'public'
   if (!ready || dismissed) return null;
 
   // 'app' clears the mobile BottomNav (same bottom-24 margin its own
-  // pb-24 content clearance uses in (app)/layout.tsx); 'public' has no
-  // bottom nav to avoid.
+  // pb-24 content clearance uses in (app)/layout.tsx) when it's actually
+  // rendered; 'public' has no bottom nav to avoid, and neither does 'app'
+  // when the freelance is on the 'drawer' mobile nav style.
   const positionClass =
-    variant === 'app' ? 'bottom-24 right-4 sm:right-6 sm:bottom-6' : 'right-4 bottom-6 sm:right-6';
+    variant === 'app' && bottomNavVisible
+      ? 'bottom-24 right-4 sm:right-6 sm:bottom-6'
+      : 'right-4 bottom-6 sm:right-6';
 
   return (
     <>

@@ -9,6 +9,7 @@ import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyl
 import { useAccentColor, ACCENT_PRESET_HEX, type AccentColor } from '@/contexts/AccentColorContext';
 import { useSidebarColor, DEFAULT_SIDEBAR_COLOR } from '@/contexts/SidebarColorContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
+import { useMobileNavStyle, type MobileNavStyle } from '@/contexts/MobileNavStyleContext';
 import { contrastRatio } from '@/lib/color';
 import { Toggle } from '@/components/ui/Toggle';
 import { Icon } from '@/components/ui/Icon';
@@ -148,6 +149,50 @@ function SidebarShapeCard({
   );
 }
 
+// Miniature phone-frame preview for each mobile navigation style — a small
+// pill docked to the bottom for 'bottom' (the BottomNav look), a hamburger
+// glyph in the top-left corner for 'drawer' (MobileDrawer's trigger).
+function MobileNavStyleCard({
+  label,
+  variant,
+  active,
+  onClick,
+}: {
+  label: string;
+  variant: MobileNavStyle;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex flex-col items-center gap-2 rounded-lg border p-3 transition-colors ${
+        active ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-primary/40'
+      }`}
+    >
+      <div className="relative h-16 w-11 rounded-md bg-secondary/40 p-1">
+        <div className="h-full w-full rounded-sm bg-canvas" />
+        {variant === 'drawer' ? (
+          <span className="absolute top-1.5 left-1.5 flex h-2.5 w-2.5 flex-col justify-between">
+            <span className="h-[1.5px] w-full rounded-full bg-foreground/50" />
+            <span className="h-[1.5px] w-full rounded-full bg-foreground/50" />
+            <span className="h-[1.5px] w-full rounded-full bg-foreground/50" />
+          </span>
+        ) : (
+          <span className="absolute bottom-1.5 left-1/2 h-1.5 w-6 -translate-x-1/2 rounded-full bg-primary/70" />
+        )}
+      </div>
+      <span
+        className={`font-body text-xs font-medium ${active ? 'text-primary' : 'text-foreground'}`}
+      >
+        {label}
+      </span>
+    </button>
+  );
+}
+
 function DuoSwatch({ sidebar, accent }: { sidebar: string; accent: string }) {
   return (
     <span
@@ -169,6 +214,7 @@ export function EspaceTab({ user }: { user: User }) {
   const { accent, accentHex, setAccent, setCustomAccent } = useAccentColor();
   const { sidebarColor, setSidebarColor } = useSidebarColor();
   const { shape, setShape } = useSidebarShape();
+  const { navStyle, setNavStyle } = useMobileNavStyle();
 
   const [togglePending, setTogglePending] = useState<
     'showPaidInvoicesDefault' | 'publicPortalEnabled' | null
@@ -393,6 +439,34 @@ export function EspaceTab({ user }: { user: User }) {
             onClick={() => {
               setShape('dock');
               toast('Forme du menu : Dock.', 'success');
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+        <h2 className="font-headings text-lg font-semibold text-foreground">Navigation mobile</h2>
+        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+          Comment atteindre le menu sur téléphone : une barre flottante en bas de l&apos;écran, ou
+          un bouton en haut à gauche qui ouvre le menu latéral.
+        </p>
+        <div className="flex gap-3">
+          <MobileNavStyleCard
+            label="Menu du bas"
+            variant="bottom"
+            active={navStyle === 'bottom'}
+            onClick={() => {
+              setNavStyle('bottom');
+              toast('Navigation mobile : menu du bas.', 'success');
+            }}
+          />
+          <MobileNavStyleCard
+            label="Menu latéral"
+            variant="drawer"
+            active={navStyle === 'drawer'}
+            onClick={() => {
+              setNavStyle('drawer');
+              toast('Navigation mobile : menu latéral.', 'success');
             }}
           />
         </div>
