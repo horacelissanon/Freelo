@@ -18,18 +18,18 @@ function monthLabel(key: string): string {
 export function RevenueTrendCard({
   data,
   masked,
+  title = 'Revenus (6 derniers mois)',
 }: {
   data: RevenueTrendPoint[];
   masked?: boolean;
+  title?: string;
 }) {
   const max = Math.max(1, ...data.map((d) => d.amount));
   const hasRevenue = data.some((d) => d.amount > 0);
 
   return (
     <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-      <h2 className="mb-4 font-headings text-base font-semibold text-foreground">
-        Revenus (6 derniers mois)
-      </h2>
+      <h2 className="mb-4 font-headings text-base font-semibold text-foreground">{title}</h2>
       {!hasRevenue ? (
         <EmptyState
           icon="trending-up"

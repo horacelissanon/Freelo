@@ -51,10 +51,20 @@ const RIGHT_ITEMS = [
   { icon: 'file-text', label: 'Factures', href: '/invoices' },
 ] as const;
 
-const QUICK_ACTIONS: { icon: string; label: string; entity: CreateEntity }[] = [
-  { icon: 'folder-open', label: 'Nouveau projet', entity: 'project' },
-  { icon: 'users', label: 'Nouveau client', entity: 'client' },
-  { icon: 'file-text', label: 'Nouveau devis', entity: 'quote' },
+// Mixes create-actions (open the create modal) with plain navigation links
+// (Statistiques, Avis clients) — sections with no dedicated slot among the 4
+// fixed LEFT_ITEMS/RIGHT_ITEMS, so they ride the central FAB's popup instead
+// of forcing a 5th/6th fixed icon onto the bar.
+type QuickMenuItem =
+  | { kind: 'create'; icon: string; label: string; entity: CreateEntity }
+  | { kind: 'link'; icon: string; label: string; href: string };
+
+const QUICK_MENU: QuickMenuItem[] = [
+  { kind: 'create', icon: 'folder-open', label: 'Nouveau projet', entity: 'project' },
+  { kind: 'create', icon: 'users', label: 'Nouveau client', entity: 'client' },
+  { kind: 'create', icon: 'file-text', label: 'Nouveau devis', entity: 'quote' },
+  { kind: 'link', icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
+  { kind: 'link', icon: 'star', label: 'Avis clients', href: '/reviews' },
 ];
 
 function NavItem({
@@ -117,20 +127,32 @@ export function BottomNav() {
 
         {menuOpen && (
           <div className="animate-scale-in absolute bottom-full left-1/2 mb-3 w-52 -translate-x-1/2 origin-bottom rounded-lg border border-border bg-canvas shadow-card p-2 shadow-xl">
-            {QUICK_ACTIONS.map((action) => (
-              <button
-                key={action.entity}
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  openCreate(action.entity);
-                }}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
-              >
-                <Icon i={action.icon} size={16} />
-                {action.label}
-              </button>
-            ))}
+            {QUICK_MENU.map((item) =>
+              item.kind === 'create' ? (
+                <button
+                  key={item.entity}
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openCreate(item.entity);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+                >
+                  <Icon i={item.icon} size={16} />
+                  {item.label}
+                </button>
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+                >
+                  <Icon i={item.icon} size={16} />
+                  {item.label}
+                </Link>
+              ),
+            )}
           </div>
         )}
 
@@ -147,13 +169,13 @@ export function BottomNav() {
           <div className="flex flex-1 justify-center">
             <button
               type="button"
-              aria-label={menuOpen ? 'Fermer les actions rapides' : 'Actions rapides'}
+              aria-label={menuOpen ? 'Fermer le menu rapide' : 'Menu rapide'}
               onClick={() => setMenuOpen((v) => !v)}
               className={`-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ${
                 glass !== 'off' ? 'ring-2 ring-white/25' : ''
               }`}
             >
-              <Icon i={menuOpen ? 'x' : 'plus'} size={24} />
+              <Icon i={menuOpen ? 'x' : 'layout-grid'} size={24} />
             </button>
           </div>
 

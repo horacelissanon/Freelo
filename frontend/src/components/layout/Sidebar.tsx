@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { icon: 'folder-open', label: 'Projets', href: '/projects' },
   { icon: 'users', label: 'Clients', href: '/clients' },
   { icon: 'file-text', label: 'Devis & Factures', href: '/invoices' },
+  { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
 ] as const;
 
