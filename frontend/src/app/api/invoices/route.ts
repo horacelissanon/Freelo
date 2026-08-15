@@ -42,23 +42,39 @@ const PackInput = z.object({
   items: z.array(LineItemInput).min(1).max(50),
 });
 
+const ContentBlockInput = z.object({
+  kind: z.enum(['PROCESS', 'CONDITIONS', 'PAYMENT_METHOD', 'FAQ']),
+  primaryText: z.string().min(1).max(500),
+  secondaryText: z.string().max(2000).optional(),
+});
+
 const Body = z
   .object({
     clientId: z.string().min(1),
-    projectId: z.string().min(1).optional(),
+    // Nullable, not just optional: the create forms reuse the same
+    // shared-payload shape as their PATCH counterpart, which sends explicit
+    // `null` for "left blank" rather than omitting the key — .optional()
+    // alone rejects `null` (invalid_type), which silently 400'd every
+    // creation with an empty project/description/due-date/etc field.
+    projectId: z.string().min(1).nullable().optional(),
     docType: z.enum(['INVOICE', 'QUOTE']),
-    description: z.string().max(500).optional(),
+    description: z.string().max(500).nullable().optional(),
     // INVOICE only.
     lineItems: z.array(LineItemInput).min(1).max(100).optional(),
     // QUOTE only.
     packs: z.array(PackInput).min(1).max(20).optional(),
+    // QUOTE only, optional — additional devis sections (Processus/Conditions/
+    // Modalités de paiement/FAQ), pre-filled client-side from the user's
+    // last quote ("last quote as template" — see QuoteBuilderForm.tsx).
+    contentBlocks: z.array(ContentBlockInput).max(80).optional(),
+    paymentTermsNote: z.string().max(2000).nullable().optional(),
     currency: z.string().length(3).default('XOF'),
-    dueDate: z.string().datetime().optional(),
+    dueDate: z.string().datetime().nullable().optional(),
     // INVOICE only — Acompte/Livraison/Règlement/Note de bas de page.
-    depositAmount: z.number().int().min(0).optional(),
-    deliveryDate: z.string().datetime().optional(),
-    paymentMethodNote: z.string().max(300).optional(),
-    footerNote: z.string().max(1000).optional(),
+    depositAmount: z.number().int().min(0).nullable().optional(),
+    deliveryDate: z.string().datetime().nullable().optional(),
+    paymentMethodNote: z.string().max(300).nullable().optional(),
+    footerNote: z.string().max(1000).nullable().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.docType === 'INVOICE') {
@@ -74,6 +90,13 @@ const Body = z
           code: z.ZodIssueCode.custom,
           path: ['packs'],
           message: 'packs is not supported for an invoice',
+        });
+      }
+      if (data.contentBlocks !== undefined || data.paymentTermsNote !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['docType'],
+          message: 'contentBlocks/paymentTermsNote are quote-only fields',
         });
       }
     } else {
@@ -170,6 +193,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       description,
       lineItems,
       packs,
+      contentBlocks,
+      paymentTermsNote,
       currency,
       dueDate,
       depositAmount,
@@ -222,7 +247,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const computedAmount =
       docType === 'INVOICE' ? computeItemsTotal(lineItems!) : computeQuoteTotal(packs!);
 
-    if (depositAmount !== undefined && depositAmount > computedAmount) {
+    if (depositAmount != null && depositAmount > computedAmount) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
@@ -252,6 +277,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         amount: computedAmount,
         currency,
         ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+        ...(docType === 'QUOTE' && paymentTermsNote ? { paymentTermsNote } : {}),
       };
 
       try {
@@ -298,6 +324,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                     })),
                   },
                 },
+              });
+            }
+            if (contentBlocks && contentBlocks.length > 0) {
+              const kindCounters: Record<string, number> = {};
+              await tx.quoteContentBlock.createMany({
+                data: contentBlocks.map((block) => {
+                  const order = (kindCounters[block.kind] = (kindCounters[block.kind] ?? 0) + 1);
+                  return {
+                    invoiceId: created.id,
+                    kind: block.kind,
+                    order,
+                    primaryText: block.primaryText,
+                    ...(block.secondaryText ? { secondaryText: block.secondaryText } : {}),
+                  };
+                }),
               });
             }
             return created;

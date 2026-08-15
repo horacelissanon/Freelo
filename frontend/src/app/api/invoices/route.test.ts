@@ -137,6 +137,57 @@ describe('POST /api/invoices', () => {
     expect(prismaMock.invoice.create).not.toHaveBeenCalled();
   });
 
+  it('null projectId/description/dueDate on create -> 201, fields omitted (not rejected)', async () => {
+    // Regression: the create forms send explicit `null` for a blank
+    // optional field (same shared-payload shape as their PATCH branch),
+    // not `undefined` — a bare .optional() schema rejects null outright.
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        docType: 'INVOICE',
+        lineItems: oneLineItem(1000),
+        projectId: null,
+        description: null,
+        dueDate: null,
+        depositAmount: null,
+        deliveryDate: null,
+        paymentMethodNote: null,
+        footerNote: null,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+    expect(createArg?.data).not.toHaveProperty('projectId');
+    expect(createArg?.data).not.toHaveProperty('description');
+    expect(createArg?.data).not.toHaveProperty('dueDate');
+    expect(createArg?.data).not.toHaveProperty('deliveryDate');
+    expect(createArg?.data).not.toHaveProperty('paymentMethodNote');
+    expect(createArg?.data).not.toHaveProperty('footerNote');
+  });
+
+  it('null paymentTermsNote on a QUOTE create -> 201, field omitted', async () => {
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.create.mockResolvedValue(invoice({ number: 'QT-2026-001' }) as never);
+    prismaMock.invoicePack.create.mockResolvedValue({ id: 'pack-1' } as never);
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        docType: 'QUOTE',
+        packs: onePack(50000),
+        projectId: null,
+        description: null,
+        dueDate: null,
+        paymentTermsNote: null,
+      }),
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+    expect(createArg?.data).not.toHaveProperty('projectId');
+    expect(createArg?.data).not.toHaveProperty('paymentTermsNote');
+  });
+
   it('INVOICE with count=0 -> number "{year}-001"', async () => {
     const year = new Date().getFullYear();
     prismaMock.invoice.count.mockResolvedValue(0 as never);
@@ -302,6 +353,79 @@ describe('POST /api/invoices', () => {
           unitPrice: 50000,
         }),
       ]);
+    });
+
+    it('INVOICE with contentBlocks -> 400 VALIDATION_FAILED (quote-only field)', async () => {
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          lineItems: oneLineItem(1000),
+          contentBlocks: [{ kind: 'FAQ', primaryText: 'Question ?', secondaryText: 'Réponse.' }],
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('INVOICE with paymentTermsNote -> 400 VALIDATION_FAILED (quote-only field)', async () => {
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'INVOICE',
+          lineItems: oneLineItem(1000),
+          paymentTermsNote: 'Un acompte de 50% est demandé.',
+        }),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('QUOTE with contentBlocks -> createMany with per-kind sequential order, paymentTermsNote persisted', async () => {
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice({ number: 'QT-2026-001' }) as never);
+      prismaMock.invoicePack.create.mockResolvedValue({ id: 'pack-1' } as never);
+      const res = await POST(
+        makePost({
+          clientId: 'c-1',
+          docType: 'QUOTE',
+          packs: onePack(50000),
+          paymentTermsNote: 'Un acompte de 50% est demandé avant le démarrage.',
+          contentBlocks: [
+            { kind: 'PROCESS', primaryText: 'Brief', secondaryText: 'On cadre le besoin.' },
+            { kind: 'PROCESS', primaryText: 'Livraison' },
+            { kind: 'FAQ', primaryText: 'Combien de temps ?', secondaryText: '2 semaines.' },
+          ],
+        }),
+      );
+      expect(res.status).toBe(201);
+      const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+      expect(createArg?.data?.paymentTermsNote).toBe(
+        'Un acompte de 50% est demandé avant le démarrage.',
+      );
+      expect(prismaMock.quoteContentBlock.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'PROCESS',
+            order: 1,
+            primaryText: 'Brief',
+            secondaryText: 'On cadre le besoin.',
+          }),
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'PROCESS',
+            order: 2,
+            primaryText: 'Livraison',
+          }),
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'FAQ',
+            order: 1,
+            primaryText: 'Combien de temps ?',
+          }),
+        ],
+      });
     });
 
     it('depositAmount greater than the computed total -> 400 VALIDATION_FAILED', async () => {

@@ -15,6 +15,7 @@ interface QuoteDetail {
   description: string | null;
   currency: string;
   dueDate: string | null;
+  paymentTermsNote: string | null;
   client: { id: string };
   project: { id: string } | null;
   packs: {
@@ -22,6 +23,7 @@ interface QuoteDetail {
     description: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
   }[];
+  contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
 }
 
 export default function EditQuotePage() {
@@ -64,7 +66,9 @@ export default function EditQuotePage() {
             description: quote.description,
             currency: quote.currency,
             dueDate: quote.dueDate,
+            paymentTermsNote: quote.paymentTermsNote,
             packs: quote.packs,
+            contentBlocks: quote.contentBlocks,
           }}
         />
       )}

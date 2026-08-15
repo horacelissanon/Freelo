@@ -45,6 +45,12 @@ const PackInput = z.object({
   items: z.array(LineItemInput).min(1).max(50),
 });
 
+const ContentBlockInput = z.object({
+  kind: z.enum(['PROCESS', 'CONDITIONS', 'PAYMENT_METHOD', 'FAQ']),
+  primaryText: z.string().min(1).max(500),
+  secondaryText: z.string().max(2000).optional(),
+});
+
 const PatchBody = z.object({
   status: z.enum(PATCHABLE_STATUSES).optional(),
   clientId: z.string().min(1).optional(),
@@ -60,6 +66,9 @@ const PatchBody = z.object({
   lineItems: z.array(LineItemInput).min(1).max(100).optional(),
   // QUOTE-only bulk replace, same reasoning as lineItems above.
   packs: z.array(PackInput).min(1).max(20).optional(),
+  // QUOTE-only bulk replace — same reasoning as packs above.
+  contentBlocks: z.array(ContentBlockInput).max(80).optional(),
+  paymentTermsNote: z.string().max(2000).nullable().optional(),
   depositAmount: z.number().int().min(0).nullable().optional(),
   deliveryDate: z.string().datetime().nullable().optional(),
   paymentMethodNote: z.string().max(300).nullable().optional(),
@@ -91,6 +100,7 @@ export async function GET(
         // is the real per-pack list for a QUOTE.
         lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
         packs: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
+        contentBlocks: { orderBy: [{ kind: 'asc' }, { order: 'asc' }] },
       },
     });
 
@@ -170,6 +180,8 @@ export async function PATCH(
       dueDate,
       lineItems,
       packs,
+      contentBlocks,
+      paymentTermsNote,
       depositAmount,
       deliveryDate,
       paymentMethodNote,
@@ -184,6 +196,8 @@ export async function PATCH(
       dueDate !== undefined ||
       lineItems !== undefined ||
       packs !== undefined ||
+      contentBlocks !== undefined ||
+      paymentTermsNote !== undefined ||
       depositAmount !== undefined ||
       deliveryDate !== undefined ||
       paymentMethodNote !== undefined ||
@@ -217,11 +231,15 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (existing.docType === 'INVOICE' && packs !== undefined) {
+    if (
+      existing.docType === 'INVOICE' &&
+      (packs !== undefined || contentBlocks !== undefined || paymentTermsNote !== undefined)
+    ) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
-          message: 'packs is not supported for an invoice — use lineItems',
+          message:
+            'packs/contentBlocks/paymentTermsNote are not supported for an invoice — use lineItems',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -302,46 +320,65 @@ export async function PATCH(
         : {}),
       ...(paymentMethodNote !== undefined ? { paymentMethodNote } : {}),
       ...(footerNote !== undefined ? { footerNote } : {}),
+      ...(paymentTermsNote !== undefined ? { paymentTermsNote } : {}),
     };
 
     let invoice;
-    if (lineItems !== undefined) {
+    if (lineItems !== undefined || packs !== undefined || contentBlocks !== undefined) {
       invoice = await prisma.$transaction(async (tx) => {
-        await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id, packId: null } });
-        await tx.invoiceLineItem.createMany({
-          data: lineItems.map((item, i) => ({
-            invoiceId: id,
-            order: i + 1,
-            designation: item.designation,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-        });
-        return tx.invoice.update({ where: { id }, data: updateData });
-      });
-    } else if (packs !== undefined) {
-      invoice = await prisma.$transaction(async (tx) => {
-        // Deleting the packs cascades their items (InvoiceLineItem.packId
-        // has onDelete: Cascade) — no separate item cleanup needed.
-        await tx.invoicePack.deleteMany({ where: { invoiceId: id } });
-        for (const [pi, pack] of packs.entries()) {
-          await tx.invoicePack.create({
-            data: {
+        if (lineItems !== undefined) {
+          await tx.invoiceLineItem.deleteMany({ where: { invoiceId: id, packId: null } });
+          await tx.invoiceLineItem.createMany({
+            data: lineItems.map((item, i) => ({
               invoiceId: id,
-              order: pi + 1,
-              title: pack.title,
-              ...(pack.description ? { description: pack.description } : {}),
-              items: {
-                create: pack.items.map((item, ii) => ({
-                  invoiceId: id,
-                  order: ii + 1,
-                  designation: item.designation,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                })),
-              },
-            },
+              order: i + 1,
+              designation: item.designation,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+            })),
           });
+        }
+        if (packs !== undefined) {
+          // Deleting the packs cascades their items (InvoiceLineItem.packId
+          // has onDelete: Cascade) — no separate item cleanup needed.
+          await tx.invoicePack.deleteMany({ where: { invoiceId: id } });
+          for (const [pi, pack] of packs.entries()) {
+            await tx.invoicePack.create({
+              data: {
+                invoiceId: id,
+                order: pi + 1,
+                title: pack.title,
+                ...(pack.description ? { description: pack.description } : {}),
+                items: {
+                  create: pack.items.map((item, ii) => ({
+                    invoiceId: id,
+                    order: ii + 1,
+                    designation: item.designation,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                  })),
+                },
+              },
+            });
+          }
+        }
+        if (contentBlocks !== undefined) {
+          await tx.quoteContentBlock.deleteMany({ where: { invoiceId: id } });
+          if (contentBlocks.length > 0) {
+            const kindCounters: Record<string, number> = {};
+            await tx.quoteContentBlock.createMany({
+              data: contentBlocks.map((block) => {
+                const order = (kindCounters[block.kind] = (kindCounters[block.kind] ?? 0) + 1);
+                return {
+                  invoiceId: id,
+                  kind: block.kind,
+                  order,
+                  primaryText: block.primaryText,
+                  ...(block.secondaryText ? { secondaryText: block.secondaryText } : {}),
+                };
+              }),
+            });
+          }
         }
         return tx.invoice.update({ where: { id }, data: updateData });
       });

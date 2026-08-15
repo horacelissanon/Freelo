@@ -419,6 +419,81 @@ describe('PATCH /api/invoices/[id]', () => {
       expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
   });
+
+  describe('contentBlocks bulk-replace (QUOTE only)', () => {
+    it('contentBlocks on a DRAFT quote -> deleteMany + createMany with per-kind sequential order', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(
+        makePatch({
+          contentBlocks: [
+            { kind: 'PROCESS', primaryText: 'Brief', secondaryText: 'On cadre le besoin.' },
+            { kind: 'PROCESS', primaryText: 'Livraison' },
+            { kind: 'FAQ', primaryText: 'Combien de temps ?', secondaryText: '2 semaines.' },
+          ],
+        }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(200);
+      expect(prismaMock.quoteContentBlock.deleteMany).toHaveBeenCalledWith({
+        where: { invoiceId: 'i-1' },
+      });
+      expect(prismaMock.quoteContentBlock.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'PROCESS',
+            order: 1,
+            primaryText: 'Brief',
+            secondaryText: 'On cadre le besoin.',
+          }),
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'PROCESS',
+            order: 2,
+            primaryText: 'Livraison',
+          }),
+          expect.objectContaining({
+            invoiceId: 'i-1',
+            kind: 'FAQ',
+            order: 1,
+            primaryText: 'Combien de temps ?',
+          }),
+        ],
+      });
+    });
+
+    it('contentBlocks: [] on a DRAFT quote -> deleteMany, no createMany (clears every section)', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(makePatch({ contentBlocks: [] }), ctxWith('i-1'));
+      expect(res.status).toBe(200);
+      expect(prismaMock.quoteContentBlock.deleteMany).toHaveBeenCalledWith({
+        where: { invoiceId: 'i-1' },
+      });
+      expect(prismaMock.quoteContentBlock.createMany).not.toHaveBeenCalled();
+    });
+
+    it('paymentTermsNote updates independently on a DRAFT quote', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      await PATCH(
+        makePatch({ paymentTermsNote: 'Un acompte de 50% est demandé.' }),
+        ctxWith('i-1'),
+      );
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data).toEqual({ paymentTermsNote: 'Un acompte de 50% est demandé.' });
+    });
+
+    it('contentBlocks/paymentTermsNote against an INVOICE -> 400 VALIDATION_FAILED, no transaction', async () => {
+      const res = await PATCH(
+        makePatch({ contentBlocks: [{ kind: 'FAQ', primaryText: 'Question ?' }] }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(400);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe('DELETE /api/invoices/[id]', () => {

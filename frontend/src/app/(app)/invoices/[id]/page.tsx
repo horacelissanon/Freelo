@@ -55,6 +55,13 @@ interface InvoicePackRow {
   items: InvoiceLineItemRow[];
 }
 
+interface QuoteContentBlockRow {
+  id: string;
+  kind: string;
+  primaryText: string;
+  secondaryText: string | null;
+}
+
 interface InvoiceDetail {
   id: string;
   number: string;
@@ -75,6 +82,8 @@ interface InvoiceDetail {
   deliveryDate: string | null;
   paymentMethodNote: string | null;
   footerNote: string | null;
+  paymentTermsNote: string | null;
+  contentBlocks: QuoteContentBlockRow[];
 }
 
 export default function InvoiceDetailPage() {
@@ -329,6 +338,130 @@ export default function InvoiceDetailPage() {
                   </span>
                 </div>
               </div>
+
+              {invoice.docType === 'QUOTE' &&
+                (user.bio || invoice.paymentTermsNote || invoice.contentBlocks.length > 0) && (
+                  <div className="mt-6 flex flex-col gap-5 border-t border-border pt-6">
+                    {user.bio && (
+                      <div>
+                        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                          Votre présentation
+                        </p>
+                        <p className="mt-1.5 font-body text-sm whitespace-pre-wrap text-foreground">
+                          {user.bio}
+                        </p>
+                      </div>
+                    )}
+                    {invoice.contentBlocks.filter((b) => b.kind === 'PROCESS').length > 0 && (
+                      <div>
+                        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                          Processus de travail
+                        </p>
+                        <ol className="mt-1.5 flex flex-col gap-2">
+                          {invoice.contentBlocks
+                            .filter((b) => b.kind === 'PROCESS')
+                            .map((b, i) => (
+                              <li key={b.id} className="font-body text-sm text-foreground">
+                                <span className="font-medium">
+                                  {i + 1}. {b.primaryText}
+                                </span>
+                                {b.secondaryText && (
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    {b.secondaryText}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                        </ol>
+                      </div>
+                    )}
+                    {invoice.contentBlocks.filter((b) => b.kind === 'CONDITIONS').length > 0 && (
+                      <div>
+                        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                          Conditions
+                        </p>
+                        <ol className="mt-1.5 flex flex-col gap-2">
+                          {invoice.contentBlocks
+                            .filter((b) => b.kind === 'CONDITIONS')
+                            .map((b, i) => (
+                              <li key={b.id} className="font-body text-sm text-foreground">
+                                <span className="font-medium">
+                                  {i + 1}. {b.primaryText}
+                                </span>
+                                {b.secondaryText && (
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                                    {b.secondaryText}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                        </ol>
+                      </div>
+                    )}
+                    {(invoice.paymentTermsNote ||
+                      invoice.contentBlocks.some((b) => b.kind === 'PAYMENT_METHOD')) && (
+                      <div>
+                        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                          Modalités de paiement
+                        </p>
+                        {invoice.paymentTermsNote && (
+                          <p className="mt-1.5 font-body text-sm text-foreground">
+                            {invoice.paymentTermsNote}
+                          </p>
+                        )}
+                        {invoice.contentBlocks.filter((b) => b.kind === 'PAYMENT_METHOD').length >
+                          0 && (
+                          <div className="mt-2 flex flex-col gap-1.5">
+                            {invoice.contentBlocks
+                              .filter((b) => b.kind === 'PAYMENT_METHOD')
+                              .map((b) => (
+                                <div
+                                  key={b.id}
+                                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+                                >
+                                  <span className="font-body text-sm font-medium text-foreground">
+                                    {b.primaryText}
+                                  </span>
+                                  {b.secondaryText && (
+                                    <span className="font-body text-sm text-muted-foreground">
+                                      {b.secondaryText}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                        <p className="mt-2 font-body text-xs text-muted-foreground">
+                          À titre indicatif — aucun paiement en ligne n&apos;est traité à
+                          l&apos;étape du devis.
+                        </p>
+                      </div>
+                    )}
+                    {invoice.contentBlocks.filter((b) => b.kind === 'FAQ').length > 0 && (
+                      <div>
+                        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                          Questions fréquentes
+                        </p>
+                        <div className="mt-1.5 flex flex-col gap-3">
+                          {invoice.contentBlocks
+                            .filter((b) => b.kind === 'FAQ')
+                            .map((b) => (
+                              <div key={b.id}>
+                                <p className="font-body text-sm font-medium text-foreground">
+                                  {b.primaryText}
+                                </p>
+                                {b.secondaryText && (
+                                  <p className="mt-0.5 font-body text-sm text-muted-foreground">
+                                    {b.secondaryText}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
               {(invoice.depositAmount != null ||
                 invoice.paymentMethodNote ||

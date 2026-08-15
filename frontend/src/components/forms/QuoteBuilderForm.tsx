@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice } from '@/lib/utils';
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
@@ -39,6 +40,16 @@ interface PackDraft {
   items: ItemDraft[];
 }
 
+// Generic {primaryText, secondaryText} draft reused across the 4 additional
+// devis sections (PROCESS/CONDITIONS/PAYMENT_METHOD/FAQ) — mirrors
+// QuoteContentBlock's shape, see schema.prisma for why one shape covers all
+// four (title+description, or label+value, or question+answer).
+interface ContentBlockDraft {
+  primaryText: string;
+  secondaryText: string;
+}
+type ContentBlockKind = 'PROCESS' | 'CONDITIONS' | 'PAYMENT_METHOD' | 'FAQ';
+
 export interface QuoteBuilderExisting {
   id: string;
   clientId: string;
@@ -46,11 +57,13 @@ export interface QuoteBuilderExisting {
   description: string | null;
   currency: string;
   dueDate: string | null;
+  paymentTermsNote: string | null;
   packs: {
     title: string;
     description: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
   }[];
+  contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
 }
 
 function emptyItem(): ItemDraft {
@@ -75,10 +88,107 @@ function initialPacks(existing?: QuoteBuilderExisting): PackDraft[] {
   return [emptyPack()];
 }
 
+function blocksOfKind(
+  contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[],
+  kind: ContentBlockKind,
+): ContentBlockDraft[] {
+  return contentBlocks
+    .filter((b) => b.kind === kind)
+    .map((b) => ({ primaryText: b.primaryText, secondaryText: b.secondaryText ?? '' }));
+}
+
+// Shared editor for the 4 additional devis sections — same repeatable
+// add/remove/update list pattern as pack items, just without the numeric
+// qty/price columns. Kept always-expanded (no "Auto" badge/chevron, unlike
+// the competitor screens that inspired the concept) to match the rest of
+// this builder's visual language.
+function ContentBlockList({
+  title,
+  icon,
+  primaryPlaceholder,
+  secondaryPlaceholder,
+  addLabel,
+  blocks,
+  onChange,
+}: {
+  title: string;
+  icon: string;
+  primaryPlaceholder: string;
+  secondaryPlaceholder: string;
+  addLabel: string;
+  blocks: ContentBlockDraft[];
+  onChange: (blocks: ContentBlockDraft[]) => void;
+}) {
+  function update(index: number, field: keyof ContentBlockDraft, value: string) {
+    onChange(blocks.map((b, i) => (i === index ? { ...b, [field]: value } : b)));
+  }
+  function add() {
+    onChange([...blocks, { primaryText: '', secondaryText: '' }]);
+  }
+  function remove(index: number) {
+    onChange(blocks.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
+      <div className="flex items-center gap-2">
+        <Icon i={icon} size={16} className="text-muted-foreground" />
+        <p className="font-body text-sm font-semibold text-foreground">{title}</p>
+      </div>
+      {blocks.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {blocks.map((block, index) => (
+            <div
+              key={index}
+              className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-start"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <input
+                  type="text"
+                  placeholder={primaryPlaceholder}
+                  value={block.primaryText}
+                  onChange={(e) => update(index, 'primaryText', e.target.value)}
+                  maxLength={500}
+                  className={inputClass}
+                />
+                <textarea
+                  placeholder={secondaryPlaceholder}
+                  value={block.secondaryText}
+                  onChange={(e) => update(index, 'secondaryText', e.target.value)}
+                  maxLength={2000}
+                  rows={2}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(index)}
+                aria-label="Retirer"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
+              >
+                <Icon i="trash" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={add}
+        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground"
+      >
+        <Icon i="plus" size={13} />
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
 export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const router = useRouter();
   const { toast } = useToast();
   const { openCreate } = useCreateMenu();
+  const { user } = useAuth();
   const { data: clientsData, loading: clientsLoading } = useApi<{ items: ClientOption[] }>(
     '/api/clients?limit=50',
   );
@@ -96,6 +206,53 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const [currency, setCurrency] = useState(quote?.currency ?? 'XOF');
   const [dueDate, setDueDate] = useState(quote?.dueDate ? quote.dueDate.slice(0, 10) : '');
   const [packs, setPacks] = useState<PackDraft[]>(() => initialPacks(quote));
+
+  const [paymentTermsNote, setPaymentTermsNote] = useState(quote?.paymentTermsNote ?? '');
+  const [processBlocks, setProcessBlocks] = useState<ContentBlockDraft[]>(() =>
+    blocksOfKind(quote?.contentBlocks ?? [], 'PROCESS'),
+  );
+  const [conditionBlocks, setConditionBlocks] = useState<ContentBlockDraft[]>(() =>
+    blocksOfKind(quote?.contentBlocks ?? [], 'CONDITIONS'),
+  );
+  const [paymentBlocks, setPaymentBlocks] = useState<ContentBlockDraft[]>(() =>
+    blocksOfKind(quote?.contentBlocks ?? [], 'PAYMENT_METHOD'),
+  );
+  const [faqBlocks, setFaqBlocks] = useState<ContentBlockDraft[]>(() =>
+    blocksOfKind(quote?.contentBlocks ?? [], 'FAQ'),
+  );
+
+  // "Last quote as template" — pre-fill the additional content sections from
+  // the user's most recently created devis (new quotes only, and only if the
+  // user hasn't already started filling these sections in themselves).
+  const { data: lastQuotesData } = useApi<{ items: { id: string }[] }>(
+    '/api/invoices?docType=QUOTE&limit=1',
+    { skip: !!quote },
+  );
+  const lastQuoteId = lastQuotesData?.items?.[0]?.id;
+  const { data: lastQuoteDetail } = useApi<{
+    paymentTermsNote: string | null;
+    contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
+  }>(`/api/invoices/${lastQuoteId}`, { skip: !lastQuoteId || !!quote });
+  const templateAppliedRef = useRef(false);
+  useEffect(() => {
+    if (quote || templateAppliedRef.current || !lastQuoteDetail) return;
+    const untouched =
+      processBlocks.length === 0 &&
+      conditionBlocks.length === 0 &&
+      paymentBlocks.length === 0 &&
+      faqBlocks.length === 0 &&
+      paymentTermsNote === '';
+    templateAppliedRef.current = true;
+    if (!untouched) return; // user already started typing, don't clobber their edits
+    setProcessBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PROCESS'));
+    setConditionBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'CONDITIONS'));
+    setPaymentBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PAYMENT_METHOD'));
+    setFaqBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'FAQ'));
+    if (lastQuoteDetail.paymentTermsNote) setPaymentTermsNote(lastQuoteDetail.paymentTermsNote);
+    // Only re-run when the template data itself arrives — deliberately not
+    // depending on the draft state above, which would re-trigger on every
+    // keystroke since this effect also writes to that state.
+  }, [lastQuoteDetail]);
 
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
@@ -183,6 +340,32 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     return built;
   }
 
+  // Additional content sections are optional value-adds, not required
+  // fields like pack items — blank rows are silently dropped rather than
+  // blocking submission.
+  function buildContentBlocksPayload(): {
+    kind: ContentBlockKind;
+    primaryText: string;
+    secondaryText?: string;
+  }[] {
+    const groups: [ContentBlockKind, ContentBlockDraft[]][] = [
+      ['PROCESS', processBlocks],
+      ['CONDITIONS', conditionBlocks],
+      ['PAYMENT_METHOD', paymentBlocks],
+      ['FAQ', faqBlocks],
+    ];
+    const built: { kind: ContentBlockKind; primaryText: string; secondaryText?: string }[] = [];
+    for (const [kind, blocks] of groups) {
+      for (const block of blocks) {
+        const primaryText = block.primaryText.trim();
+        if (!primaryText) continue;
+        const secondaryText = block.secondaryText.trim();
+        built.push({ kind, primaryText, ...(secondaryText ? { secondaryText } : {}) });
+      }
+    }
+    return built;
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
@@ -198,6 +381,8 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       projectId: projectId || null,
       description: description || null,
       packs: packsPayload,
+      contentBlocks: buildContentBlocksPayload(),
+      paymentTermsNote: paymentTermsNote.trim() || null,
       currency,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
     };
@@ -477,6 +662,136 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             </div>
           );
         })}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+          Contenu additionnel
+        </p>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <div className="flex items-center gap-2">
+            <Icon i="user" size={16} className="text-muted-foreground" />
+            <p className="font-body text-sm font-semibold text-foreground">Votre présentation</p>
+          </div>
+          {user?.bio ? (
+            <p className="font-body text-sm whitespace-pre-wrap text-foreground">{user.bio}</p>
+          ) : (
+            <p className="font-body text-sm text-muted-foreground">
+              Aucune présentation renseignée —{' '}
+              <a href="/settings" className="text-primary hover:underline">
+                ajoutez-en une dans Paramètres → Compte
+              </a>{' '}
+              pour qu&apos;elle apparaisse sur vos devis.
+            </p>
+          )}
+        </div>
+
+        <ContentBlockList
+          title="Processus de travail"
+          icon="list"
+          primaryPlaceholder="Titre de l'étape (ex : Brief & découverte)"
+          secondaryPlaceholder="Description (optionnel)"
+          addLabel="Ajouter une étape"
+          blocks={processBlocks}
+          onChange={setProcessBlocks}
+        />
+
+        <ContentBlockList
+          title="Conditions"
+          icon="shield"
+          primaryPlaceholder="Titre de la condition (ex : Délai de validation)"
+          secondaryPlaceholder="Détail (optionnel)"
+          addLabel="Ajouter une condition"
+          blocks={conditionBlocks}
+          onChange={setConditionBlocks}
+        />
+
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <div className="flex items-center gap-2">
+            <Icon i="credit-card" size={16} className="text-muted-foreground" />
+            <p className="font-body text-sm font-semibold text-foreground">Modalités de paiement</p>
+          </div>
+          <textarea
+            placeholder="Ex : Un acompte de 50% est demandé avant le démarrage, le solde à la livraison."
+            value={paymentTermsNote}
+            onChange={(e) => setPaymentTermsNote(e.target.value)}
+            maxLength={2000}
+            rows={2}
+            className={`${inputClass} resize-none`}
+          />
+          {paymentBlocks.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {paymentBlocks.map((block, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center"
+                >
+                  <input
+                    type="text"
+                    placeholder="Moyen de paiement (ex : Wave, Orange Money, Virement)"
+                    value={block.primaryText}
+                    onChange={(e) =>
+                      setPaymentBlocks((prev) =>
+                        prev.map((b, i) =>
+                          i === index ? { ...b, primaryText: e.target.value } : b,
+                        ),
+                      )
+                    }
+                    maxLength={500}
+                    className={`${inputClass} min-w-0 flex-1`}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Numéro / IBAN"
+                    value={block.secondaryText}
+                    onChange={(e) =>
+                      setPaymentBlocks((prev) =>
+                        prev.map((b, i) =>
+                          i === index ? { ...b, secondaryText: e.target.value } : b,
+                        ),
+                      )
+                    }
+                    maxLength={2000}
+                    className={`${inputClass} min-w-0 flex-1`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPaymentBlocks((prev) => prev.filter((_, i) => i !== index))}
+                    aria-label="Retirer"
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
+                  >
+                    <Icon i="trash" size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              setPaymentBlocks((prev) => [...prev, { primaryText: '', secondaryText: '' }])
+            }
+            className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground"
+          >
+            <Icon i="plus" size={13} />
+            Ajouter un moyen de paiement
+          </button>
+          <p className="font-body text-xs text-muted-foreground">
+            À titre indicatif uniquement — aucun paiement en ligne n&apos;est traité à l&apos;étape
+            du devis.
+          </p>
+        </div>
+
+        <ContentBlockList
+          title="Questions fréquentes"
+          icon="help-circle"
+          primaryPlaceholder="Question"
+          secondaryPlaceholder="Réponse (optionnel)"
+          addLabel="Ajouter une question"
+          blocks={faqBlocks}
+          onChange={setFaqBlocks}
+        />
       </section>
 
       {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
