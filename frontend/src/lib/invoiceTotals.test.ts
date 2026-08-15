@@ -2,7 +2,12 @@
 // the API (Invoice.amount) and the frontend (live preview, floating total
 // bar) rely on to stay in sync.
 import { describe, it, expect } from 'vitest';
-import { computeItemsTotal, computeQuoteTotal, computeBalance } from './invoiceTotals';
+import {
+  computeItemsTotal,
+  computeQuoteTotal,
+  computeBalance,
+  computePackDeposit,
+} from './invoiceTotals';
 
 describe('computeItemsTotal', () => {
   it('empty list is zero', () => {
@@ -64,5 +69,36 @@ describe('computeBalance', () => {
 
   it('does not clamp — a deposit greater than the amount yields a negative balance', () => {
     expect(computeBalance(50000, 80000)).toBe(-30000);
+  });
+});
+
+describe('computePackDeposit', () => {
+  const items = [{ quantity: 2, unitPrice: 50000 }]; // pack total = 100000
+
+  it('no depositType configured -> null', () => {
+    expect(computePackDeposit({ items, depositType: null, depositValue: null })).toBeNull();
+  });
+
+  it('depositType set but depositValue missing -> null', () => {
+    expect(computePackDeposit({ items, depositType: 'FIXED', depositValue: null })).toBeNull();
+  });
+
+  it('FIXED returns depositValue as-is, independent of the pack total', () => {
+    expect(computePackDeposit({ items, depositType: 'FIXED', depositValue: 30000 })).toBe(30000);
+  });
+
+  it("PERCENT applies the rate to this pack's own total", () => {
+    expect(computePackDeposit({ items, depositType: 'PERCENT', depositValue: 30 })).toBe(30000);
+  });
+
+  it('PERCENT rounds to the nearest integer', () => {
+    expect(computePackDeposit({ items, depositType: 'PERCENT', depositValue: 33 })).toBe(33000);
+    expect(
+      computePackDeposit({
+        items: [{ quantity: 1, unitPrice: 100 }],
+        depositType: 'PERCENT',
+        depositValue: 33,
+      }),
+    ).toBe(33);
   });
 });

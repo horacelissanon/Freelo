@@ -39,11 +39,31 @@ const LineItemInput = z.object({
   unitPrice: zPositiveInt,
 });
 
-const PackInput = z.object({
-  title: z.string().min(1).max(200),
-  description: z.string().max(1000).optional(),
-  items: z.array(LineItemInput).min(1).max(50),
-});
+const PackInput = z
+  .object({
+    title: z.string().min(1).max(200),
+    description: z.string().max(1000).optional(),
+    items: z.array(LineItemInput).min(1).max(50),
+    // Per-offer acompte — see POST /api/invoices for the FIXED/PERCENT shape.
+    depositType: z.enum(['FIXED', 'PERCENT']).nullable().optional(),
+    depositValue: z.number().int().min(0).nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.depositType && data.depositValue == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['depositValue'],
+        message: 'depositValue is required when depositType is set',
+      });
+    }
+    if (data.depositType === 'PERCENT' && data.depositValue != null && data.depositValue > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['depositValue'],
+        message: "Le taux d'acompte ne peut pas dépasser 100%.",
+      });
+    }
+  });
 
 const ContentBlockInput = z.object({
   kind: z.enum(['PROCESS', 'CONDITIONS', 'PAYMENT_METHOD', 'FAQ']),
@@ -306,6 +326,24 @@ export async function PATCH(
       );
     }
 
+    if (packs) {
+      const overDeposit = packs.some(
+        (pack) =>
+          pack.depositType === 'FIXED' &&
+          pack.depositValue != null &&
+          pack.depositValue > computeItemsTotal(pack.items),
+      );
+      if (overDeposit) {
+        return NextResponse.json(
+          {
+            error: 'VALIDATION_FAILED',
+            message: "L'acompte d'une offre ne peut pas dépasser son propre sous-total.",
+          },
+          { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
+    }
+
     const updateData = {
       ...(status !== undefined ? { status } : {}),
       ...(clientId !== undefined ? { clientId } : {}),
@@ -349,6 +387,9 @@ export async function PATCH(
                 order: pi + 1,
                 title: pack.title,
                 ...(pack.description ? { description: pack.description } : {}),
+                ...(pack.depositType && pack.depositValue != null
+                  ? { depositType: pack.depositType, depositValue: pack.depositValue }
+                  : {}),
                 items: {
                   create: pack.items.map((item, ii) => ({
                     invoiceId: id,

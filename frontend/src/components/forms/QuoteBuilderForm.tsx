@@ -35,10 +35,13 @@ interface ItemDraft {
   quantity: string;
   unitPrice: string;
 }
+type DepositTypeDraft = 'FIXED' | 'PERCENT' | '';
 interface PackDraft {
   title: string;
   description: string;
   items: ItemDraft[];
+  depositType: DepositTypeDraft;
+  depositValue: string;
 }
 
 // Generic {primaryText, secondaryText} draft reused across the 4 additional
@@ -63,6 +66,8 @@ export interface QuoteBuilderExisting {
     title: string;
     description: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
+    depositType: string | null;
+    depositValue: number | null;
   }[];
   contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
 }
@@ -71,7 +76,7 @@ function emptyItem(): ItemDraft {
   return { designation: '', quantity: '1', unitPrice: '' };
 }
 function emptyPack(): PackDraft {
-  return { title: '', description: '', items: [emptyItem()] };
+  return { title: '', description: '', items: [emptyItem()], depositType: '', depositValue: '' };
 }
 
 function initialPacks(existing?: QuoteBuilderExisting): PackDraft[] {
@@ -84,9 +89,21 @@ function initialPacks(existing?: QuoteBuilderExisting): PackDraft[] {
         quantity: String(item.quantity),
         unitPrice: String(item.unitPrice),
       })),
+      depositType:
+        pack.depositType === 'FIXED' || pack.depositType === 'PERCENT' ? pack.depositType : '',
+      depositValue: pack.depositValue != null ? String(pack.depositValue) : '',
     }));
   }
   return [emptyPack()];
+}
+
+/** Preview-only estimate for the deposit config draft, shown inline as the user types. */
+function previewPackDeposit(pack: PackDraft, packTotal: number): number | null {
+  if (!pack.depositType || !pack.depositValue.trim()) return null;
+  const raw = Number(pack.depositValue);
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  if (pack.depositType === 'PERCENT') return Math.round((packTotal * Math.min(raw, 100)) / 100);
+  return raw;
 }
 
 function blocksOfKind(
@@ -273,6 +290,14 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     setPacks((prev) => prev.map((p, i) => (i === packIndex ? { ...p, [field]: value } : p)));
     clearPacksError();
   }
+  function setPackDepositType(packIndex: number, depositType: DepositTypeDraft) {
+    setPacks((prev) => prev.map((p, i) => (i === packIndex ? { ...p, depositType } : p)));
+    clearPacksError();
+  }
+  function setPackDepositValue(packIndex: number, depositValue: string) {
+    setPacks((prev) => prev.map((p, i) => (i === packIndex ? { ...p, depositValue } : p)));
+    clearPacksError();
+  }
   function addPack() {
     setPacks((prev) => (prev.length >= MAX_PACKS ? prev : [...prev, emptyPack()]));
     clearPacksError();
@@ -330,12 +355,16 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         title: string;
         description?: string;
         items: { designation: string; quantity: number; unitPrice: number }[];
+        depositType?: 'FIXED' | 'PERCENT';
+        depositValue?: number;
       }[]
     | null {
     const built: {
       title: string;
       description?: string;
       items: { designation: string; quantity: number; unitPrice: number }[];
+      depositType?: 'FIXED' | 'PERCENT';
+      depositValue?: number;
     }[] = [];
     const invalid = new Set<number>();
     packs.forEach((pack, i) => {
@@ -351,16 +380,34 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         invalid.add(i);
         return;
       }
+      let deposit: { depositType: 'FIXED' | 'PERCENT'; depositValue: number } | null = null;
+      if (pack.depositType) {
+        const rawValue = Number(pack.depositValue);
+        if (!pack.depositValue.trim() || !Number.isFinite(rawValue) || rawValue <= 0) {
+          invalid.add(i);
+          return;
+        }
+        if (pack.depositType === 'PERCENT' && rawValue > 100) {
+          invalid.add(i);
+          return;
+        }
+        if (pack.depositType === 'FIXED' && rawValue > computeItemsTotal(items)) {
+          invalid.add(i);
+          return;
+        }
+        deposit = { depositType: pack.depositType, depositValue: rawValue };
+      }
       built.push({
         title,
         ...(pack.description.trim() ? { description: pack.description.trim() } : {}),
         items,
+        ...(deposit ? deposit : {}),
       });
     });
     if (invalid.size > 0) {
       setInvalidPackIndexes(invalid);
       setPacksError(
-        'Chaque offre doit avoir un titre et au moins une ligne valide (désignation, quantité, prix).',
+        "Chaque offre doit avoir un titre, au moins une ligne valide (désignation, quantité, prix), et — si un acompte est défini — une valeur positive cohérente (≤ 100% ou ≤ sous-total de l'offre).",
       );
       return null;
     }
@@ -701,6 +748,68 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
                   <Icon i="plus" size={13} />
                   Ajouter une ligne
                 </button>
+
+                <div className="flex flex-col gap-2 border-t border-border pt-3">
+                  <p className="font-body text-xs font-medium text-foreground">
+                    Acompte pour cette offre (optionnel)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPackDepositType(packIndex, '')}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        pack.depositType === ''
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-canvas text-foreground'
+                      }`}
+                    >
+                      Aucun
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPackDepositType(packIndex, 'FIXED')}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        pack.depositType === 'FIXED'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-canvas text-foreground'
+                      }`}
+                    >
+                      Montant fixe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPackDepositType(packIndex, 'PERCENT')}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        pack.depositType === 'PERCENT'
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-canvas text-foreground'
+                      }`}
+                    >
+                      Taux (%)
+                    </button>
+                    {pack.depositType && (
+                      <input
+                        type="number"
+                        min={1}
+                        max={pack.depositType === 'PERCENT' ? 100 : undefined}
+                        step={1}
+                        placeholder={pack.depositType === 'PERCENT' ? '%' : `Montant (${currency})`}
+                        value={pack.depositValue}
+                        onChange={(e) => setPackDepositValue(packIndex, e.target.value)}
+                        className={`${inputClass} w-28 flex-shrink-0`}
+                      />
+                    )}
+                  </div>
+                  {(() => {
+                    const preview = previewPackDeposit(pack, packTotal);
+                    return preview != null ? (
+                      <p className="font-body text-xs text-muted-foreground">
+                        Acompte estimé : {formatPrice(preview, currency)}
+                      </p>
+                    ) : null;
+                  })()}
+                </div>
+
                 <p className="flex items-center justify-between font-body text-sm font-semibold text-foreground">
                   Sous-total de l&apos;offre
                   <span>{formatPrice(packTotal, currency)}</span>

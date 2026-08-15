@@ -192,6 +192,11 @@ export async function GET(
           ...invoiceUser,
           documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
         }),
+        // Raw phone, independent of the documentIdentity header choice —
+        // COMPANY identity hides the phone from the document itself, but the
+        // freelancer still has a real WhatsApp number to notify once the
+        // client sends the acompte (see the post-validation modal).
+        providerPhone: invoiceUser.phone,
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

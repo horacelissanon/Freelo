@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { formatPrice, formatDate } from '@/lib/utils';
-import { computeBalance } from '@/lib/invoiceTotals';
+import { computeBalance, computePackDeposit } from '@/lib/invoiceTotals';
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
@@ -66,6 +66,8 @@ interface TrackedPack {
   title: string;
   description: string | null;
   items: TrackedLineItem[];
+  depositType: string | null;
+  depositValue: number | null;
 }
 
 interface TrackedContentBlock {
@@ -106,6 +108,10 @@ interface QuoteOrInvoiceView {
     taxId: string | null;
     commerceRegistry: string | null;
   };
+  // Raw phone, independent of the documentIdentity header choice — needed
+  // for the "J'ai envoyé l'acompte" WhatsApp button even when the provider
+  // shows a COMPANY identity (which hides provider.phone from the document).
+  providerPhone: string | null;
 }
 
 interface ProjectStep {
@@ -590,6 +596,7 @@ function PackPlanCard({
   onSelect: () => void;
 }) {
   const total = pack.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const deposit = computePackDeposit(pack);
   return (
     <div
       role={selectable ? 'button' : undefined}
@@ -628,6 +635,13 @@ function PackPlanCard({
         </p>
         {pack.description && (
           <p className="font-body text-xs text-muted-foreground">{pack.description}</p>
+        )}
+        {deposit != null && (
+          <p className="font-body text-xs text-muted-foreground">
+            Acompte à l&apos;acceptation :{' '}
+            <span className="font-semibold text-foreground">{formatPrice(deposit, currency)}</span>
+            {pack.depositType === 'PERCENT' ? ` (${pack.depositValue}%)` : ''}
+          </p>
         )}
       </div>
       <ul className="flex flex-col gap-2">
@@ -697,6 +711,130 @@ function FaqItem({
   );
 }
 
+// Shown once the client validates a devis — the freelancer never sees this
+// (it's the client's own confirmation + "how do I actually pay" screen).
+// The WhatsApp button is a notification, not a payment: no online payment
+// happens on a devis, so the client pays the acompte off-platform via one of
+// the listed methods, then taps this button to tell the freelancer it's
+// done — matching the flow the freelancer described: "l'acompte est déjà
+// envoyé, le projet peut démarrer".
+function PaymentInfoModal({
+  packTitle,
+  depositAmount,
+  currency,
+  paymentTermsNote,
+  paymentBlocks,
+  whatsappUrl,
+  onClose,
+}: {
+  packTitle: string | null;
+  depositAmount: number | null;
+  currency: string;
+  paymentTermsNote: string | null;
+  paymentBlocks: TrackedContentBlock[];
+  whatsappUrl: string | null;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-lg bg-canvas p-6 shadow-xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-tag-green">
+              <Icon i="check-circle" size={18} className="text-tag-green-fg" />
+            </div>
+            <div>
+              <h2 className="font-headings text-base font-bold text-foreground">Devis validé !</h2>
+              {packTitle && <p className="font-body text-xs text-muted-foreground">{packTitle}</p>}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
+          >
+            <Icon i="x" size={16} />
+          </button>
+        </div>
+
+        {depositAmount != null ? (
+          <div className="mb-4 rounded-md border border-border bg-secondary/30 p-4 text-center">
+            <p className="font-body text-xs text-muted-foreground uppercase">
+              Acompte à régler pour démarrer
+            </p>
+            <p className="mt-1 font-headings text-2xl font-bold text-foreground">
+              {formatPrice(depositAmount, currency)}
+            </p>
+          </div>
+        ) : (
+          <p className="mb-4 font-body text-sm text-muted-foreground">
+            Nous reviendrons vers vous très prochainement avec les modalités pour démarrer votre
+            projet.
+          </p>
+        )}
+
+        {(paymentTermsNote || paymentBlocks.length > 0) && (
+          <div className="mb-4">
+            <p className="mb-2 font-body text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Moyens de paiement
+            </p>
+            {paymentTermsNote && (
+              <p className="mb-2 font-body text-sm text-foreground">{paymentTermsNote}</p>
+            )}
+            {paymentBlocks.length > 0 && (
+              <div className="flex flex-col gap-2">
+                {paymentBlocks.map((b) => (
+                  <div
+                    key={b.id}
+                    className="flex items-center gap-2.5 rounded-md border border-border px-3 py-2.5"
+                  >
+                    <Icon
+                      i="credit-card"
+                      size={15}
+                      className="flex-shrink-0 text-muted-foreground"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-body text-sm font-medium text-foreground">
+                        {b.primaryText}
+                      </p>
+                      {b.secondaryText && (
+                        <p className="truncate font-body text-xs text-muted-foreground">
+                          {b.secondaryText}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-tag-green px-4 py-3 font-body text-sm font-semibold text-tag-green-fg hover:opacity-90"
+          >
+            <Icon i="message-circle" size={16} />
+            J&apos;ai envoyé l&apos;acompte
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
+        >
+          Plus tard
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function QuoteInvoiceDetail({
   view,
   token,
@@ -715,6 +853,7 @@ function QuoteInvoiceDetail({
   const [validateError, setValidateError] = useState<string | null>(null);
   const [forceFaqOpen, setForceFaqOpen] = useState(false);
   const [pendingPackId, setPendingPackId] = useState<string | null>(invoice.selectedPackId);
+  const [showAcceptedModal, setShowAcceptedModal] = useState(false);
 
   useEffect(() => {
     function expandForPrint() {
@@ -729,6 +868,16 @@ function QuoteInvoiceDetail({
   const activePackTotal = activePack
     ? activePack.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
     : 0;
+  const selectedPackDeposit = activePack ? computePackDeposit(activePack) : null;
+  const providerPhoneDigits = view.providerPhone?.replace(/[^0-9]/g, '');
+  const whatsappMessage = activePack
+    ? selectedPackDeposit != null
+      ? `Bonjour, j'ai envoyé l'acompte de ${formatPrice(selectedPackDeposit, invoice.currency)} pour le devis ${invoice.number} (${activePack.title}). Le projet peut démarrer !`
+      : `Bonjour, j'ai validé le devis ${invoice.number} (${activePack.title}). Le projet peut démarrer !`
+    : `Bonjour, j'ai validé le devis ${invoice.number}. Le projet peut démarrer !`;
+  const whatsappUrl = providerPhoneDigits
+    ? `https://wa.me/${providerPhoneDigits}?text=${encodeURIComponent(whatsappMessage)}`
+    : null;
 
   async function validate() {
     if (!pendingPackId) {
@@ -748,6 +897,7 @@ function QuoteInvoiceDetail({
         setValidateError(data.message ?? 'Le devis n’a pas pu être validé.');
         return;
       }
+      setShowAcceptedModal(true);
       onRefresh();
     } catch {
       setValidateError('Erreur réseau. Réessayez.');
@@ -1114,16 +1264,21 @@ function QuoteInvoiceDetail({
           </div>
         </div>
         {isQuote && invoice.status === 'ACCEPTED' && (
-          <div className="mt-3 flex items-start gap-1.5">
-            <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-tag-green-fg" />
-            <p className="font-body text-sm text-foreground">
-              <span className="font-medium text-tag-green-fg">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-start gap-1.5">
+              <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-tag-green-fg" />
+              <p className="font-body text-sm font-medium text-tag-green-fg">
                 Devis validé, merci pour votre confiance !
-              </span>{' '}
-              {invoice.paymentTermsNote || paymentBlocks.length > 0
-                ? "Pour que nous démarrions votre projet au plus vite, merci de procéder au paiement de l'acompte indiqué dans les modalités de paiement ci-dessus : c'est sa réception qui confirme officiellement le lancement de la prestation."
-                : 'Nous reviendrons vers vous très prochainement avec les modalités pour démarrer votre projet.'}
-            </p>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAcceptedModal(true)}
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40"
+            >
+              <Icon i="credit-card" size={13} />
+              Infos de paiement
+            </button>
           </div>
         )}
         {isQuote && invoice.status !== 'SENT' && invoice.status !== 'ACCEPTED' && (
@@ -1137,6 +1292,18 @@ function QuoteInvoiceDetail({
           </p>
         )}
       </div>
+
+      {showAcceptedModal && (
+        <PaymentInfoModal
+          packTitle={activePack?.title ?? null}
+          depositAmount={selectedPackDeposit}
+          currency={invoice.currency}
+          paymentTermsNote={invoice.paymentTermsNote}
+          paymentBlocks={paymentBlocks}
+          whatsappUrl={whatsappUrl}
+          onClose={() => setShowAcceptedModal(false)}
+        />
+      )}
     </div>
   );
 }

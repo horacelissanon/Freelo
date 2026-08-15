@@ -12,7 +12,7 @@ import 'server-only';
 import React from 'react';
 import { Document, Page, View, Text, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import { formatPrice, formatLongDate } from '@/lib/utils';
-import { computeItemsTotal, computeBalance } from '@/lib/invoiceTotals';
+import { computeItemsTotal, computeBalance, computePackDeposit } from '@/lib/invoiceTotals';
 
 export interface PdfLineItem {
   designation: string;
@@ -25,6 +25,8 @@ export interface PdfPack {
   title: string;
   description?: string | null;
   items: PdfLineItem[];
+  depositType?: string | null;
+  depositValue?: number | null;
 }
 
 export interface PdfContentBlock {
@@ -125,6 +127,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 8,
     paddingTop: 4,
+  },
+  packDepositRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+    paddingTop: 2,
   },
   totalsBlock: { marginTop: 8, alignItems: 'flex-end' },
   totalsRow: {
@@ -255,6 +263,7 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
             {data.packs.map((pack, i) => {
               const subtotal = computeItemsTotal(pack.items);
               const isSelected = data.selectedPackId === pack.id;
+              const deposit = computePackDeposit(pack);
               return (
                 <View key={i} style={styles.packBlock} wrap={false}>
                   <Text style={styles.packTitle}>
@@ -270,6 +279,15 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
                       Sous-total : {formatPrice(subtotal, data.currency)}
                     </Text>
                   </View>
+                  {deposit != null && (
+                    <View style={styles.packDepositRow}>
+                      <Text style={{ fontSize: 8.5, color: '#6b6b6b' }}>
+                        Acompte demandé
+                        {pack.depositType === 'PERCENT' ? ` (${pack.depositValue}%)` : ''} :{' '}
+                        {formatPrice(deposit, data.currency)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               );
             })}

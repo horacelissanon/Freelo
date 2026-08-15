@@ -14,6 +14,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/Avatar';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
+import { BackButton } from '@/components/ui/BackButton';
 import { PackOfferCard } from '@/components/invoices/PackOfferCard';
 import { InvoiceForm } from '@/components/forms/InvoiceForm';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
@@ -55,6 +56,8 @@ interface InvoicePackRow {
   title: string;
   description: string | null;
   items: InvoiceLineItemRow[];
+  depositType: string | null;
+  depositValue: number | null;
 }
 
 interface QuoteContentBlockRow {
@@ -187,13 +190,7 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <Link
-        href="/invoices"
-        className="mb-4 inline-flex items-center gap-1 font-body text-sm text-muted-foreground hover:text-foreground print:hidden"
-      >
-        <Icon i="chevron-left" size={16} />
-        Devis &amp; Factures
-      </Link>
+      <BackButton fallbackHref="/invoices" label="Devis & Factures" className="mb-4 print:hidden" />
 
       {loading ? (
         <LoadingState />
@@ -332,6 +329,8 @@ export default function InvoiceDetailPage() {
                         items={pack.items}
                         currency={invoice.currency}
                         selected={invoice.selectedPackId === pack.id}
+                        depositType={pack.depositType}
+                        depositValue={pack.depositValue}
                       />
                     ))}
                   </div>

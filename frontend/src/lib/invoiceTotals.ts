@@ -27,3 +27,25 @@ export function computeQuoteTotal(packs: { items: QuantifiedItem[] }[]): number 
 export function computeBalance(amount: number, depositAmount: number | null | undefined): number {
   return amount - (depositAmount ?? 0);
 }
+
+export type PackDepositType = 'FIXED' | 'PERCENT';
+
+export interface PackDepositSource {
+  items: QuantifiedItem[];
+  depositType?: PackDepositType | string | null | undefined;
+  depositValue?: number | null | undefined;
+}
+
+/**
+ * A pack's own acompte, in the invoice's smallest currency unit — FIXED
+ * returns depositValue as-is, PERCENT applies it to this pack's own total
+ * (never a grand total, since offers are independent). Returns null when no
+ * deposit is configured for this offer.
+ */
+export function computePackDeposit(pack: PackDepositSource): number | null {
+  if (!pack.depositType || pack.depositValue == null) return null;
+  if (pack.depositType === 'PERCENT') {
+    return Math.round((computeItemsTotal(pack.items) * pack.depositValue) / 100);
+  }
+  return pack.depositValue;
+}

@@ -581,8 +581,16 @@ model InvoicePack {
   order       Int
   title       String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Per-offer acompte, optional — a devis with several packs can ask a
+  // different deposit for each since they're independent proposals, not
+  // line items of one bill. null depositType = no deposit configured for
+  // this offer. FIXED: depositValue is an amount in the invoice's smallest
+  // currency unit. PERCENT: depositValue is a 0-100 integer rate applied to
+  // this pack's own computeItemsTotal — never the (nonexistent) grand total.
+  depositType  String? // FIXED | PERCENT
+  depositValue Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   items InvoiceLineItem[]
 

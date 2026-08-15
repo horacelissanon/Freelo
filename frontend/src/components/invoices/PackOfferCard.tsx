@@ -1,4 +1,5 @@
 import { formatPrice } from '@/lib/utils';
+import { computePackDeposit } from '@/lib/invoiceTotals';
 
 // Shared between the freelance-side invoice detail page and the public
 // /suivi/[token] client view. Each pack gets its own rotating accent color
@@ -43,6 +44,8 @@ export function PackOfferCard({
   items,
   currency,
   selected,
+  depositType,
+  depositValue,
 }: {
   index: number;
   title: string;
@@ -51,9 +54,12 @@ export function PackOfferCard({
   currency: string;
   /** True once the client has accepted this specific offer (Invoice.selectedPackId). */
   selected?: boolean;
+  depositType?: string | null;
+  depositValue?: number | null;
 }) {
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const accent = PACK_ACCENTS[(index - 1) % PACK_ACCENTS.length]!;
+  const deposit = computePackDeposit({ items, depositType, depositValue });
 
   return (
     <div
@@ -110,6 +116,16 @@ export function PackOfferCard({
           {formatPrice(total, currency)}
         </span>
       </div>
+      {deposit != null && (
+        <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2">
+          <span className="font-body text-xs text-muted-foreground">
+            Acompte demandé{depositType === 'PERCENT' ? ` (${depositValue}%)` : ''}
+          </span>
+          <span className="font-body text-xs font-semibold text-foreground">
+            {formatPrice(deposit, currency)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
