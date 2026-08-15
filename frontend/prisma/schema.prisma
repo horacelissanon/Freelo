@@ -529,6 +529,16 @@ model Invoice {
   // demandé avant le démarrage...". Distinct from paymentMethodNote above.
   paymentTermsNote String?
 
+  // Devis-only (QUOTE docType) — the InvoicePack.id the client picked when
+  // accepting via POST /api/track/[token]/validate. Offers are mutually
+  // exclusive alternatives, not line items to sum: a devis with several
+  // packs has no grand total anywhere in the UI, only each pack's own
+  // subtotal — this field is what "the client chose offer X" actually
+  // means once SENT -> ACCEPTED. Plain string (no @relation) since content
+  // is frozen the moment a devis leaves DRAFT, so there's no risk of the
+  // referenced pack being deleted out from under a stored selection.
+  selectedPackId String?
+
   // Client Link Portal (Phase C pattern, extended here) — one token per
   // invoice/quote, same convention as Client.trackingToken/Project.publicToken.
   // The /api/track/[token] route only serves it once status != DRAFT (no

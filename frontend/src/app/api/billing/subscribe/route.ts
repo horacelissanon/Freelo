@@ -155,7 +155,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           amount,
           currency,
           description: `Merrudit Pro — ${billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'}`,
-          callbackUrl: `${publicUrl}/settings?tab=facturation`,
+          callbackUrl: `${publicUrl}/settings?tab=abonnement`,
           customer: {
             email: user.email,
             ...(user.name ? { firstName: user.name } : {}),

@@ -150,6 +150,7 @@ export async function GET(
         currency: true,
         issueDate: true,
         dueDate: true,
+        selectedPackId: true,
         client: { select: { name: true } },
         user: {
           select: {

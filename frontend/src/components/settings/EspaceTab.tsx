@@ -238,6 +238,7 @@ export function EspaceTab({ user }: { user: User }) {
                 onClick={() => {
                   setSidebarColor(duo.sidebar);
                   setAccent(duo.accent);
+                  toast(`Palette « ${duo.name} » appliquée.`, 'success');
                 }}
                 aria-pressed={isActive}
                 title={duo.name}
@@ -261,6 +262,7 @@ export function EspaceTab({ user }: { user: User }) {
               type="color"
               value={sidebarColor}
               onChange={(e) => setSidebarColor(e.target.value)}
+              onBlur={() => toast('Couleur du menu mise à jour.', 'success')}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               aria-label="Choisir une couleur de fond personnalisée pour le menu"
             />
@@ -271,13 +273,19 @@ export function EspaceTab({ user }: { user: User }) {
           </label>
           <HexInput
             value={sidebarColor}
-            onCommit={setSidebarColor}
+            onCommit={(hex) => {
+              setSidebarColor(hex);
+              toast('Couleur du menu mise à jour.', 'success');
+            }}
             ariaLabel="Code hexadécimal du fond du menu"
           />
           {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
             <button
               type="button"
-              onClick={() => setSidebarColor(null)}
+              onClick={() => {
+                setSidebarColor(null);
+                toast('Couleur du menu réinitialisée.', 'success');
+              }}
               className="font-body text-xs font-medium text-muted-foreground underline"
             >
               Réinitialiser
@@ -307,7 +315,10 @@ export function EspaceTab({ user }: { user: User }) {
             <button
               key={opt.value}
               type="button"
-              onClick={() => setAccent(opt.value)}
+              onClick={() => {
+                setAccent(opt.value);
+                toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
+              }}
               aria-label={opt.label}
               aria-pressed={accent === opt.value}
               className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
@@ -327,6 +338,7 @@ export function EspaceTab({ user }: { user: User }) {
               type="color"
               value={accentHex}
               onChange={(e) => setCustomAccent(e.target.value)}
+              onBlur={() => toast("Couleur d'accent mise à jour.", 'success')}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               aria-label="Choisir une couleur d'accent personnalisée"
             />
@@ -341,7 +353,10 @@ export function EspaceTab({ user }: { user: User }) {
           </label>
           <HexInput
             value={accentHex}
-            onCommit={setCustomAccent}
+            onCommit={(hex) => {
+              setCustomAccent(hex);
+              toast("Couleur d'accent mise à jour.", 'success');
+            }}
             ariaLabel="Code hexadécimal de la couleur d'accent"
           />
         </div>

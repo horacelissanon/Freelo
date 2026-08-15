@@ -9,7 +9,6 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { PackOfferCard } from '@/components/invoices/PackOfferCard';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance } from '@/lib/invoiceTotals';
 import {
@@ -88,6 +87,7 @@ interface QuoteOrInvoiceView {
     currency: string;
     issueDate: string;
     dueDate: string | null;
+    selectedPackId: string | null;
     client: { name: string };
     lineItems: TrackedLineItem[];
     packs: TrackedPack[];
@@ -569,6 +569,98 @@ function SectionHeading({ icon, label }: { icon: string; label: string }) {
   );
 }
 
+// One offer, one card, its own total — styled like a subscription-plan
+// card (name + price up top, feature list, single CTA) rather than an
+// invoice-style line-item table. Offers are alternatives the client picks
+// ONE of, never a sum, so there is deliberately no grand total anywhere
+// near this grid.
+function PackPlanCard({
+  index,
+  pack,
+  currency,
+  selected,
+  selectable,
+  onSelect,
+}: {
+  index: number;
+  pack: TrackedPack;
+  currency: string;
+  selected: boolean;
+  selectable: boolean;
+  onSelect: () => void;
+}) {
+  const total = pack.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  return (
+    <div
+      role={selectable ? 'button' : undefined}
+      tabIndex={selectable ? 0 : undefined}
+      onClick={selectable ? onSelect : undefined}
+      onKeyDown={
+        selectable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
+      className={`relative flex flex-col gap-4 rounded-lg border bg-canvas p-5 shadow-card transition-colors ${
+        selected ? 'border-2 border-primary' : 'border-border'
+      } ${selectable ? 'cursor-pointer hover:border-primary/60' : ''}`}
+    >
+      {selected && (
+        <span className="absolute -top-3 left-4 rounded-full bg-primary px-2.5 py-0.5 font-body text-[11px] font-semibold tracking-wide text-primary-foreground uppercase">
+          {selectable ? 'Sélectionnée' : 'Offre retenue'}
+        </span>
+      )}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 font-body text-xs font-bold text-primary">
+            {index}
+          </span>
+          <span className="font-headings text-base font-semibold text-foreground">
+            {pack.title}
+          </span>
+        </div>
+        <p className="font-headings text-2xl font-bold text-foreground">
+          {formatPrice(total, currency)}
+        </p>
+        {pack.description && (
+          <p className="font-body text-xs text-muted-foreground">{pack.description}</p>
+        )}
+      </div>
+      <ul className="flex flex-col gap-2">
+        {pack.items.map((item) => (
+          <li key={item.id} className="flex items-start gap-2 font-body text-sm text-foreground">
+            <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-primary" />
+            <span>
+              {item.designation}
+              {item.quantity > 1 && (
+                <span className="text-muted-foreground"> × {item.quantity}</span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {selectable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+          className={`mt-auto rounded-md px-4 py-2.5 font-body text-sm font-medium ${
+            selected ? 'border border-primary text-primary' : 'bg-primary text-primary-foreground'
+          }`}
+        >
+          {selected ? 'Offre choisie' : 'Choisir cette offre'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function FaqItem({
   question,
   answer,
@@ -616,11 +708,13 @@ function QuoteInvoiceDetail({
 }) {
   const { invoice, provider } = view;
   const isQuote = invoice.docType === 'QUOTE';
+  const canChoose = isQuote && invoice.status === 'SENT';
   const statusColors = INVOICE_STATUS_COLORS[invoice.status];
 
   const [validating, setValidating] = useState(false);
   const [validateError, setValidateError] = useState<string | null>(null);
   const [forceFaqOpen, setForceFaqOpen] = useState(false);
+  const [pendingPackId, setPendingPackId] = useState<string | null>(invoice.selectedPackId);
 
   useEffect(() => {
     function expandForPrint() {
@@ -630,11 +724,25 @@ function QuoteInvoiceDetail({
     return () => window.removeEventListener('beforeprint', expandForPrint);
   }, []);
 
+  const activePackId = canChoose ? pendingPackId : invoice.selectedPackId;
+  const activePack = invoice.packs.find((p) => p.id === activePackId) ?? null;
+  const activePackTotal = activePack
+    ? activePack.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+    : 0;
+
   async function validate() {
+    if (!pendingPackId) {
+      setValidateError('Choisissez une offre ci-dessus avant de valider.');
+      return;
+    }
     setValidating(true);
     setValidateError(null);
     try {
-      const res = await fetch(`/api/track/${token}/validate`, { method: 'POST' });
+      const res = await fetch(`/api/track/${token}/validate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ packId: pendingPackId }),
+      });
       const data = await res.json();
       if (!res.ok) {
         setValidateError(data.message ?? 'Le devis n’a pas pu être validé.');
@@ -765,18 +873,26 @@ function QuoteInvoiceDetail({
         />
 
         {isQuote ? (
-          <div className="flex flex-col gap-4">
-            {invoice.packs.map((pack, index) => (
-              <PackOfferCard
-                key={pack.id}
-                index={index + 1}
-                title={pack.title}
-                description={pack.description}
-                items={pack.items}
-                currency={invoice.currency}
-              />
-            ))}
-          </div>
+          <>
+            <p className="-mt-2 mb-4 font-body text-xs text-muted-foreground">
+              {canChoose
+                ? 'Choisissez une des offres ci-dessous — chacune a son propre tarif.'
+                : 'Ces offres vous ont été présentées au choix.'}
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {invoice.packs.map((pack, index) => (
+                <PackPlanCard
+                  key={pack.id}
+                  index={index + 1}
+                  pack={pack}
+                  currency={invoice.currency}
+                  selected={activePackId === pack.id}
+                  selectable={canChoose}
+                  onSelect={() => setPendingPackId(pack.id)}
+                />
+              ))}
+            </div>
+          </>
         ) : (
           <div className="overflow-hidden rounded-md border border-border">
             {invoice.lineItems.length > 0 ? (
@@ -806,16 +922,18 @@ function QuoteInvoiceDetail({
           </div>
         )}
 
-        <div className="mt-4 flex justify-end">
-          <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
-            <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
-              Total
-            </span>
-            <span className="font-headings text-base font-bold text-foreground">
-              {formatPrice(invoice.amount, invoice.currency)}
-            </span>
+        {!isQuote && (
+          <div className="mt-4 flex justify-end">
+            <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
+              <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
+                Total
+              </span>
+              <span className="font-headings text-base font-bold text-foreground">
+                {formatPrice(invoice.amount, invoice.currency)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {!isQuote &&
           (invoice.depositAmount != null || invoice.paymentMethodNote || invoice.deliveryDate) && (
@@ -932,13 +1050,46 @@ function QuoteInvoiceDetail({
       )}
 
       <div className="sticky bottom-4 z-10 rounded-lg border border-border bg-canvas/95 p-4 shadow-xl backdrop-blur print:hidden sm:p-5">
+        {canChoose && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {invoice.packs.map((pack, i) => {
+              const total = pack.items.reduce((sum, it) => sum + it.quantity * it.unitPrice, 0);
+              const isSelected = pendingPackId === pack.id;
+              return (
+                <button
+                  key={pack.id}
+                  type="button"
+                  onClick={() => setPendingPackId(pack.id)}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-body text-xs font-medium transition-colors ${
+                    isSelected
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border text-foreground hover:border-primary/50'
+                  }`}
+                >
+                  {isSelected && <Icon i="check-circle" size={13} />}
+                  {i + 1}. {pack.title} · {formatPrice(total, invoice.currency)}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="font-body text-[11px] text-muted-foreground uppercase">
-              {isQuote ? 'Total du devis' : 'Total à régler'}
+              {isQuote
+                ? activePack
+                  ? canChoose
+                    ? 'Offre sélectionnée'
+                    : 'Offre retenue'
+                  : 'Choisissez une offre ci-dessus'
+                : 'Total à régler'}
             </p>
-            <p className="font-headings text-xl font-bold text-foreground">
-              {formatPrice(invoice.amount, invoice.currency)}
+            <p className="truncate font-headings text-xl font-bold text-foreground">
+              {isQuote
+                ? activePack
+                  ? `${activePack.title} — ${formatPrice(activePackTotal, invoice.currency)}`
+                  : '—'
+                : formatPrice(invoice.amount, invoice.currency)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -949,11 +1100,11 @@ function QuoteInvoiceDetail({
               <Icon i="download" size={14} />
               <span className="hidden sm:inline">Télécharger</span>
             </a>
-            {isQuote && invoice.status === 'SENT' && (
+            {canChoose && (
               <button
                 type="button"
                 onClick={() => void validate()}
-                disabled={validating}
+                disabled={validating || !pendingPackId}
                 className="flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
                 <Icon i="check-circle" size={15} />

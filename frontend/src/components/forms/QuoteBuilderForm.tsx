@@ -8,7 +8,7 @@ import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice } from '@/lib/utils';
-import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
+import { computeItemsTotal } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -258,15 +258,28 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [packsError, setPacksError] = useState<string | null>(null);
+  const [invalidPackIndexes, setInvalidPackIndexes] = useState<Set<number>>(new Set());
+  const clientRef = useRef<HTMLSelectElement>(null);
+  const packsRef = useRef<HTMLDivElement>(null);
+
+  function clearPacksError() {
+    if (packsError) setPacksError(null);
+    if (invalidPackIndexes.size > 0) setInvalidPackIndexes(new Set());
+  }
 
   function updatePackField(packIndex: number, field: 'title' | 'description', value: string) {
     setPacks((prev) => prev.map((p, i) => (i === packIndex ? { ...p, [field]: value } : p)));
+    clearPacksError();
   }
   function addPack() {
     setPacks((prev) => (prev.length >= MAX_PACKS ? prev : [...prev, emptyPack()]));
+    clearPacksError();
   }
   function removePack(packIndex: number) {
     setPacks((prev) => prev.filter((_, i) => i !== packIndex));
+    clearPacksError();
   }
   function updateItem(packIndex: number, itemIndex: number, field: keyof ItemDraft, value: string) {
     setPacks((prev) =>
@@ -279,6 +292,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           : p,
       ),
     );
+    clearPacksError();
   }
   function addItem(packIndex: number) {
     setPacks((prev) =>
@@ -288,6 +302,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           : p,
       ),
     );
+    clearPacksError();
   }
   function removeItem(packIndex: number, itemIndex: number) {
     setPacks((prev) =>
@@ -295,15 +310,20 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         i === packIndex ? { ...p, items: p.items.filter((_, j) => j !== itemIndex) } : p,
       ),
     );
+    clearPacksError();
   }
 
-  const numericPacks = packs.map((p) => ({
-    items: p.items.map((it) => ({
-      quantity: Number(it.quantity) || 0,
-      unitPrice: Number(it.unitPrice) || 0,
-    })),
-  }));
-  const grandTotal = computeQuoteTotal(numericPacks);
+  // Each offer stands alone — the client picks ONE, so there is no grand
+  // total to compute here. packTotals feeds the sticky bar's per-offer
+  // price list (see the "les offres au choix" render below).
+  const packTotals = packs.map((p) =>
+    computeItemsTotal(
+      p.items.map((it) => ({
+        quantity: Number(it.quantity) || 0,
+        unitPrice: Number(it.unitPrice) || 0,
+      })),
+    ),
+  );
 
   function buildPacksPayload():
     | {
@@ -317,7 +337,8 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       description?: string;
       items: { designation: string; quantity: number; unitPrice: number }[];
     }[] = [];
-    for (const pack of packs) {
+    const invalid = new Set<number>();
+    packs.forEach((pack, i) => {
       const title = pack.title.trim();
       const items = pack.items
         .map((it) => ({
@@ -327,16 +348,21 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         }))
         .filter((it) => it.designation && it.quantity > 0 && it.unitPrice > 0);
       if (!title || items.length === 0) {
-        setError(
-          'Chaque offre doit avoir un titre et au moins une ligne valide (désignation, quantité, prix).',
-        );
-        return null;
+        invalid.add(i);
+        return;
       }
       built.push({
         title,
         ...(pack.description.trim() ? { description: pack.description.trim() } : {}),
         items,
       });
+    });
+    if (invalid.size > 0) {
+      setInvalidPackIndexes(invalid);
+      setPacksError(
+        'Chaque offre doit avoir un titre et au moins une ligne valide (désignation, quantité, prix).',
+      );
+      return null;
     }
     return built;
   }
@@ -369,14 +395,23 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setClientError(null);
+    setPacksError(null);
+    setInvalidPackIndexes(new Set());
+    if (!clientId) {
+      setClientError('Sélectionnez un client.');
+      clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      clientRef.current?.focus();
+      return;
+    }
+    const packsPayload = buildPacksPayload();
+    if (!packsPayload) {
+      packsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setPlanLimitMessage(null);
-    const packsPayload = buildPacksPayload();
-    if (!packsPayload) {
-      setSubmitting(false);
-      return;
-    }
     const shared = {
       clientId,
       projectId: projectId || null,
@@ -454,13 +489,17 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Client *
           <select
-            required
+            ref={clientRef}
             value={clientId}
             onChange={(e) => {
               setClientId(e.target.value);
               setProjectId('');
+              if (clientError) setClientError(null);
             }}
-            className={inputClass}
+            aria-invalid={!!clientError}
+            className={
+              clientError ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40` : inputClass
+            }
           >
             <option value="" disabled>
               Sélectionner un client
@@ -471,6 +510,11 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
               </option>
             ))}
           </select>
+          {clientError && (
+            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+              {clientError}
+            </span>
+          )}
         </label>
         {clientId && projects.length > 0 && (
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
@@ -526,7 +570,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section ref={packsRef} className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             Offres à passer
@@ -541,18 +585,25 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             Ajouter une offre
           </button>
         </div>
+        <p className="-mt-2 font-body text-xs text-muted-foreground">
+          Le client choisira une seule de ces offres — chacune a son propre total, ce n&apos;est pas
+          une somme.
+        </p>
+        {packsError && (
+          <p role="alert" className="font-body text-sm text-tag-red-fg">
+            {packsError}
+          </p>
+        )}
 
         {packs.map((pack, packIndex) => {
-          const packTotal = computeItemsTotal(
-            pack.items.map((it) => ({
-              quantity: Number(it.quantity) || 0,
-              unitPrice: Number(it.unitPrice) || 0,
-            })),
-          );
+          const packTotal = packTotals[packIndex] ?? 0;
+          const packInvalid = invalidPackIndexes.has(packIndex);
           return (
             <div
               key={packIndex}
-              className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card"
+              className={`flex flex-col gap-3 rounded-lg border p-5 shadow-card ${
+                packInvalid ? 'border-tag-red-fg' : 'border-border'
+              }`}
             >
               <div className="flex items-start gap-2">
                 <Icon
@@ -674,11 +725,11 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             <p className="font-body text-sm whitespace-pre-wrap text-foreground">{user.bio}</p>
           ) : (
             <p className="font-body text-sm text-muted-foreground">
-              Aucune présentation renseignée —{' '}
-              <a href="/settings" className="text-primary hover:underline">
-                ajoutez-en une dans Paramètres → Compte
+              Aucune bio renseignée —{' '}
+              <a href="/settings?tab=compte" className="text-primary hover:underline">
+                remplis le champ Bio dans Paramètres → Compte
               </a>{' '}
-              pour qu&apos;elle apparaisse sur vos devis.
+              pour qu&apos;elle apparaisse sur tes devis.
             </p>
           )}
         </div>
@@ -798,12 +849,23 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       )}
 
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-canvas/95 px-4 py-3 shadow-xl backdrop-blur sm:-mx-6 lg:-mx-8">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-body text-[11px] text-muted-foreground uppercase">Total général</p>
-            <p className="font-headings text-lg font-bold text-foreground">
-              {formatPrice(grandTotal, currency)}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mb-1 font-body text-[11px] text-muted-foreground uppercase">
+              Offres au choix
             </p>
+            <div className="flex flex-wrap gap-1.5">
+              {packs.map((pack, i) => (
+                <span
+                  key={i}
+                  className="flex items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1 font-body text-xs font-medium text-foreground"
+                >
+                  {pack.title.trim() || `Offre ${i + 1}`}
+                  <span className="text-muted-foreground">·</span>
+                  {formatPrice(packTotals[i] ?? 0, currency)}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button

@@ -80,6 +80,7 @@ interface InvoiceDetail {
   creditNote: InvoiceRelation | null;
   lineItems: InvoiceLineItemRow[];
   packs: InvoicePackRow[];
+  selectedPackId: string | null;
   depositAmount: number | null;
   deliveryDate: string | null;
   paymentMethodNote: string | null;
@@ -317,17 +318,23 @@ export default function InvoiceDetailPage() {
                   ))}
                 </div>
               ) : invoice.docType === 'QUOTE' && invoice.packs.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {invoice.packs.map((pack, index) => (
-                    <PackOfferCard
-                      key={pack.id}
-                      index={index + 1}
-                      title={pack.title}
-                      description={pack.description}
-                      items={pack.items}
-                      currency={invoice.currency}
-                    />
-                  ))}
+                <div className="flex flex-col gap-2">
+                  <p className="font-body text-xs text-muted-foreground">
+                    Offres au choix — chacune a son propre total, ce n&apos;est pas une somme.
+                  </p>
+                  <div className="flex flex-col gap-4">
+                    {invoice.packs.map((pack, index) => (
+                      <PackOfferCard
+                        key={pack.id}
+                        index={index + 1}
+                        title={pack.title}
+                        description={pack.description}
+                        items={pack.items}
+                        currency={invoice.currency}
+                        selected={invoice.selectedPackId === pack.id}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-md border border-border">
@@ -348,16 +355,18 @@ export default function InvoiceDetailPage() {
                   </div>
                 </div>
               )}
-              <div className="mt-4 flex justify-end">
-                <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
-                  <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
-                    Total
-                  </span>
-                  <span className="font-headings text-base font-bold text-foreground">
-                    {formatPrice(invoice.amount, invoice.currency)}
-                  </span>
+              {!(invoice.docType === 'QUOTE' && invoice.packs.length > 0) && (
+                <div className="mt-4 flex justify-end">
+                  <div className="flex w-full max-w-[220px] items-center justify-between rounded-md bg-secondary px-4 py-2.5">
+                    <span className="font-body text-xs font-semibold text-muted-foreground uppercase">
+                      Total
+                    </span>
+                    <span className="font-headings text-base font-bold text-foreground">
+                      {formatPrice(invoice.amount, invoice.currency)}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {invoice.docType === 'QUOTE' &&
                 (user.bio || invoice.paymentTermsNote || invoice.contentBlocks.length > 0) && (

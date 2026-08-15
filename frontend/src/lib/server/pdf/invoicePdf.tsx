@@ -21,6 +21,7 @@ export interface PdfLineItem {
 }
 
 export interface PdfPack {
+  id: string;
   title: string;
   description?: string | null;
   items: PdfLineItem[];
@@ -56,6 +57,7 @@ export interface InvoicePdfData {
   };
   lineItems: PdfLineItem[];
   packs: PdfPack[];
+  selectedPackId?: string | null;
   contentBlocks: PdfContentBlock[];
   paymentTermsNote?: string | null;
   depositAmount?: number | null;
@@ -247,12 +249,17 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
 
         {isQuote ? (
           <>
+            <Text style={{ fontSize: 8.5, color: '#6b6b6b', marginBottom: 8 }}>
+              Offres au choix — chacune a son propre total, ce n&apos;est pas une somme.
+            </Text>
             {data.packs.map((pack, i) => {
               const subtotal = computeItemsTotal(pack.items);
+              const isSelected = data.selectedPackId === pack.id;
               return (
                 <View key={i} style={styles.packBlock} wrap={false}>
                   <Text style={styles.packTitle}>
                     {i + 1}. {pack.title}
+                    {isSelected ? '  ✓ Offre retenue' : ''}
                   </Text>
                   {pack.description && (
                     <Text style={styles.packDescription}>{pack.description}</Text>
@@ -266,14 +273,6 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
                 </View>
               );
             })}
-            <View style={styles.totalsBlock}>
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Total général</Text>
-                <Text style={styles.grandTotalValue}>
-                  {formatPrice(data.amount, data.currency)}
-                </Text>
-              </View>
-            </View>
           </>
         ) : (
           <>

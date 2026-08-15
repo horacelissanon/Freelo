@@ -64,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             await queue.enqueue({
               to: sub.user.email,
               subject: 'Ton abonnement Merrudit Pro expire bientôt',
-              html: `<p>Ton abonnement Pro expire le ${sub.currentPeriodEnd.toLocaleDateString('fr-FR')}. Renouvelle depuis Paramètres → Facturation pour garder tes fonctionnalités Pro.</p>`,
+              html: `<p>Ton abonnement Pro expire le ${sub.currentPeriodEnd.toLocaleDateString('fr-FR')}. Renouvelle depuis Paramètres → Abonnement pour garder tes fonctionnalités Pro.</p>`,
             });
           }
         }

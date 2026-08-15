@@ -25,7 +25,7 @@ export function PlanLimitPrompt({ message }: { message: string }) {
         <p className="font-body text-sm text-foreground">{message}</p>
       </div>
       <Link
-        href="/settings?tab=facturation"
+        href="/settings?tab=abonnement"
         className="self-start rounded-md bg-primary px-3 py-1.5 font-body text-xs font-medium text-primary-foreground"
       >
         Passer en Pro

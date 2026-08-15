@@ -1,5 +1,5 @@
 // GET /api/billing/subscription — current plan/status/usage for the
-// Paramètres → Facturation tab. Lazily creates a FREE Subscription row on
+// Paramètres → Abonnement tab. Lazily creates a FREE Subscription row on
 // first read (mirrors NotificationPreferences' upsert-on-read pattern).
 export const runtime = 'nodejs';
 

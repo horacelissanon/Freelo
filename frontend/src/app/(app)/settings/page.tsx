@@ -10,14 +10,23 @@ import { NotificationsTab } from '@/components/settings/NotificationsTab';
 import { SecuriteTab } from '@/components/settings/SecuriteTab';
 import { FacturationTab } from '@/components/settings/FacturationTab';
 
-type TabKey = 'compte' | 'espace' | 'notifications' | 'securite' | 'facturation';
+type TabKey = 'compte' | 'espace' | 'notifications' | 'securite' | 'abonnement';
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
+// Abonnement keeps its own amber/orange identity (set in FacturationTab)
+// even in the tab bar — it deliberately stands out from whichever accent
+// color the user picked for the rest of the workspace, so the upgrade path
+// stays visually distinct instead of blending into "just another tab".
+const TABS: { key: TabKey; label: string; icon: string; activeClassName?: string }[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
-  { key: 'facturation', label: 'Facturation', icon: 'credit-card' },
+  {
+    key: 'abonnement',
+    label: 'Abonnement',
+    icon: 'credit-card',
+    activeClassName: 'border-amber-500 text-amber-600 dark:text-amber-400',
+  },
 ];
 
 const TAB_KEYS: readonly TabKey[] = TABS.map((t) => t.key);
@@ -49,7 +58,7 @@ function SettingsPageInner() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'border-primary text-primary'
+                ? (tab.activeClassName ?? 'border-primary text-primary')
                 : 'border-transparent text-muted-foreground'
             }`}
           >
@@ -63,7 +72,7 @@ function SettingsPageInner() {
       {activeTab === 'espace' && <EspaceTab user={user} />}
       {activeTab === 'notifications' && <NotificationsTab />}
       {activeTab === 'securite' && <SecuriteTab user={user} />}
-      {activeTab === 'facturation' && <FacturationTab />}
+      {activeTab === 'abonnement' && <FacturationTab />}
     </div>
   );
 }

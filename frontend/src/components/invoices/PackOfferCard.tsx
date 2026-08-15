@@ -42,18 +42,23 @@ export function PackOfferCard({
   description,
   items,
   currency,
+  selected,
 }: {
   index: number;
   title: string;
   description?: string | null;
   items: PackOfferItem[];
   currency: string;
+  /** True once the client has accepted this specific offer (Invoice.selectedPackId). */
+  selected?: boolean;
 }) {
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const accent = PACK_ACCENTS[(index - 1) % PACK_ACCENTS.length]!;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-canvas shadow-card">
+    <div
+      className={`overflow-hidden rounded-lg border bg-canvas shadow-card ${selected ? 'border-2 border-tag-green-fg' : 'border-border'}`}
+    >
       <div className={`h-1.5 ${accent.bar}`} />
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3.5">
         <div className="flex items-start gap-3">
@@ -63,7 +68,14 @@ export function PackOfferCard({
             {index}
           </span>
           <div className="min-w-0">
-            <p className="font-body text-sm font-semibold text-foreground">{title}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-body text-sm font-semibold text-foreground">{title}</p>
+              {selected && (
+                <span className="flex-shrink-0 rounded-full bg-tag-green px-2 py-0.5 font-body text-[10px] font-bold text-tag-green-fg uppercase">
+                  Offre retenue
+                </span>
+              )}
+            </div>
             {description && (
               <p className="mt-0.5 font-body text-xs text-muted-foreground">{description}</p>
             )}

@@ -48,11 +48,13 @@ describe('renderInvoicePdf', () => {
       lineItems: [],
       packs: [
         {
+          id: 'pack-1',
           title: 'Essentiel',
           description: 'Le pack de base',
           items: [{ designation: 'Logo', quantity: 1, unitPrice: 200000 }],
         },
       ],
+      selectedPackId: 'pack-1',
       contentBlocks: [
         { kind: 'PROCESS', primaryText: 'Brief', secondaryText: 'On discute du besoin.' },
         { kind: 'FAQ', primaryText: 'Délai ?', secondaryText: '2 semaines.' },
@@ -74,6 +76,7 @@ describe('renderInvoicePdf', () => {
       lineItems: [],
       packs: [
         {
+          id: 'pack-1',
           title: 'Simple',
           description: null,
           items: [{ designation: 'Item', quantity: 1, unitPrice: 1000 }],
