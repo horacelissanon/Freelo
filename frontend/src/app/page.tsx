@@ -98,8 +98,18 @@ const STEPS: { icon: string; title: string; description: string }[] = [
 // same icon-badge size, same text sizes) as every other tile — only the
 // color tokens flip (solid bg-primary fill instead of bg-canvas + a pale
 // bg-tag-green badge) so "Une validation qui fait foi" still stands out
-// without being a different size or a separate spotlight bar.
-const FEATURES: { icon: string; title: string; description: string; inverted?: boolean }[] = [
+// without being a different size or a separate spotlight bar. `pinBelowHighlight`
+// forces that card's lg (3-col) position to sit directly under it (grid
+// auto-flow alone would put the last item in column 1 of the next row, not
+// column 2) — source order already handles this correctly at the sm 2-col
+// breakpoint, so the explicit column-start only applies at lg.
+const FEATURES: {
+  icon: string;
+  title: string;
+  description: string;
+  inverted?: boolean;
+  pinBelowHighlight?: boolean;
+}[] = [
   {
     icon: 'users',
     title: 'CRM clients simple',
@@ -142,6 +152,7 @@ const FEATURES: { icon: string; title: string; description: string; inverted?: b
     title: 'Alertes automatiques',
     description:
       'Échéance de projet qui approche, facture en retard — Freelo te prévient avant que ton client s’en inquiète.',
+    pinBelowHighlight: true,
   },
 ];
 
@@ -688,11 +699,11 @@ export default function Home() {
               {FEATURES.map((feature) => (
                 <div
                   key={feature.title}
-                  className={
+                  className={`${
                     feature.inverted
                       ? 'rounded-lg border border-primary bg-primary p-5 shadow-card'
                       : inputCardClass
-                  }
+                  } ${feature.pinBelowHighlight ? 'lg:col-start-2' : ''}`}
                 >
                   <div
                     className={`flex h-10 w-10 items-center justify-center rounded-lg ${
