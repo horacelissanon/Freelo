@@ -81,6 +81,7 @@ model User {
   clients           Client[]
   projects          Project[]
   invoices          Invoice[]
+  reviews           Review[]
   subscription      Subscription?
   sessions          Session[]
 
@@ -438,6 +439,7 @@ model Client {
 
   projects Project[]
   invoices Invoice[]
+  reviews  Review[]
 
   @@index([userId, createdAt])
   @@index([userId, status])
@@ -467,6 +469,7 @@ model Project {
   steps    ProjectStep[]
   comments ProjectComment[]
   files    FileUpload[]
+  review   Review?
 
   @@index([userId, createdAt])
   @@index([userId, status])
@@ -644,6 +647,31 @@ model QuoteContentBlock {
   updatedAt     DateTime @updatedAt
 
   @@index([invoiceId, kind, order])
+}
+
+// Client-submitted review — one per Project, collected via the Client Link
+// Portal once the project reaches DELIVERED (POST /api/track/[token]/review,
+// same token-is-the-authorization pattern as ProjectComment). Re-posting
+// updates the existing row (upsert on projectId) rather than erroring — low
+// stakes, no adversarial "frozen once sent" invariant needed here unlike
+// Invoice. Denormalizes userId/clientId (not just projectId) so the
+// freelancer-facing "Avis clients" list/aggregate never needs to join
+// through Project for every row.
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([clientId])
 }
 
 // ───────────────────────────────────────────────────────────────────────
