@@ -38,7 +38,9 @@ export function applySidebarColor(hex: string): void {
   root.setProperty('--color-sidebar-muted', mixHex(hex, fg, 0.14));
 }
 
-function clearSidebarColor(): void {
+// Exported for ScopedColorGuard.tsx — see applyCustomAccent's comment above
+// for why this needs to be re-invokable outside the setter.
+export function clearSidebarColor(): void {
   const root = document.documentElement.style;
   root.removeProperty('--color-sidebar');
   root.removeProperty('--color-sidebar-foreground');

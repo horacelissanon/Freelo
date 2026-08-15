@@ -60,13 +60,16 @@ function isHex(value: string | null): value is string {
   return !!value && /^#[0-9a-f]{6}$/i.test(value);
 }
 
-function applyCustomAccent(hex: string): void {
+// Exported for ScopedColorGuard.tsx, which re-applies/clears the same DOM
+// mutation on client-side route transitions (the pre-paint script in
+// layout.tsx only covers the first full page load).
+export function applyCustomAccent(hex: string): void {
   const root = document.documentElement.style;
   root.setProperty('--color-primary', hex);
   root.setProperty('--color-accent', darkenHex(hex, 0.12));
 }
 
-function clearCustomAccent(): void {
+export function clearCustomAccent(): void {
   const root = document.documentElement.style;
   root.removeProperty('--color-primary');
   root.removeProperty('--color-accent');
