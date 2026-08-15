@@ -42,6 +42,7 @@ interface NotificationApiRow {
   type: string;
   title: string;
   body: string;
+  data?: { projectId?: string; invoiceId?: string } | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -84,6 +85,11 @@ export default function DashboardPage() {
 
   async function markAllNotificationsRead() {
     await api('/api/notifications', { method: 'PATCH', body: { ids: 'all' } });
+    invalidateCachePrefix('/api/notifications');
+  }
+
+  async function markNotificationRead(id: string) {
+    await api('/api/notifications', { method: 'PATCH', body: { ids: [id] } });
     invalidateCachePrefix('/api/notifications');
   }
 
@@ -150,6 +156,7 @@ export default function DashboardPage() {
             unreadCount={notifCount.data?.count ?? 0}
             notifications={notifications.data?.items ?? []}
             onMarkAllRead={() => void markAllNotificationsRead()}
+            onMarkRead={(id) => void markNotificationRead(id)}
           />
           <button
             type="button"

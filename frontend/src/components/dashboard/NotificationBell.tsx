@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { relativeTime } from '@/lib/utils';
 
@@ -9,6 +10,7 @@ export interface NotificationBellItem {
   type: string;
   title: string;
   body: string;
+  data?: { projectId?: string; invoiceId?: string } | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -18,19 +20,30 @@ const TYPE_STYLE: Record<string, { bg: string; fg: string; icon: string }> = {
   payment: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'credit-card' },
   signature: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'pen-line' },
   invoice: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'file-check' },
+  'invoice-overdue': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
+  'project-deadline': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
 };
 const DEFAULT_STYLE = { bg: 'bg-secondary', fg: 'text-muted-foreground', icon: 'bell' };
+
+function hrefFor(n: NotificationBellItem): string | null {
+  if (n.data?.invoiceId) return `/invoices/${n.data.invoiceId}`;
+  if (n.data?.projectId) return `/projects/${n.data.projectId}`;
+  return null;
+}
 
 export function NotificationBell({
   unreadCount,
   notifications,
   onMarkAllRead,
+  onMarkRead,
 }: {
   unreadCount: number;
   notifications: NotificationBellItem[];
   onMarkAllRead: () => void;
+  onMarkRead?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <div className="relative">
@@ -52,7 +65,14 @@ export function NotificationBell({
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-40 cursor-default"
           />
-          <div className="absolute top-12 right-0 z-50 w-80 max-w-[90vw] rounded-lg border border-border bg-canvas shadow-lg sm:w-96">
+          {/* Positioned `fixed` + viewport-margin below the top bar on
+              mobile/tablet — `absolute right-0` on a small bell wrapper
+              anchors the panel's right edge to the *button*, not the
+              screen, so a w-80+ panel overflowed off the left edge on
+              narrow viewports. From lg (desktop, where the bell sits in a
+              wide, already right-aligned toolbar) it reverts to the
+              original absolute anchoring. */}
+          <div className="fixed inset-x-4 top-16 z-50 rounded-lg border border-border bg-canvas shadow-lg sm:inset-x-auto sm:right-4 sm:left-auto sm:w-96 lg:absolute lg:inset-x-auto lg:top-12 lg:right-0 lg:left-auto lg:w-96">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <h3 className="font-headings text-base font-bold text-foreground">Notifications</h3>
               {unreadCount > 0 && (
@@ -73,11 +93,9 @@ export function NotificationBell({
               ) : (
                 notifications.map((n) => {
                   const style = TYPE_STYLE[n.type] ?? DEFAULT_STYLE;
-                  return (
-                    <div
-                      key={n.id}
-                      className={`flex gap-3 border-b border-muted px-5 py-4 last:border-b-0 ${!n.readAt ? 'bg-secondary' : ''}`}
-                    >
+                  const href = hrefFor(n);
+                  const content = (
+                    <>
                       <div
                         className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md ${style.bg}`}
                       >
@@ -99,7 +117,29 @@ export function NotificationBell({
                           {relativeTime(n.createdAt)}
                         </p>
                       </div>
-                    </div>
+                    </>
+                  );
+                  const rowClass = `flex w-full gap-3 border-b border-muted px-5 py-4 text-left last:border-b-0 ${!n.readAt ? 'bg-secondary' : ''}`;
+                  if (!href) {
+                    return (
+                      <div key={n.id} className={rowClass}>
+                        {content}
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => {
+                        if (!n.readAt) onMarkRead?.(n.id);
+                        setOpen(false);
+                        router.push(href);
+                      }}
+                      className={`${rowClass} cursor-pointer transition-colors hover:bg-secondary`}
+                    >
+                      {content}
+                    </button>
                   );
                 })
               )}

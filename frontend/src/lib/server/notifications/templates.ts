@@ -21,6 +21,50 @@
 
 import type { CreateNotificationInput } from './index';
 
+/**
+ * Dispatched by the deadline-alerts cron the moment an INVOICE crosses its
+ * dueDate still unpaid (status flips SENT → OVERDUE in the same sweep).
+ * Deduped per invoice — fires once, not once per hour the sweep re-runs.
+ */
+export function invoiceOverdue(
+  userId: string,
+  invoiceId: string,
+  number: string,
+  amount: number,
+  currency: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'invoice-overdue',
+    title: `Facture ${number} en retard`,
+    body: `${amount} ${currency} attendu — le client n'a pas encore payé.`,
+    data: { invoiceId },
+    dedupeKey: `invoice-overdue:${invoiceId}`,
+  };
+}
+
+/**
+ * Dispatched by the deadline-alerts cron for a PROJECT whose dueDate falls
+ * within the reminder window and isn't DELIVERED yet. Deduped per
+ * (project, dueDate) so it fires once per due date — changing the due date
+ * lets it fire again, but the hourly sweep tick doesn't re-spam it.
+ */
+export function projectDeadlineSoon(
+  userId: string,
+  projectId: string,
+  name: string,
+  dueDateIso: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'project-deadline',
+    title: `${name} — échéance proche`,
+    body: `Livraison prévue le ${new Date(dueDateIso).toLocaleDateString('fr-FR')}.`,
+    data: { projectId },
+    dedupeKey: `project-deadline-soon:${projectId}:${dueDateIso.slice(0, 10)}`,
+  };
+}
+
 export function welcomeNotification(userId: string, email: string): CreateNotificationInput {
   return {
     userId,

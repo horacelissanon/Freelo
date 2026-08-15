@@ -34,6 +34,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     invalidateCachePrefix('/api/notifications');
   }
 
+  async function markNotificationRead(id: string) {
+    await api('/api/notifications', { method: 'PATCH', body: { ids: [id] } });
+    invalidateCachePrefix('/api/notifications');
+  }
+
   function toggleCollapsed() {
     setCollapsed((prev) => {
       const next = !prev;
@@ -91,6 +96,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 unreadCount={notifCount.data?.count ?? 0}
                 notifications={notifications.data?.items ?? []}
                 onMarkAllRead={() => void markAllNotificationsRead()}
+                onMarkRead={(id) => void markNotificationRead(id)}
               />
               <Link
                 href="/settings"

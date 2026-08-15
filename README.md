@@ -122,12 +122,13 @@ Les fichiers uploadés renvoient un `secure_url` Cloudinary servi directement pa
 | POST | `/api/webhooks/bictorys` | HMAC provider + replay window 60s — paiements clients |
 | POST | `/api/webhooks/fedapay` | HMAC `X-FEDAPAY-SIGNATURE` + replay window 5min — abonnement SaaS |
 
-### Handlers cron — 7 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
+### Handlers cron — 8 routes (toutes `Authorization: Bearer ${CRON_SECRET}`)
 | Path | Schedule (`vercel.json`) |
 |---|---|
 | `/api/cron/outbox-drain` | toutes les minutes |
 | `/api/cron/email-queue-drain` | toutes les minutes |
 | `/api/cron/verification-cleanup` | toutes les heures |
+| `/api/cron/deadline-alerts` | toutes les heures |
 | `/api/cron/order-expiration` | toutes les 5 min |
 | `/api/cron/webhook-log-purge` | quotidien |
 | `/api/cron/email-job-purge` | quotidien |
@@ -210,7 +211,7 @@ izikit/
 ├── frontend/                    L'app Next.js 16 (full-stack)
 │   ├── prisma/                  schema.prisma + migrations
 │   ├── scripts/                 make-superadmin.ts, seed-dev.ts, smoke-auth.ts (via tsx)
-│   ├── vercel.json              schedules cron (7 entrées)
+│   ├── vercel.json              schedules cron (8 entrées)
 │   ├── .env.example             référence env
 │   └── src/
 │       ├── app/api/             route handlers
