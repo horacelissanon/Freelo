@@ -1,6 +1,6 @@
 'use client';
 
-// Small rotating word for the hero eyebrow — cycles through freelance
+// Small rotating word for the hero H1 — cycles through freelance
 // professions so the "who this is for" line stays inclusive of everyone
 // Freelo actually serves (not just designers) without needing a full
 // project-category rework. Remounts the <span> on each change (key={index})
@@ -11,9 +11,11 @@ import { useEffect, useState } from 'react';
 export function RotatingWord({
   words,
   intervalMs = 2400,
+  className = '',
 }: {
   words: string[];
   intervalMs?: number;
+  className?: string;
 }) {
   const [index, setIndex] = useState(0);
 
@@ -25,7 +27,7 @@ export function RotatingWord({
   }, [words, intervalMs]);
 
   return (
-    <span key={index} className="animate-fade-in inline-block font-semibold">
+    <span key={index} className={`animate-fade-in inline-block font-semibold ${className}`}>
       {words[index]}
     </span>
   );

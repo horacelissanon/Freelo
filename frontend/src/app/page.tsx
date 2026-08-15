@@ -31,9 +31,9 @@ import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 
 const PAYMENT_METHODS = ['Wave', 'Orange Money', 'MTN Mobile Money', 'Carte bancaire'];
 
-// Rotates in the hero eyebrow so "who this is for" stays visible and
-// inclusive — Freelo isn't scoped to graphic designers specifically, unlike
-// the competitor this page took structural inspiration from.
+// Rotates in the hero H1 so "who this is for" stays visible and inclusive
+// — Freelo isn't scoped to graphic designers specifically, unlike the
+// competitor this page took structural inspiration from.
 const TARGET_PROFESSIONS = [
   'designers',
   'développeurs',
@@ -294,16 +294,12 @@ export default function Home() {
           <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
             Fait pour l’Afrique francophone
           </span>
-          {/* The Canva-style two-clause hero: a short line naming who this is
-              for (dynamic — cycles through professions so it reads as "made
-              for you" for more visitors, not just designers), then the fixed
-              emotional-hook headline. Distinct from the geography badge
-              above so the two don't repeat "freelances" twice. */}
-          <p className="font-body text-sm font-semibold text-primary sm:text-base">
-            Le CRM taillé pour les <RotatingWord words={TARGET_PROFESSIONS} /> freelances
-          </p>
+          {/* Headline itself names the target (dynamic — cycles through
+              professions so it reads as "made for you" for more visitors,
+              not just designers), Canva-style. */}
           <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Arrête de courir après tes clients pour être payé.
+            Le CRM taillé sur mesure pour les freelances{' '}
+            <RotatingWord words={TARGET_PROFESSIONS} className="text-primary" />.
           </h1>
           <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
             Fini Canva, Photoshop ou Word pour composer un devis. Freelo génère des devis et
