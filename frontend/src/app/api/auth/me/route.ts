@@ -62,6 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         language: true,
         showPaidInvoicesDefault: true,
         publicPortalEnabled: true,
+        onboardingCompletedAt: true,
       },
     });
 
@@ -106,6 +107,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       language: dbUser?.language ?? 'fr',
       showPaidInvoicesDefault: dbUser?.showPaidInvoicesDefault ?? true,
       publicPortalEnabled: dbUser?.publicPortalEnabled ?? true,
+      onboardingCompletedAt: dbUser?.onboardingCompletedAt
+        ? dbUser.onboardingCompletedAt instanceof Date
+          ? dbUser.onboardingCompletedAt.toISOString()
+          : dbUser.onboardingCompletedAt
+        : null,
     };
 
     return NextResponse.json({ user }, { status: 200, headers: { 'x-request-id': ctx.requestId } });
@@ -126,6 +132,9 @@ const PatchBody = z.object({
   language: z.string().min(2).max(10).optional(),
   showPaidInvoicesDefault: z.boolean().optional(),
   publicPortalEnabled: z.boolean().optional(),
+  // One-way flag — set once when the user finishes or skips the onboarding
+  // wizard/tour. Only `true` is accepted; there's no un-completing it.
+  onboardingCompleted: z.literal(true).optional(),
 });
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -159,6 +168,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       language,
       showPaidInvoicesDefault,
       publicPortalEnabled,
+      onboardingCompleted,
     } = parsed.data;
 
     const user = await prisma.user.update({
@@ -177,6 +187,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         ...(language !== undefined ? { language } : {}),
         ...(showPaidInvoicesDefault !== undefined ? { showPaidInvoicesDefault } : {}),
         ...(publicPortalEnabled !== undefined ? { publicPortalEnabled } : {}),
+        ...(onboardingCompleted ? { onboardingCompletedAt: new Date() } : {}),
       },
       select: {
         name: true,
@@ -192,6 +203,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
         language: true,
         showPaidInvoicesDefault: true,
         publicPortalEnabled: true,
+        onboardingCompletedAt: true,
       },
     });
 

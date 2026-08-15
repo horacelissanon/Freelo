@@ -51,6 +51,12 @@ model User {
   // when false, GET /api/track/[token] (+ comments/pay siblings) 404 for
   // all of this user's clients/projects, same shape as an invalid token.
   publicPortalEnabled     Boolean @default(true)
+  // Onboarding — null means the first-run setup wizard + product tour
+  // haven't been completed or explicitly skipped yet; set once (never
+  // reset) the first time the user finishes or dismisses it. The migration
+  // backfills this to createdAt for every pre-existing row so only NEW
+  // signups see the wizard, not the whole existing user base.
+  onboardingCompletedAt DateTime?
   // App-wide role. USER is the default; ADMIN unlocks /admin back-office;
   // SUPERADMIN can promote/demote other admins. Bootstrap an initial
   // SUPERADMIN via `pnpm db:make-superadmin <email>` (see scripts).
