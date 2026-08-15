@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
@@ -335,10 +336,17 @@ function DevisTab({
   );
 }
 
-export default function InvoicesPage() {
+function InvoicesPageInner() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
-  const [activeTab, setActiveTab] = useState<'factures' | 'devis'>('factures');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Tab lives in the URL (?tab=devis|factures), not just local state — so
+  // that navigating into a devis/facture detail page and back (BackButton's
+  // router.back()) restores the tab you were actually on, instead of always
+  // resetting to "Factures". Same pattern as Paramètres' ?tab= (settings/page.tsx).
+  const tabParam = searchParams.get('tab');
+  const activeTab: 'factures' | 'devis' = tabParam === 'devis' ? 'devis' : 'factures';
   const [viewMode, setViewMode] = useState<ListViewMode>('list');
   const { data, loading, error, refresh } = useApi<{ items: InvoiceApiRow[] }>(
     '/api/invoices?limit=50',
@@ -352,6 +360,10 @@ export default function InvoicesPage() {
   function changeView(mode: ListViewMode) {
     setViewMode(mode);
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
+  }
+
+  function setActiveTab(next: 'factures' | 'devis') {
+    router.replace(next === 'devis' ? '/invoices?tab=devis' : '/invoices', { scroll: false });
   }
 
   if (!user) return null;
@@ -375,23 +387,6 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setActiveTab('factures')}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === 'factures'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground'
-            }`}
-          >
-            <Icon i="file-text" size={15} />
-            Factures
-            {factureRows.length > 0 && (
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
-                {factureRows.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab('devis')}
             className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
               activeTab === 'devis'
@@ -404,6 +399,23 @@ export default function InvoicesPage() {
             {devisRows.length > 0 && (
               <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
                 {devisRows.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('factures')}
+            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === 'factures'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground'
+            }`}
+          >
+            <Icon i="file-text" size={15} />
+            Factures
+            {factureRows.length > 0 && (
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
+                {factureRows.length}
               </span>
             )}
           </button>
@@ -446,5 +458,13 @@ export default function InvoicesPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <Suspense fallback={null}>
+      <InvoicesPageInner />
+    </Suspense>
   );
 }
