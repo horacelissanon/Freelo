@@ -473,6 +473,10 @@ model Invoice {
   docType     String // INVOICE | QUOTE | CREDIT_NOTE
   number      String // "2025-001" / "QT-2025-008" / "AV-2025-003" — sequential per userId+docType
   description String?
+  // Denormalized total, always server-computed from lineItems (INVOICE) or
+  // packs (QUOTE) — never accepted directly from the client. Kept in sync on
+  // every create/edit so dashboard stats, InvoiceCard/InvoiceRow and the
+  // invoices list keep reading this single Int with zero changes.
   amount      Int
   currency    String    @default("XOF")
   status      String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE | ACCEPTED | CANCELED
@@ -481,6 +485,25 @@ model Invoice {
   orderId     String?   @unique // set once a payment Order is created (Phase C)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // Facture-only breakdown fields (INVOICE docType). Never set on a QUOTE —
+  // enforced in the route handlers, not at the schema level.
+  depositAmount     Int? // Acompte
+  deliveryDate      DateTime? // Date de livraison — distinct from dueDate (payment due date)
+  paymentMethodNote String? // Règlement — free text, e.g. "Orange Money +221..."
+  footerNote        String? // Note de bas de page
+
+  // Devis-only free paragraph (QUOTE docType) — the intro text above the
+  // structured payment-method content blocks, e.g. "Un acompte de 50% est
+  // demandé avant le démarrage...". Distinct from paymentMethodNote above.
+  paymentTermsNote String?
+
+  // Client Link Portal (Phase C pattern, extended here) — one token per
+  // invoice/quote, same convention as Client.trackingToken/Project.publicToken.
+  // The /api/track/[token] route only serves it once status != DRAFT (no
+  // sharing a link to an unsent draft) — same anti-leak shape as the rest
+  // of this app (404, not a distinct "not ready" error).
+  trackingToken String @unique @default(cuid())
 
   // Set on a CREDIT_NOTE row only: the INVOICE it fully cancels. One-to-one
   // (an invoice can be canceled at most once — re-issue a new INVOICE for a
@@ -491,11 +514,79 @@ model Invoice {
   relatedInvoice   Invoice? @relation("InvoiceCreditNote", fields: [relatedInvoiceId], references: [id])
   creditNote       Invoice? @relation("InvoiceCreditNote")
 
+  // lineItems always carries invoiceId, even for a QUOTE's pack items — for
+  // an INVOICE (packId always null) this is the flat prestations list; for a
+  // QUOTE, always filter `where: { packId: null }` to get the (always empty)
+  // flat subset, use `packs[].items` for the real per-pack lines instead.
+  packs         InvoicePack[]
+  lineItems     InvoiceLineItem[]
+  contentBlocks QuoteContentBlock[] // QUOTE only
+
   @@unique([userId, docType, number])
   @@index([userId, createdAt])
   @@index([userId, status])
   @@index([clientId])
   @@index([projectId])
+}
+
+// One pack/offer within a QUOTE's "Offres à passer" — a devis can present
+// several selectable tiers, each with its own repeatable line items and
+// subtotal. Never used for an INVOICE (which has a flat lineItems list
+// instead, packId null throughout).
+model InvoicePack {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  order       Int
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items InvoiceLineItem[]
+
+  @@index([invoiceId, order])
+}
+
+// A single prestation line (désignation/qté/prix). packId is set only for a
+// QUOTE's pack-nested items; null means a flat INVOICE line.
+model InvoiceLineItem {
+  id          String       @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  packId      String?
+  pack        InvoicePack? @relation(fields: [packId], references: [id], onDelete: Cascade)
+  order       Int
+  designation String
+  quantity    Int      @default(1)
+  unitPrice   Int // integer, smallest currency unit — same money invariant as amount
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([invoiceId, order])
+  @@index([packId, order])
+}
+
+// Additional devis content sections (Processus de travail / Conditions /
+// Modalités de paiement / FAQ) — one generic {primaryText, secondaryText}
+// shape reused across all four kinds rather than four separate tables,
+// since they're all structurally an ordered list of two text fields
+// (title+description, or label+value, or question+answer). QUOTE only.
+// Each quote gets its own copy (not a shared reference) so editing one
+// quote's content never affects another's — see the "last quote as
+// template" pre-fill mechanism in the invoice creation route.
+model QuoteContentBlock {
+  id            String   @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  kind          String // PROCESS | CONDITIONS | PAYMENT_METHOD | FAQ
+  order         Int
+  primaryText   String
+  secondaryText String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([invoiceId, kind, order])
 }
 
 // ───────────────────────────────────────────────────────────────────────
