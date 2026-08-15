@@ -70,7 +70,7 @@ export function NotificationsTab() {
           key={event.key}
           className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
         >
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <span className="font-body text-sm font-medium text-foreground">{event.label}</span>
             <span className="font-body text-xs text-muted-foreground">{event.description}</span>
           </div>

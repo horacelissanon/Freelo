@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -69,9 +69,18 @@ export function ClientForm({
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!name.trim()) {
+      setNameError('Le nom du client est obligatoire.');
+      nameRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      nameRef.current?.focus();
+      return;
+    }
+    setNameError(null);
     setSubmitting(true);
     setError(null);
     setPlanLimitMessage(null);
@@ -134,13 +143,26 @@ export function ClientForm({
             <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
               Nom du client *
               <input
+                ref={nameRef}
                 type="text"
-                required
                 placeholder="Ex : Aïssatou Ndiaye"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
+                aria-invalid={!!nameError}
+                className={
+                  nameError
+                    ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                    : inputClass
+                }
               />
+              {nameError && (
+                <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+                  {nameError}
+                </span>
+              )}
             </label>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">

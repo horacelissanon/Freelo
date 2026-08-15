@@ -9,9 +9,15 @@ import { useToast } from '@/contexts/ToastContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: 'fr', label: 'Français' },
+  { value: 'en', label: 'English' },
+];
 
 // Prénom/Nom is a UI-only split — the schema still stores one `User.name`
 // string (no migration needed). Split on the first whitespace on load,
@@ -47,6 +53,15 @@ export function CompteTab({ user }: { user: User }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+
+  const [studioName, setStudioName] = useState(user.studioName ?? '');
+  const [taxId, setTaxId] = useState(user.taxId ?? '');
+  const [commerceRegistry, setCommerceRegistry] = useState(user.commerceRegistry ?? '');
+  const [address, setAddress] = useState(user.address ?? '');
+  const [defaultCurrency, setDefaultCurrency] = useState(user.defaultCurrency);
+  const [language, setLanguage] = useState(user.language);
+  const [studioSubmitting, setStudioSubmitting] = useState(false);
+  const [studioError, setStudioError] = useState<string | null>(null);
 
   const [exportPending, setExportPending] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -98,6 +113,31 @@ export function CompteTab({ user }: { user: User }) {
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     void saveProfile();
+  }
+
+  async function onSubmitStudio(e: FormEvent) {
+    e.preventDefault();
+    setStudioSubmitting(true);
+    setStudioError(null);
+    try {
+      await api('/api/auth/me', {
+        method: 'PATCH',
+        body: {
+          studioName: studioName.trim(),
+          taxId: taxId.trim(),
+          commerceRegistry: commerceRegistry.trim(),
+          address: address.trim(),
+          defaultCurrency,
+          language,
+        },
+      });
+      await refresh();
+      toast('Informations du studio mises à jour.', 'success');
+    } catch (err) {
+      setStudioError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setStudioSubmitting(false);
+    }
   }
 
   function onCancel() {
@@ -264,6 +304,102 @@ export function CompteTab({ user }: { user: User }) {
             {error}
           </p>
         )}
+      </form>
+
+      <form
+        onSubmit={onSubmitStudio}
+        className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card"
+      >
+        <div>
+          <h2 className="font-headings text-lg font-semibold text-foreground">Studio</h2>
+          <p className="font-body text-xs text-muted-foreground">
+            Ces informations apparaissent sur tes devis et factures.
+          </p>
+        </div>
+        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Nom du studio
+          <input
+            type="text"
+            value={studioName}
+            onChange={(e) => setStudioName(e.target.value)}
+            maxLength={200}
+            className={inputClass}
+          />
+        </label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Numéro fiscal / NIF
+            <input
+              type="text"
+              value={taxId}
+              onChange={(e) => setTaxId(e.target.value)}
+              maxLength={60}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Registre de commerce
+            <input
+              type="text"
+              value={commerceRegistry}
+              onChange={(e) => setCommerceRegistry(e.target.value)}
+              maxLength={60}
+              className={inputClass}
+            />
+          </label>
+        </div>
+        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Adresse
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            maxLength={300}
+            className={inputClass}
+          />
+        </label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Devise par défaut
+            <select
+              value={defaultCurrency}
+              onChange={(e) => setDefaultCurrency(e.target.value)}
+              className={inputClass}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Langue
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className={inputClass}
+            >
+              {LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {studioError && (
+          <p role="alert" className="font-body text-sm text-tag-red-fg">
+            {studioError}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={studioSubmitting}
+          className="mt-1 w-fit rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {studioSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
       </form>
 
       <section className="flex flex-col gap-4 rounded-lg border border-tag-red-fg/30 bg-canvas p-5 shadow-card">

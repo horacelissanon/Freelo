@@ -33,6 +33,9 @@ model User {
   // Workspace/business fields (Paramètres → Espace de travail).
   studioName        String?
   taxId             String?
+  // Registre de commerce (business registration number) — displayed on
+  // devis/factures alongside the tax ID once the freelancer fills it in.
+  commerceRegistry  String?
   address           String?
   defaultCurrency   String    @default("XOF")
   language          String    @default("fr")
@@ -66,6 +69,7 @@ model User {
   projects          Project[]
   invoices          Invoice[]
   subscription      Subscription?
+  sessions          Session[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
@@ -168,6 +172,28 @@ model OAuthAccount {
   createdAt         DateTime @default(now())
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Device/session bookkeeping layered on top of the stateless refresh-token
+// design in lib/server/auth.ts (which stays untouched — no jti embedded in
+// the JWT itself). Identified by a separate, path-scoped device cookie
+// (lib/server/sessions.ts) set alongside the auth cookies at login/signup.
+// Revocation is enforced at the next refresh (≤15min staleness window,
+// same tolerance already accepted for ACCOUNT_SUSPENDED in
+// app/api/auth/refresh/route.ts) rather than instantly on the current
+// access token — deliberately, to avoid touching the hot-path requireAuth
+// check in the protected middleware/index.ts.
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
   @@index([userId])
 }
 

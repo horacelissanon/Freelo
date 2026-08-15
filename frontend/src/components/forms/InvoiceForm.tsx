@@ -6,7 +6,7 @@
 // the Modal's max-w-3xl/max-h-[90vh] constraints, and a devis' `packs` shape
 // is structurally different enough from a facture's flat `lineItems` that
 // sharing one form would mean branching almost every field.
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -116,14 +116,19 @@ export function InvoiceForm({
   const [footerNote, setFooterNote] = useState(invoice?.footerNote ?? '');
 
   const [error, setError] = useState<string | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [lineItemsError, setLineItemsError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const clientRef = useRef<HTMLSelectElement>(null);
+  const lineItemsRef = useRef<HTMLDivElement>(null);
 
   const selectedClient = clients.find((c) => c.id === clientId);
   const studioLabel = user?.studioName || user?.email || '';
 
   function updateLineItem(index: number, field: keyof LineItemDraft, value: string) {
     setLineItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+    if (lineItemsError) setLineItemsError(null);
   }
   function addLineItem() {
     setLineItems((prev) => [...prev, { designation: '', quantity: '1', unitPrice: '' }]);
@@ -151,7 +156,9 @@ export function InvoiceForm({
       }))
       .filter((it) => it.designation && it.quantity > 0 && it.unitPrice > 0);
     if (items.length === 0) {
-      setError('Ajoutez au moins une ligne de prestation (désignation, quantité et prix).');
+      setLineItemsError(
+        'Ajoutez au moins une ligne de prestation (désignation, quantité et prix).',
+      );
       return null;
     }
     return items;
@@ -159,15 +166,23 @@ export function InvoiceForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setClientError(null);
+    setLineItemsError(null);
+    if (!clientId) {
+      setClientError('Sélectionnez un client.');
+      clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      clientRef.current?.focus();
+      return;
+    }
+    const items = buildLineItemsPayload();
+    if (!items) {
+      lineItemsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setPlanLimitMessage(null);
     try {
-      const items = buildLineItemsPayload();
-      if (!items) {
-        setSubmitting(false);
-        return;
-      }
       const shared = {
         clientId,
         projectId: projectId || null,
@@ -230,13 +245,17 @@ export function InvoiceForm({
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Client *
           <select
-            required
+            ref={clientRef}
             value={clientId}
             onChange={(e) => {
               setClientId(e.target.value);
               setProjectId('');
+              if (clientError) setClientError(null);
             }}
-            className={inputClass}
+            aria-invalid={!!clientError}
+            className={
+              clientError ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40` : inputClass
+            }
           >
             <option value="" disabled>
               Sélectionner un client
@@ -247,6 +266,11 @@ export function InvoiceForm({
               </option>
             ))}
           </select>
+          {clientError && (
+            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+              {clientError}
+            </span>
+          )}
         </label>
         {clientId && projects.length > 0 && (
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
@@ -295,13 +319,15 @@ export function InvoiceForm({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+        <div ref={lineItemsRef} className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Prestations *
           <div className="flex flex-col gap-2">
             {lineItems.map((item, index) => (
               <div
                 key={index}
-                className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center"
+                className={`flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center ${
+                  lineItemsError ? 'border-tag-red-fg' : 'border-border'
+                }`}
               >
                 <input
                   type="text"
@@ -351,6 +377,11 @@ export function InvoiceForm({
             <Icon i="plus" size={13} />
             Ajouter une ligne
           </button>
+          {lineItemsError && (
+            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+              {lineItemsError}
+            </span>
+          )}
           <p className="mt-1 flex items-center justify-between font-body text-sm font-semibold text-foreground">
             Sous-total
             <span>{formatPrice(lineItemsTotal, currency)}</span>

@@ -117,8 +117,11 @@ export default function InvoiceDetailPage() {
   function sendClientLinkViaWhatsApp() {
     if (!invoice) return;
     const url = `${window.location.origin}/suivi/${invoice.trackingToken}`;
-    const docLabel = invoice.docType === 'QUOTE' ? 'devis' : 'facture';
-    const message = `Bonjour, voici votre ${docLabel} ${invoice.number} : ${url}`;
+    const studioLabel = user?.studioName || user?.name || user?.email || '';
+    const message =
+      invoice.docType === 'QUOTE'
+        ? `Bonjour ${invoice.client.name}, voici votre devis ${invoice.number} de la part de ${studioLabel}. Vous pouvez le consulter et le valider directement en ligne ici : ${url}`
+        : `Bonjour ${invoice.client.name}, voici votre facture ${invoice.number} de la part de ${studioLabel}. Vous pouvez la consulter et suivre son règlement ici : ${url}`;
     const phoneDigits = invoice.client.phone?.replace(/[^0-9]/g, '');
     const waUrl = `https://wa.me/${phoneDigits || ''}?text=${encodeURIComponent(message)}`;
     window.open(waUrl, '_blank', 'noopener,noreferrer');

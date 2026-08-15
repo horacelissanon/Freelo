@@ -914,10 +914,17 @@ function QuoteInvoiceDetail({
           </div>
         </div>
         {isQuote && invoice.status === 'ACCEPTED' && (
-          <p className="mt-3 flex items-center gap-1.5 font-body text-sm font-medium text-tag-green-fg">
-            <Icon i="check-circle" size={15} />
-            Vous avez validé ce devis.
-          </p>
+          <div className="mt-3 flex items-start gap-1.5">
+            <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-tag-green-fg" />
+            <p className="font-body text-sm text-foreground">
+              <span className="font-medium text-tag-green-fg">
+                Devis validé, merci pour votre confiance !
+              </span>{' '}
+              {invoice.paymentTermsNote || paymentBlocks.length > 0
+                ? "Pour que nous démarrions votre projet au plus vite, merci de procéder au paiement de l'acompte indiqué dans les modalités de paiement ci-dessus : c'est sa réception qui confirme officiellement le lancement de la prestation."
+                : 'Nous reviendrons vers vous très prochainement avec les modalités pour démarrer votre projet.'}
+            </p>
+          </div>
         )}
         {isQuote && invoice.status !== 'SENT' && invoice.status !== 'ACCEPTED' && (
           <p className="mt-3 font-body text-sm text-muted-foreground">

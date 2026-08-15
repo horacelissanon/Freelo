@@ -39,6 +39,7 @@ import {
 } from '@/lib/server/auth';
 import { acquireRefreshLock } from '@/lib/server/auth/refresh-lock';
 import { prisma } from '@/lib/server/prisma';
+import { checkSessionRevoked, getCurrentSessionId, touchSession } from '@/lib/server/sessions';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -87,6 +88,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: 'ACCOUNT_SUSPENDED', message: 'This account has been suspended.' },
         { status: 403, headers: { 'x-request-id': ctx.requestId } },
       );
+    }
+
+    // Sessions actives (Sécurité tab) — same 15-min choke point as the
+    // SUSPENDED check above: a device's Session row revoked from another
+    // browser is honored here, not on the JWT itself (see lib/server/sessions.ts).
+    // Sessions created before this feature shipped have no device cookie —
+    // nothing to enforce, refresh proceeds as before.
+    const sessionId = await getCurrentSessionId();
+    if (sessionId) {
+      if (await checkSessionRevoked(user.id, sessionId)) {
+        return NextResponse.json(
+          { error: 'SESSION_REVOKED', message: 'This session was disconnected.' },
+          { status: 401, headers: { 'x-request-id': ctx.requestId } },
+        );
+      }
+      await touchSession(sessionId);
     }
 
     // D-20 — single-flight: only one rotation in flight per user.

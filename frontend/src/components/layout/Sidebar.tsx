@@ -29,7 +29,7 @@ export function Sidebar({
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className={`flex items-center pt-6 pb-8 ${collapsed ? 'justify-center px-3' : 'px-5'}`}>
+      <div className={`flex items-center pt-6 pb-4 ${collapsed ? 'justify-center px-3' : 'px-5'}`}>
         <Link href="/dashboard" className="flex items-center gap-2" onClick={onNavigate}>
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-primary">
             <span className="font-headings text-base font-bold text-primary-foreground">F</span>
@@ -41,6 +41,22 @@ export function Sidebar({
           )}
         </Link>
       </div>
+
+      {onToggleCollapsed && (
+        <div className={`pb-4 ${collapsed ? 'px-2' : 'px-3'}`}>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label={collapsed ? 'Développer le menu' : 'Réduire le menu'}
+            className={`flex w-full items-center gap-3 rounded-md border border-sidebar-muted py-2 font-body text-xs font-medium text-sidebar-foreground/60 hover:border-sidebar-foreground/20 hover:text-sidebar-foreground ${
+              collapsed ? 'justify-center px-2' : 'px-2.5'
+            }`}
+          >
+            <Icon i={collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
+            {!collapsed && 'Réduire le menu'}
+          </button>
+        </div>
+      )}
 
       <nav className={collapsed ? 'flex-1 px-2' : 'flex-1 px-3'}>
         {!collapsed && (
@@ -74,19 +90,6 @@ export function Sidebar({
       </nav>
 
       <div className={`flex flex-col gap-0.5 pb-4 ${collapsed ? 'px-2' : 'px-3'}`}>
-        {onToggleCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label={collapsed ? 'Développer le menu' : 'Réduire le menu'}
-            className={`flex items-center gap-3 rounded-md py-2.5 font-body text-sm text-sidebar-foreground/50 hover:text-sidebar-foreground ${
-              collapsed ? 'justify-center px-2' : 'px-2'
-            }`}
-          >
-            <Icon i={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
-            {!collapsed && 'Réduire'}
-          </button>
-        )}
         <Link
           href="/settings"
           onClick={onNavigate}

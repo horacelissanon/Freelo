@@ -149,9 +149,12 @@ function ProjectDetailView({
 }) {
   const { project, steps, comments, invoices, files, deposit, balance } = data;
   const { toast } = useToast();
+  const user = useUser();
   const statusColors = PROJECT_STATUS_COLORS[project.status];
   const trackingUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/suivi/${project.publicToken}` : '';
+  const studioLabel = user?.studioName || user?.name || user?.email || '';
+  const whatsappMessage = `Bonjour ${project.client.name}, voici le lien de suivi de votre projet « ${project.name} » avec ${studioLabel} : vous pourrez y consulter l'avancement, les étapes et les paiements en temps réel.\n\n${trackingUrl}`;
 
   const [pendingStepId, setPendingStepId] = useState<string | null>(null);
   const [stepError, setStepError] = useState<string | null>(null);
@@ -385,7 +388,7 @@ function ProjectDetailView({
             </p>
             <div className="flex flex-wrap gap-2">
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Suivez l'avancement de votre projet ${project.name} : ${trackingUrl}`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 rounded-md bg-tag-green px-3 py-2 font-body text-xs font-medium text-tag-green-fg"

@@ -54,6 +54,8 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiResu
   const mountedRef = useRef(true);
   const pathRef = useRef(path);
   pathRef.current = path;
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const fetchIdRef = useRef(0);
 
   const fetchData = useCallback(
@@ -112,9 +114,13 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiResu
     return () => window.removeEventListener(CACHE_EVENT, onInvalidate);
   }, [fetchData, skip]);
 
+  // A manual refresh (e.g. right after a status change or a save) means the
+  // caller is already looking at data — blanking the page into a full
+  // <LoadingState/> for that would read as a hard reload. Only fall back to
+  // the loading flash when there's genuinely nothing on screen yet.
   const refresh = useCallback(async () => {
     cache.delete(pathRef.current);
-    await fetchData(true);
+    await fetchData(dataRef.current === null);
   }, [fetchData]);
 
   return { data, loading, error, refresh };

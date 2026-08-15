@@ -30,6 +30,7 @@ import {
 } from '@/lib/server/auth';
 import { acquireRefreshLock } from '@/lib/server/auth/refresh-lock';
 import { prisma } from '@/lib/server/prisma';
+import { checkSessionRevoked, getCurrentSessionId, touchSession } from '@/lib/server/sessions';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const FALLBACK_NEXT = '/';
@@ -67,6 +68,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
     if (!user || user.tokenVersion !== payload.tokenVersion || user.status === 'SUSPENDED') {
       return loginRedirect(req, next);
+    }
+
+    // Sessions actives — same check as POST /api/auth/refresh (see there for
+    // rationale); a revoked device bounces to login instead of silently
+    // refreshing through the middleware redirect path.
+    const sessionId = await getCurrentSessionId();
+    if (sessionId) {
+      if (await checkSessionRevoked(user.id, sessionId)) {
+        return loginRedirect(req, next);
+      }
+      await touchSession(sessionId);
     }
 
     const release = await acquireRefreshLock(user.id);

@@ -27,6 +27,7 @@ import {
   createRefreshToken,
   timingSafeCompare,
 } from '@/lib/server/auth';
+import { startSession } from '@/lib/server/sessions';
 
 const Body = z.object({
   email: zEmail,
@@ -167,6 +168,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     const refresh = await createRefreshToken(user.id, user.tokenVersion);
     await setAuthCookies(access, refresh);
     await setCsrfCookie();
+    await startSession(user.id, req.headers);
 
     log.info('verify-email success', { userId: user.id });
     const res = NextResponse.json({

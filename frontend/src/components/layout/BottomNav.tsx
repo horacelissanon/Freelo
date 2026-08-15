@@ -5,18 +5,22 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useCreateMenu, type CreateEntity } from '@/contexts/CreateMenuContext';
-import { useBottomNavStyle } from '@/contexts/BottomNavStyleContext';
+import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 
 // 'off' keeps the original solid brand-green bar untouched. Both glass
 // variants stay green on purpose (per product decision — a liquid-glass
-// look inspired by Apple's effect, without giving up the brand color):
-// 'transparent' is a lighter, more see-through frosted glass built from the
-// same dark sidebar green at low opacity; 'tinted' leans on the brighter
-// --color-primary green instead, for a more saturated colored-glass look.
-const GLASS_NAV_CLASS: Record<'off' | 'transparent' | 'tinted', string> = {
+// look inspired by Apple's effect, without giving up the brand color).
+// Earlier attempt used low opacity (25-55%) which, over a plain light page,
+// just reads as a washed-out flat color rather than glass, and made the
+// white nav-item text barely legible on the pale 'tinted' variant — fixed
+// by keeping enough opacity for contrast and adding a top sheen highlight
+// (see the overlay div below) that actually sells the "glass" read.
+// 'transparent' stays close to the dark sidebar hue (more neutral/clear);
+// 'tinted' leans on the brighter --color-primary green (more saturated/colored).
+const GLASS_NAV_CLASS: Record<BottomNavGlass, string> = {
   off: 'border-sidebar-muted bg-sidebar',
-  transparent: 'border-white/10 bg-sidebar/55 backdrop-blur-xl backdrop-saturate-150',
-  tinted: 'border-primary/30 bg-primary/25 backdrop-blur-xl backdrop-saturate-150',
+  transparent: 'border-white/15 bg-sidebar/75 backdrop-blur-2xl backdrop-saturate-150',
+  tinted: 'border-white/20 bg-primary/60 backdrop-blur-2xl backdrop-saturate-150',
 };
 
 const LEFT_ITEMS = [
@@ -40,17 +44,24 @@ function NavItem({
   label,
   href,
   active,
+  glass,
 }: {
   icon: string;
   label: string;
   href: string;
   active: boolean;
+  glass: BottomNavGlass;
 }) {
+  // On the solid bar, the active tab reads fine in the brand green against
+  // the near-black sidebar. On the 'tinted' glass variant the background is
+  // that same green family, so text-primary on it would nearly vanish —
+  // white stays legible on every variant, so glass modes always use it.
+  const activeClass = glass === 'off' ? 'text-primary' : 'text-white';
   return (
     <Link
       href={href}
       className={`flex flex-1 flex-col items-center gap-1 py-2 font-body text-[11px] ${
-        active ? 'text-primary' : 'text-sidebar-foreground/60'
+        active ? activeClass : 'text-sidebar-foreground/60'
       }`}
     >
       <Icon i={icon} size={20} />
@@ -79,6 +90,10 @@ export function BottomNav() {
       <nav
         className={`fixed inset-x-3 bottom-3 z-40 rounded-2xl border shadow-lg lg:hidden ${GLASS_NAV_CLASS[glass]}`}
       >
+        {glass !== 'off' && (
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-b from-white/20 via-white/0 to-black/10" />
+        )}
+
         {menuOpen && (
           <div className="animate-scale-in absolute bottom-full left-1/2 mb-3 w-52 -translate-x-1/2 origin-bottom rounded-lg border border-border bg-canvas shadow-card p-2 shadow-xl">
             {QUICK_ACTIONS.map((action) => (
@@ -100,7 +115,12 @@ export function BottomNav() {
 
         <div className="relative flex items-center px-2">
           {LEFT_ITEMS.map((item) => (
-            <NavItem key={item.href} {...item} active={pathname?.startsWith(item.href) ?? false} />
+            <NavItem
+              key={item.href}
+              {...item}
+              active={pathname?.startsWith(item.href) ?? false}
+              glass={glass}
+            />
           ))}
 
           <div className="flex flex-1 justify-center">
@@ -108,14 +128,21 @@ export function BottomNav() {
               type="button"
               aria-label={menuOpen ? 'Fermer les actions rapides' : 'Actions rapides'}
               onClick={() => setMenuOpen((v) => !v)}
-              className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
+              className={`-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ${
+                glass !== 'off' ? 'ring-2 ring-white/25' : ''
+              }`}
             >
               <Icon i={menuOpen ? 'x' : 'plus'} size={24} />
             </button>
           </div>
 
           {RIGHT_ITEMS.map((item) => (
-            <NavItem key={item.href} {...item} active={pathname?.startsWith(item.href) ?? false} />
+            <NavItem
+              key={item.href}
+              {...item}
+              active={pathname?.startsWith(item.href) ?? false}
+              glass={glass}
+            />
           ))}
         </div>
       </nav>

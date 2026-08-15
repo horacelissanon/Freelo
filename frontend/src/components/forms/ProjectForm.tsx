@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -59,6 +59,28 @@ export function ProjectForm({
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{
+    clientId?: string | undefined;
+    name?: string | undefined;
+    amount?: string | undefined;
+  }>({});
+  const clientRef = useRef<HTMLSelectElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
+
+  function validate(): boolean {
+    const errors: typeof fieldErrors = {};
+    if (!clientId) errors.clientId = 'Sélectionnez un client.';
+    if (!name.trim()) errors.name = 'Le nom du projet est obligatoire.';
+    if (!amount || Number(amount) <= 0) errors.amount = 'Indiquez un montant supérieur à 0.';
+    setFieldErrors(errors);
+    const firstInvalidRef = errors.clientId ? clientRef : errors.name ? nameRef : amountRef;
+    if (Object.keys(errors).length > 0) {
+      firstInvalidRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstInvalidRef.current?.focus();
+    }
+    return Object.keys(errors).length === 0;
+  }
 
   function updateStep(index: number, value: string) {
     setSteps((prev) => prev.map((s, i) => (i === index ? value : s)));
@@ -72,6 +94,7 @@ export function ProjectForm({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!validate()) return;
     setSubmitting(true);
     setError(null);
     setPlanLimitMessage(null);
@@ -128,10 +151,18 @@ export function ProjectForm({
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Client *
         <select
-          required
+          ref={clientRef}
           value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          className={inputClass}
+          onChange={(e) => {
+            setClientId(e.target.value);
+            if (fieldErrors.clientId) setFieldErrors((prev) => ({ ...prev, clientId: undefined }));
+          }}
+          aria-invalid={!!fieldErrors.clientId}
+          className={
+            fieldErrors.clientId
+              ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+              : inputClass
+          }
         >
           <option value="" disabled>
             Sélectionner un client
@@ -142,16 +173,34 @@ export function ProjectForm({
             </option>
           ))}
         </select>
+        {fieldErrors.clientId && (
+          <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+            {fieldErrors.clientId}
+          </span>
+        )}
       </label>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Nom du projet *
         <input
+          ref={nameRef}
           type="text"
-          required
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: undefined }));
+          }}
+          aria-invalid={!!fieldErrors.name}
+          className={
+            fieldErrors.name
+              ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+              : inputClass
+          }
         />
+        {fieldErrors.name && (
+          <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+            {fieldErrors.name}
+          </span>
+        )}
       </label>
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Type de projet
@@ -199,14 +248,27 @@ export function ProjectForm({
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Montant ({currency}) *
         <input
+          ref={amountRef}
           type="number"
-          required
           min={1}
           step={1}
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className={inputClass}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            if (fieldErrors.amount) setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+          }}
+          aria-invalid={!!fieldErrors.amount}
+          className={
+            fieldErrors.amount
+              ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+              : inputClass
+          }
         />
+        {fieldErrors.amount && (
+          <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+            {fieldErrors.amount}
+          </span>
+        )}
       </label>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Statut

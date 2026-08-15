@@ -24,6 +24,7 @@ export interface User {
   bio: string | null;
   studioName: string | null;
   taxId: string | null;
+  commerceRegistry: string | null;
   address: string | null;
   defaultCurrency: string;
   language: string;

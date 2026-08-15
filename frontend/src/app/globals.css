@@ -212,6 +212,39 @@ body {
   animation: slide-in-left 200ms ease-out;
 }
 
+/* Accent color overrides — deliberately placed after both theme blocks
+   above so `--color-primary`/`--color-accent` here always win regardless of
+   light/dark, matching the existing invariant that the brand accent stays
+   constant across themes. 'green' (the shipped default) needs no block:
+   it's just the absence of `data-accent`, falling back to the `@theme`
+   values already defined at the top of this file. `--color-primary-foreground`
+   is intentionally left at its default #ffffff for every option below —
+   each hex was picked dark/saturated enough to keep white text legible. */
+:root[data-accent='blue'] {
+  --color-primary: #2563eb;
+  --color-accent: #1d4ed8;
+}
+
+:root[data-accent='violet'] {
+  --color-primary: #7c3aed;
+  --color-accent: #6d28d9;
+}
+
+:root[data-accent='orange'] {
+  --color-primary: #ea580c;
+  --color-accent: #c2410c;
+}
+
+:root[data-accent='rose'] {
+  --color-primary: #db2777;
+  --color-accent: #be185d;
+}
+
+:root[data-accent='slate'] {
+  --color-primary: #334155;
+  --color-accent: #1e293b;
+}
+
 @utility animate-slide-up-in {
   animation: slide-up-in 180ms ease-out;
 }

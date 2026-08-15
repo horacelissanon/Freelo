@@ -14,7 +14,7 @@ type TabKey = 'compte' | 'espace' | 'notifications' | 'securite' | 'facturation'
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
-  { key: 'espace', label: 'Espace de travail', icon: 'building' },
+  { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
   { key: 'facturation', label: 'Facturation', icon: 'credit-card' },

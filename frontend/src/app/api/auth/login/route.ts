@@ -29,6 +29,7 @@ import { dummyBcryptCompare } from '@/lib/server/auth/dummy-bcrypt';
 import { createEmailLimiter } from '@/lib/server/middleware/rate-limit-by-email';
 import { getRedis } from '@/lib/server/redis';
 import { prisma } from '@/lib/server/prisma';
+import { startSession } from '@/lib/server/sessions';
 import { zEmail } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
@@ -173,6 +174,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const refreshToken = await createRefreshToken(user.id, user.tokenVersion);
     await setAuthCookies(accessToken, refreshToken);
     await setCsrfCookie();
+    await startSession(user.id, req.headers);
 
     return NextResponse.json(
       { ok: true, user: { sub: user.id, email: user.email } },

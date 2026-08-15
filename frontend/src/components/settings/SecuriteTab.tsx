@@ -1,5 +1,5 @@
 // Moved from the old standalone /settings page verbatim (see git history)
-// as part of the Paramètres tab rebuild. Two flows live here:
+// as part of the Paramètres tab rebuild. Flows live here:
 //   1. Set / change password
 //      - If the account was created via OAuth (hasPassword=false), the
 //        "Set password" form calls POST /api/auth/set-password — no current
@@ -13,21 +13,161 @@
 //      - When already linked, we just show a "linked" pill — no unlink action
 //        yet (would need a /api/auth/oauth/google/unlink endpoint with a
 //        guard refusing to leave the user without any sign-in method).
+//   3. Sessions actives — device bookkeeping layered on top of the stateless
+//      JWT design (see lib/server/sessions.ts) via a separate device cookie,
+//      NOT a jti embedded in the refresh token itself. Revoking a device
+//      takes effect on its next refresh (≤15min), same tolerance the app
+//      already accepts for ACCOUNT_SUSPENDED.
 //
-// 2FA, active sessions, activity log, API keys, and trusted devices (shown in
-// the settings mockup) are explicitly out of scope — the app's auth is
-// stateless JWT with zero session bookkeeping today, so building those would
-// mean touching the protected lib/server/auth.ts. Deferred to a future phase.
+// 2FA, activity log, API keys, and trusted devices (also shown in the
+// reference mockup) are still out of scope — each is its own real feature
+// (TOTP secret + backup codes, a dedicated audit table, a programmatic-auth
+// scheme) rather than an afternoon's addition on top of Sessions actives.
 'use client';
 
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useApi, invalidateCache } from '@/lib/useApi';
+import { Icon } from '@/components/ui/Icon';
 import { formatLongDate } from '@/lib/utils';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+interface SessionRow {
+  id: string;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
+const SESSIONS_PATH = '/api/auth/sessions';
+
+function describeDevice(ua: string | null): string {
+  if (!ua) return 'Appareil inconnu';
+  let browser = 'Navigateur';
+  if (/edg\//i.test(ua)) browser = 'Edge';
+  else if (/chrome\//i.test(ua) && !/chromium/i.test(ua)) browser = 'Chrome';
+  else if (/firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/safari\//i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
+
+  let os = 'Appareil';
+  if (/iphone/i.test(ua)) os = 'iPhone';
+  else if (/ipad/i.test(ua)) os = 'iPad';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/mac os x/i.test(ua)) os = 'macOS';
+  else if (/windows/i.test(ua)) os = 'Windows';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  return `${browser} — ${os}`;
+}
+
+function SessionsSection() {
+  const { data, loading, refresh } = useApi<{ sessions: SessionRow[] }>(SESSIONS_PATH);
+  const { toast } = useToast();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [revokingAll, setRevokingAll] = useState(false);
+
+  const sessions = data?.sessions ?? [];
+  const otherCount = sessions.filter((s) => !s.current).length;
+
+  async function revokeOne(id: string) {
+    setPendingId(id);
+    try {
+      await api(`/api/auth/sessions/${id}/revoke`, { method: 'POST' });
+      invalidateCache(SESSIONS_PATH);
+      await refresh();
+      toast('Session déconnectée.', 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function revokeAll() {
+    setRevokingAll(true);
+    try {
+      await api('/api/auth/sessions/revoke-all', { method: 'POST' });
+      invalidateCache(SESSIONS_PATH);
+      await refresh();
+      toast('Toutes les autres sessions ont été déconnectées.', 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
+    } finally {
+      setRevokingAll(false);
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
+      <div>
+        <h2 className="font-headings text-lg font-semibold text-foreground">Sessions actives</h2>
+        <p className="font-body text-sm text-muted-foreground">
+          Les appareils actuellement connectés à ton compte.
+        </p>
+      </div>
+      {loading ? (
+        <p className="font-body text-sm text-muted-foreground">Chargement…</p>
+      ) : sessions.length === 0 ? (
+        <p className="font-body text-sm text-muted-foreground">Aucune session active détectée.</p>
+      ) : (
+        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
+                  <Icon i="smartphone" size={14} className="text-muted-foreground" />
+                </div>
+                <div className="flex min-w-0 flex-col">
+                  <span className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
+                    <span className="truncate">{describeDevice(s.userAgent)}</span>
+                    {s.current && (
+                      <span className="flex-shrink-0 rounded-full bg-tag-green px-2 py-0.5 font-body text-[11px] font-medium text-tag-green-fg">
+                        Actuellement
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-body text-xs text-muted-foreground">
+                    {s.ip ? `${s.ip} · ` : ''}Actif {formatLongDate(s.lastSeenAt)}
+                  </span>
+                </div>
+              </div>
+              {!s.current && (
+                <button
+                  type="button"
+                  onClick={() => revokeOne(s.id)}
+                  disabled={pendingId === s.id}
+                  className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-tag-red-fg disabled:opacity-50"
+                >
+                  {pendingId === s.id ? 'Déconnexion…' : 'Fermer'}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {otherCount > 0 && (
+        <button
+          type="button"
+          onClick={revokeAll}
+          disabled={revokingAll}
+          className="flex w-fit items-center gap-1.5 font-body text-sm font-medium text-tag-red-fg disabled:opacity-50"
+        >
+          <Icon i="x-circle" size={14} />
+          {revokingAll ? 'Déconnexion…' : `Fermer toutes les autres sessions (${otherCount})`}
+        </button>
+      )}
+    </section>
+  );
+}
 
 export function SecuriteTab({ user }: { user: User }) {
   const { refresh } = useAuth();
@@ -164,6 +304,8 @@ export function SecuriteTab({ user }: { user: User }) {
           </p>
         )}
       </section>
+
+      <SessionsSection />
 
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
         <h2 className="font-headings text-lg font-semibold text-foreground">Comptes liés</h2>
