@@ -204,16 +204,21 @@ export default function TrackingPage() {
 
 function ClientProjectsList({ view }: { view: ClientView }) {
   return (
-    <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-      <p className="font-body text-xs tracking-widest text-muted-foreground uppercase">
-        Suivi client
-      </p>
-      <h1 className="mt-1 font-headings text-2xl font-bold text-foreground">{view.client.name}</h1>
-      <p className="mt-1 font-body text-sm text-muted-foreground">
-        {view.projects.length} projet{view.projects.length !== 1 ? 's' : ''}
-      </p>
+    <div className="animate-fade-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+      <div className="relative -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-lg bg-gradient-to-br from-primary to-accent p-6 sm:-mx-8 sm:-mt-8 sm:mb-8 sm:p-8">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+        <p className="relative font-body text-xs tracking-widest text-white/70 uppercase">
+          Suivi client
+        </p>
+        <h1 className="relative mt-1 font-headings text-2xl font-bold text-white">
+          {view.client.name}
+        </h1>
+        <p className="relative mt-1 font-body text-sm text-white/80">
+          {view.projects.length} projet{view.projects.length !== 1 ? 's' : ''}
+        </p>
+      </div>
 
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         {view.projects.length === 0 ? (
           <p className="font-body text-sm text-muted-foreground">Aucun projet pour le moment.</p>
         ) : (
@@ -289,7 +294,6 @@ function ProjectDetail({
   onRefresh: () => void;
 }) {
   const { project, steps, comments, deposit, balance } = view;
-  const statusColors = PROJECT_STATUS_COLORS[project.status];
 
   const [payingKind, setPayingKind] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
   const [payError, setPayError] = useState<string | null>(null);
@@ -349,32 +353,35 @@ function ProjectDetail({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <p className="font-body text-xs tracking-widest text-muted-foreground uppercase">
+      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent p-6 shadow-card sm:p-8">
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+        <p className="relative font-body text-xs tracking-widest text-white/70 uppercase">
           Suivi de projet — {project.client.name}
         </p>
-        <h1 className="mt-1 font-headings text-2xl font-bold text-foreground">{project.name}</h1>
+        <h1 className="relative mt-1 font-headings text-2xl font-bold text-white">
+          {project.name}
+        </h1>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-md border border-border p-3">
-            <p className="font-body text-xs text-muted-foreground">Budget</p>
-            <p className="font-headings text-sm font-bold text-foreground">
+        <div className="relative mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-md bg-white/15 p-3 backdrop-blur-sm">
+            <p className="font-body text-xs text-white/70">Budget</p>
+            <p className="font-headings text-sm font-bold text-white">
               {formatPrice(project.amount)} {project.currency}
             </p>
           </div>
-          <div className="rounded-md border border-border p-3">
-            <p className="font-body text-xs text-muted-foreground">Échéance</p>
-            <p className="font-headings text-sm font-bold text-foreground">
+          <div className="rounded-md bg-white/15 p-3 backdrop-blur-sm">
+            <p className="font-body text-xs text-white/70">Échéance</p>
+            <p className="font-headings text-sm font-bold text-white">
               {project.dueDate ? formatDate(project.dueDate) : '—'}
             </p>
           </div>
-          <div className="rounded-md border border-border p-3">
-            <p className="font-body text-xs text-muted-foreground">Avancement</p>
-            <p className="font-headings text-sm font-bold text-foreground">{project.progress}%</p>
+          <div className="rounded-md bg-white/15 p-3 backdrop-blur-sm">
+            <p className="font-body text-xs text-white/70">Avancement</p>
+            <p className="font-headings text-sm font-bold text-white">{project.progress}%</p>
           </div>
-          <div className={`rounded-md p-3 ${statusColors.bg}`}>
-            <p className={`font-body text-xs ${statusColors.fg} opacity-80`}>Statut</p>
-            <p className={`font-headings text-sm font-bold ${statusColors.fg}`}>
+          <div className="rounded-md bg-white/20 p-3 backdrop-blur-sm">
+            <p className="font-body text-xs text-white/70">Statut</p>
+            <p className="font-headings text-sm font-bold text-white">
               {PROJECT_STATUS_LABELS[project.status]}
             </p>
           </div>
@@ -544,6 +551,17 @@ function ProjectDetail({
   );
 }
 
+function SectionHeading({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="mb-4 flex items-center gap-2.5">
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
+        <Icon i={icon} size={15} className="text-primary-foreground" />
+      </div>
+      <h2 className="font-headings text-base font-bold text-foreground">{label}</h2>
+    </div>
+  );
+}
+
 function FaqItem({
   question,
   answer,
@@ -631,31 +649,37 @@ function QuoteInvoiceDetail({
 
   return (
     <div className="flex flex-col gap-6 pb-24">
-      <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent p-6 shadow-card sm:p-8">
+        {/* Decorative texture — subtle, doesn't compete with the content. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)',
+            backgroundSize: '18px 18px',
+          }}
+        />
+        <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+
+        <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-body text-xs tracking-widest text-muted-foreground uppercase">
+            <p className="font-body text-xs tracking-widest text-white/70 uppercase">
               {docLabel} pour {invoice.client.name}
             </p>
-            <h1 className="mt-1 font-headings text-2xl font-bold text-foreground">
-              {invoice.number}
-            </h1>
+            <h1 className="mt-1 font-headings text-3xl font-bold text-white">{invoice.number}</h1>
             {provider.name && (
-              <p className="mt-1 font-body text-sm text-muted-foreground">
-                Préparé par {provider.name}
-              </p>
+              <p className="mt-1 font-body text-sm text-white/80">Préparé par {provider.name}</p>
             )}
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-2">
-            <div
-              className={`rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${statusColors.bg} ${statusColors.fg}`}
-            >
+            <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1.5 font-body text-xs font-medium text-white backdrop-blur-sm">
+              <Icon i={statusColors.icon} size={12} />
               {INVOICE_STATUS_LABELS[invoice.status]}
             </div>
             <button
               type="button"
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40 print:hidden"
+              className="flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 font-body text-xs font-medium text-foreground shadow-sm print:hidden"
             >
               <Icon i="download" size={13} />
               Télécharger
@@ -663,52 +687,61 @@ function QuoteInvoiceDetail({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+        <div className="relative mt-5 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/15 px-2.5 py-1 font-body text-xs font-medium text-white backdrop-blur-sm">
             {invoice.client.name}
           </span>
-          <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+          <span className="rounded-full bg-white/15 px-2.5 py-1 font-body text-xs font-medium text-white backdrop-blur-sm">
             Émis le {formatDate(invoice.issueDate)}
           </span>
           {invoice.dueDate && (
-            <span className="rounded-full bg-secondary px-2.5 py-1 font-body text-xs font-medium text-foreground">
+            <span className="rounded-full bg-white/15 px-2.5 py-1 font-body text-xs font-medium text-white backdrop-blur-sm">
               Échéance {formatDate(invoice.dueDate)}
             </span>
           )}
         </div>
 
         {provider.bio && (
-          <p className="mt-4 border-t border-border pt-4 font-body text-sm whitespace-pre-wrap text-foreground">
+          <p className="relative mt-4 border-t border-white/20 pt-4 font-body text-sm whitespace-pre-wrap text-white/90">
             {provider.bio}
           </p>
         )}
       </div>
 
       {isQuote && processBlocks.length > 0 && (
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          <h2 className="mb-4 font-headings text-base font-bold text-foreground">
-            Comment ça se passe
-          </h2>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-5">
+        <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <SectionHeading icon="layers" label="Comment ça se passe" />
+          <div className="relative flex flex-col gap-6 pl-1">
+            {processBlocks.length > 1 && (
+              <div
+                aria-hidden
+                className="absolute top-[18px] bottom-[18px] left-[17px] w-0.5 bg-gradient-to-b from-primary via-primary/40 to-primary/10"
+              />
+            )}
             {processBlocks.map((b, i) => (
-              <div key={b.id} className="flex flex-col gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary font-headings text-xs font-bold text-primary-foreground">
+              <div key={b.id} className="relative flex gap-4">
+                <div className="relative z-10 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent font-headings text-sm font-bold text-primary-foreground shadow-sm ring-4 ring-canvas">
                   {i + 1}
                 </div>
-                <p className="font-body text-sm font-semibold text-foreground">{b.primaryText}</p>
-                {b.secondaryText && (
-                  <p className="font-body text-xs text-muted-foreground">{b.secondaryText}</p>
-                )}
+                <div className="min-w-0 flex-1 pt-1.5">
+                  <p className="font-body text-sm font-semibold text-foreground">{b.primaryText}</p>
+                  {b.secondaryText && (
+                    <p className="mt-1 font-body text-xs text-muted-foreground">
+                      {b.secondaryText}
+                    </p>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <h2 className="mb-4 font-headings text-base font-bold text-foreground">
-          {isQuote ? 'Nos offres' : 'Prestations'}
-        </h2>
+      <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+        <SectionHeading
+          icon={isQuote ? 'layout-grid' : 'receipt'}
+          label={isQuote ? 'Nos offres' : 'Prestations'}
+        />
 
         {isQuote ? (
           <div className="flex flex-col gap-4">
@@ -807,8 +840,8 @@ function QuoteInvoiceDetail({
       </div>
 
       {isQuote && conditionBlocks.length > 0 && (
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          <h2 className="mb-4 font-headings text-base font-bold text-foreground">Conditions</h2>
+        <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <SectionHeading icon="shield" label="Conditions" />
           <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
             {conditionBlocks.map((b) => (
               <div key={b.id} className="flex gap-2.5 rounded-md border border-border p-3">
@@ -828,10 +861,8 @@ function QuoteInvoiceDetail({
       )}
 
       {isQuote && (invoice.paymentTermsNote || paymentBlocks.length > 0) && (
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          <h2 className="mb-3 font-headings text-base font-bold text-foreground">
-            Modalités de paiement
-          </h2>
+        <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <SectionHeading icon="credit-card" label="Modalités de paiement" />
           {invoice.paymentTermsNote && (
             <p className="font-body text-sm text-foreground">{invoice.paymentTermsNote}</p>
           )}
@@ -864,10 +895,8 @@ function QuoteInvoiceDetail({
       )}
 
       {isQuote && faqBlocks.length > 0 && (
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          <h2 className="mb-3 font-headings text-base font-bold text-foreground">
-            Questions fréquentes
-          </h2>
+        <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
+          <SectionHeading icon="help-circle" label="Questions fréquentes" />
           <div className="flex flex-col gap-2">
             {faqBlocks.map((b) => (
               <FaqItem
