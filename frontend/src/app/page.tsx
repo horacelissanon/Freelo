@@ -839,7 +839,7 @@ export default function Home() {
               <span className="font-headings text-base font-bold text-foreground">Freelo</span>
             </div>
             <p className="max-w-xs font-body text-xs text-muted-foreground">
-              L’espace de travail des freelances d’Afrique francophone.
+              L’espace de travail pensé pour les freelances et consultants indépendants.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-8 sm:flex sm:gap-16">

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
@@ -76,22 +77,25 @@ export function Sidebar({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/20 via-white/0 to-black/10" />
       )}
 
-      <Link
-        href="/dashboard"
-        onClick={onNavigate}
-        className={`relative flex flex-shrink-0 items-center gap-2 pb-5 ${collapsed ? 'justify-center' : 'px-2'}`}
+      <div
+        className={`relative flex flex-shrink-0 items-center pb-5 ${collapsed ? 'justify-center' : 'justify-between px-2'}`}
       >
-        <div
-          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center bg-primary ${floating ? 'rounded-full' : 'rounded-lg'}`}
-        >
-          <span className="font-headings text-base font-bold text-primary-foreground">F</span>
-        </div>
+        <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-2">
+          <div
+            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center bg-primary ${floating ? 'rounded-full' : 'rounded-lg'}`}
+          >
+            <span className="font-headings text-base font-bold text-primary-foreground">F</span>
+          </div>
+          {!collapsed && (
+            <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
+              Freelo
+            </span>
+          )}
+        </Link>
         {!collapsed && (
-          <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
-            Freelo
-          </span>
+          <ThemeToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
         )}
-      </Link>
+      </div>
 
       {onToggleCollapsed && (
         <button

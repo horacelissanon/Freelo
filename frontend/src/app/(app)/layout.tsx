@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { MobileDrawer } from '@/components/layout/MobileDrawer';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   NotificationBell,
   type NotificationBellItem,
@@ -112,6 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle className="!text-sidebar-foreground/70 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
               <NotificationBell
                 unreadCount={notifCount.data?.count ?? 0}
                 notifications={notifications.data?.items ?? []}
