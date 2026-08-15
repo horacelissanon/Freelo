@@ -10,9 +10,11 @@
 // preferred payment method (Wave, Orange Money, MTN…) and it's displayed on
 // the devis/facture; the client settles directly, outside the app. Every
 // payment-related line on this page is worded around that, not around
-// in-app processing. The "Pensé pour" section uses named personas (Aminata,
-// Koffi) framed explicitly as target personas, not attributed customer
-// quotes. Restructured/rewritten 2026-08-15, inspired by a competitor's
+// in-app processing. The "Pensé pour" section uses named personas framed
+// explicitly as target personas ("Profil type" badge on every card, see
+// PersonasMarquee.tsx), not attributed customer quotes — first-person copy
+// and the scrolling marquee are a style choice, not a claim that a real
+// person said this. Restructured/rewritten 2026-08-15, inspired by a competitor's
 // landing structure (numbered steps, capability strip, comparison table,
 // tiered pricing with a billing toggle, richer FAQ) but with entirely
 // original copy and zero fabricated blocks — no fake trust numbers, no
@@ -193,6 +195,27 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
     solution:
       'Depuis, il valide lui-même l’offre choisie sur son lien de suivi — le prix est figé, plus de discussion sans fin sur ce qui avait été convenu.',
   },
+  {
+    name: 'Fatou',
+    role: 'Rédactrice freelance, Dakar',
+    pain: 'Je perdais le fil des échéances — une facture en retard, un projet dont la deadline approchait sans que je m’en rende compte.',
+    solution:
+      'Freelo me prévient automatiquement avant qu’une échéance de projet approche ou qu’une facture traîne trop longtemps.',
+  },
+  {
+    name: 'Ibrahima',
+    role: 'Consultant freelance, Douala',
+    pain: 'Mes clients m’appelaient sans arrêt pour savoir où en était leur projet.',
+    solution:
+      'Maintenant ils suivent l’avancement en temps réel depuis leur lien, sans même avoir besoin de créer un compte.',
+  },
+  {
+    name: 'Léa',
+    role: 'Vidéaste freelance, clientèle internationale',
+    pain: 'Chaque facture pour un client à l’étranger voulait dire refaire toute la mise en page à la main pour une autre devise.',
+    solution:
+      'Freelo génère mes factures directement en FCFA, EUR ou USD selon le client — plus rien à recomposer.',
+  },
 ];
 
 const FREE_FEATURES = [
@@ -315,8 +338,12 @@ export default function Home() {
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-gradient-to-b from-tag-green/60 to-transparent"
         />
         <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
+          {/* No region name here on purpose — the app supports FCFA/EUR/USD
+              natively, so it reads as international by what it does, not by
+              a geographic claim that could read as "not for you" to a
+              client or freelance based elsewhere. */}
           <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
-            Fait pour l’Afrique francophone
+            FCFA · EUR · USD
           </span>
           {/* Headline itself names the target (dynamic — cycles through
               professions so it reads as "made for you" for more visitors,
@@ -722,7 +749,7 @@ export default function Home() {
               Pensé pour des freelances comme toi
             </h2>
             <p className="mt-2 font-body text-sm text-muted-foreground">
-              Deux profils types que Freelo a été conçu pour servir.
+              Des profils types que Freelo a été conçu pour servir.
             </p>
           </div>
           {/* Bleeds full-width (no max-w container) — the horizontal scroll
@@ -749,7 +776,7 @@ export default function Home() {
                 Tarifs
               </span>
               <h2 className="mt-4 font-headings text-2xl font-bold text-foreground sm:text-3xl">
-                Des tarifs pensés pour l’Afrique francophone
+                Des tarifs simples, pensés pour les freelances
               </h2>
               <p className="mt-2 font-body text-sm text-muted-foreground">
                 Commence gratuitement. Passe en Pro quand ton activité grandit.

@@ -139,6 +139,22 @@ export function Sidebar({
       <div
         className={`relative mt-2 flex flex-shrink-0 flex-col gap-1 ${collapsed ? 'items-center' : ''}`}
       >
+        {/* Amber/orange stays permanently visible (not just on hover/active,
+            unlike every other nav item) — same "don't blend into the rest
+            of the workspace" reasoning as FacturationTab.tsx itself. Lives
+            in the main nav instead of buried as a settings tab so the
+            upgrade path is always one click away. */}
+        <Link
+          href="/settings?tab=abonnement"
+          onClick={onNavigate}
+          title={collapsed ? 'Abonnement' : undefined}
+          className={`flex items-center gap-3 ${itemShape} font-body text-sm font-medium text-amber-500 hover:bg-amber-500/10 dark:text-amber-400 ${
+            collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
+          }`}
+        >
+          <Icon i="credit-card" size={16} />
+          {!collapsed && 'Abonnement'}
+        </Link>
         <Link
           href="/settings"
           onClick={onNavigate}

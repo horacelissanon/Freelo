@@ -12,27 +12,29 @@ import { FacturationTab } from '@/components/settings/FacturationTab';
 
 type TabKey = 'compte' | 'espace' | 'notifications' | 'securite' | 'abonnement';
 
-// Abonnement keeps its own amber/orange identity (set in FacturationTab)
-// even in the tab bar — it deliberately stands out from whichever accent
-// color the user picked for the rest of the workspace, so the upgrade path
-// stays visually distinct instead of blending into "just another tab".
-const TABS: { key: TabKey; label: string; icon: string; activeClassName?: string }[] = [
+// 'abonnement' stays a valid tab (so a direct link still resolves to it —
+// see Sidebar.tsx, which now links to /settings?tab=abonnement) even though
+// it's no longer one of the buttons rendered in the tab bar below: it moved
+// to its own permanently-amber entry in the main nav, just above
+// "Paramètres", instead of being just another tab a freelance has to click
+// into to notice.
+const ALL_TAB_KEYS: readonly TabKey[] = [
+  'compte',
+  'espace',
+  'notifications',
+  'securite',
+  'abonnement',
+];
+
+const VISIBLE_TABS: { key: Exclude<TabKey, 'abonnement'>; label: string; icon: string }[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'notifications', label: 'Notifications', icon: 'bell' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
-  {
-    key: 'abonnement',
-    label: 'Abonnement',
-    icon: 'credit-card',
-    activeClassName: 'border-amber-500 text-amber-600 dark:text-amber-400',
-  },
 ];
 
-const TAB_KEYS: readonly TabKey[] = TABS.map((t) => t.key);
-
 function isTabKey(value: string | null): value is TabKey {
-  return value !== null && (TAB_KEYS as readonly string[]).includes(value);
+  return value !== null && (ALL_TAB_KEYS as readonly string[]).includes(value);
 }
 
 function SettingsPageInner() {
@@ -51,14 +53,14 @@ function SettingsPageInner() {
       </header>
 
       <div className="mb-6 flex items-center gap-1 overflow-x-auto border-b border-border font-body">
-        {TABS.map((tab) => (
+        {VISIBLE_TABS.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => setActiveTab(tab.key)}
             className={`flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? (tab.activeClassName ?? 'border-primary text-primary')
+                ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground'
             }`}
           >
