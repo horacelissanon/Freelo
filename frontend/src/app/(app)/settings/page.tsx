@@ -11,16 +11,28 @@ import { FacturationTab } from '@/components/settings/FacturationTab';
 
 type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement';
 
-// 'abonnement' stays a valid tab key (so a direct link like
-// /settings?tab=abonnement still resolves) even though it's not one of the
-// buttons rendered in the tab bar below — it moved to its own entry in the
-// main nav instead (see Sidebar.tsx).
 const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement'];
 
-const VISIBLE_TABS: { key: Exclude<TabKey, 'abonnement'>; label: string; icon: string }[] = [
+// Abonnement is reachable from both places now: this tab bar (desktop AND
+// mobile — Paramètres is the same responsive page either way) and its own
+// permanently-amber entry in the Sidebar (see Sidebar.tsx) for desktop.
+// Keeps its own amber/orange identity here too, matching FacturationTab's
+// "don't blend into the rest of the workspace" styling.
+const VISIBLE_TABS: {
+  key: TabKey;
+  label: string;
+  icon: string;
+  activeClassName?: string;
+}[] = [
   { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
+  {
+    key: 'abonnement',
+    label: 'Abonnement',
+    icon: 'credit-card',
+    activeClassName: 'border-amber-500 text-amber-600 dark:text-amber-400',
+  },
 ];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -50,7 +62,7 @@ function SettingsPageInner() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'border-primary text-primary'
+                ? (tab.activeClassName ?? 'border-primary text-primary')
                 : 'border-transparent text-muted-foreground'
             }`}
           >
