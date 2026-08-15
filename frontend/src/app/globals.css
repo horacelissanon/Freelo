@@ -139,6 +139,25 @@ body {
     transition-duration: 150ms;
     transition-timing-function: ease-out;
   }
+
+  /* <button> has no pointer cursor in the default UA stylesheet (unlike
+     <a>, which does) — without this, otherwise-identical-looking buttons
+     and links show a different cursor for no visible reason. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  /* Slight press-down feedback on click, same spirit as the native-app
+     "tap" feel — scoped to the transition above so it eases in/out rather
+     than snapping. */
+  button:not(:disabled):active,
+  a:active {
+    transform: scale(0.97);
+  }
 }
 
 @keyframes fade-in {

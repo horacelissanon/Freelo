@@ -5,6 +5,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useCreateMenu, type CreateEntity } from '@/contexts/CreateMenuContext';
+import { useBottomNavStyle } from '@/contexts/BottomNavStyleContext';
+
+// 'off' keeps the original solid brand-green bar untouched. Both glass
+// variants stay green on purpose (per product decision — a liquid-glass
+// look inspired by Apple's effect, without giving up the brand color):
+// 'transparent' is a lighter, more see-through frosted glass built from the
+// same dark sidebar green at low opacity; 'tinted' leans on the brighter
+// --color-primary green instead, for a more saturated colored-glass look.
+const GLASS_NAV_CLASS: Record<'off' | 'transparent' | 'tinted', string> = {
+  off: 'border-sidebar-muted bg-sidebar',
+  transparent: 'border-white/10 bg-sidebar/55 backdrop-blur-xl backdrop-saturate-150',
+  tinted: 'border-primary/30 bg-primary/25 backdrop-blur-xl backdrop-saturate-150',
+};
 
 const LEFT_ITEMS = [
   { icon: 'layout-dashboard', label: 'Tableau de bord', href: '/dashboard' },
@@ -49,6 +62,7 @@ function NavItem({
 export function BottomNav() {
   const pathname = usePathname();
   const { openCreate } = useCreateMenu();
+  const { glass } = useBottomNavStyle();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -62,7 +76,9 @@ export function BottomNav() {
         />
       )}
 
-      <nav className="fixed inset-x-3 bottom-3 z-40 rounded-2xl border border-sidebar-muted bg-sidebar shadow-lg lg:hidden">
+      <nav
+        className={`fixed inset-x-3 bottom-3 z-40 rounded-2xl border shadow-lg lg:hidden ${GLASS_NAV_CLASS[glass]}`}
+      >
         {menuOpen && (
           <div className="animate-scale-in absolute bottom-full left-1/2 mb-3 w-52 -translate-x-1/2 origin-bottom rounded-lg border border-border bg-canvas shadow-card p-2 shadow-xl">
             {QUICK_ACTIONS.map((action) => (

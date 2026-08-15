@@ -5,6 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { Toggle } from '@/components/ui/Toggle';
 import { CURRENCIES } from '@/lib/constants';
 
@@ -20,6 +21,9 @@ export function EspaceTab({ user }: { user: User }) {
   const { refresh } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+  const { glass, setGlass } = useBottomNavStyle();
+  const glassVariant: Exclude<BottomNavGlass, 'off'> =
+    glass === 'tinted' ? 'tinted' : 'transparent';
 
   const [studioName, setStudioName] = useState(user.studioName ?? '');
   const [taxId, setTaxId] = useState(user.taxId ?? '');
@@ -180,7 +184,7 @@ export function EspaceTab({ user }: { user: User }) {
             label="Afficher les factures payées"
           />
         </div>
-        <div className="flex items-center justify-between gap-4 py-4 last:pb-0">
+        <div className="flex items-center justify-between gap-4 py-4">
           <div className="flex flex-col">
             <span className="font-body text-sm font-medium text-foreground">
               Lien client public
@@ -195,6 +199,42 @@ export function EspaceTab({ user }: { user: User }) {
             disabled={togglePending === 'publicPortalEnabled'}
             label="Lien client public"
           />
+        </div>
+        <div className="flex flex-col gap-3 py-4 last:pb-0">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col">
+              <span className="font-body text-sm font-medium text-foreground">
+                Menu liquid glass
+              </span>
+              <span className="font-body text-xs text-muted-foreground">
+                Rend le menu du bas translucide et flouté, façon verre liquide, en gardant sa teinte
+                verte. Désactivé, le menu actuel s&apos;applique — c&apos;est le réglage par défaut.
+              </span>
+            </div>
+            <Toggle
+              checked={glass !== 'off'}
+              onChange={(v) => setGlass(v ? glassVariant : 'off')}
+              label="Menu liquid glass"
+            />
+          </div>
+          {glass !== 'off' && (
+            <div className="flex gap-2 pl-0">
+              {(['transparent', 'tinted'] as const).map((variant) => (
+                <button
+                  key={variant}
+                  type="button"
+                  onClick={() => setGlass(variant)}
+                  className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium ${
+                    glass === variant
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-canvas text-foreground'
+                  }`}
+                >
+                  {variant === 'transparent' ? 'Transparent' : 'Teinté'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

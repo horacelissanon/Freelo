@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { BottomNavStyleProvider } from '@/contexts/BottomNavStyleContext';
 
 // Runs before first paint (synchronous, first child of <body>) so an
 // explicit stored theme wins over `prefers-color-scheme` immediately —
@@ -35,9 +36,11 @@ export default function RootLayout({
       <body className={ibmPlexSans.className} suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ThemeProvider>
-          <ToastProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </ToastProvider>
+          <BottomNavStyleProvider>
+            <ToastProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </ToastProvider>
+          </BottomNavStyleProvider>
         </ThemeProvider>
       </body>
     </html>
