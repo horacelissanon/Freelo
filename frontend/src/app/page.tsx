@@ -22,11 +22,11 @@ export const runtime = 'nodejs';
 
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
-import { Avatar } from '@/components/ui/Avatar';
 import { ScrollReveal } from '@/components/marketing/ScrollReveal';
 import { PricingToggle } from '@/components/marketing/PricingToggle';
 import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
 import { RotatingWord } from '@/components/marketing/RotatingWord';
+import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
@@ -112,12 +112,6 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
       'Propose plusieurs formules sur un même devis, chacune avec son acompte — ton client choisit en un clic.',
   },
   {
-    icon: 'file-check',
-    title: 'Une validation qui fait foi',
-    description:
-      'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
-  },
-  {
     icon: 'receipt',
     title: 'Factures multi-devises',
     description:
@@ -136,6 +130,17 @@ const FEATURES: { icon: string; title: string; description: string }[] = [
       'Échéance de projet qui approche, facture en retard — Freelo te prévient avant que ton client s’en inquiète.',
   },
 ];
+
+// Pulled out of FEATURES into its own spotlight bar below the grid — an odd
+// 7th card would otherwise sit alone on the last row, and this point (a
+// client's own validation becomes proof of what was agreed) is a stronger,
+// more persuasive claim than a plain capability blurb anyway.
+const TRUST_HIGHLIGHT = {
+  icon: 'file-check',
+  title: 'Une validation qui fait foi',
+  description:
+    'Le client choisit et valide lui-même l’offre depuis son lien — prix et contenu figés dès l’acceptation. Fini les « je n’étais pas au courant » ou les prix remis en question après coup.',
+};
 
 const COMPARISON_ROWS: ComparisonRow[] = [
   {
@@ -164,20 +169,29 @@ const COMPARISON_ROWS: ComparisonRow[] = [
   },
 ];
 
+// First-person, as if Aminata/Koffi are speaking — but each card carries an
+// explicit "Profil type" badge (see PersonasMarquee.tsx) rather than a star
+// rating or any other verified-review signal. These stay illustrative
+// target personas, not attributed customer testimonials (see this file's
+// header comment) — first-person phrasing is a copy style, not a claim that
+// a real person said this. Koffi's pain point used to be about clients
+// paying in different currencies/methods; swapped out for now since online
+// payment collection for a freelance's clients is currently pulled from the
+// product — revisit once that's back.
 const PERSONAS: { name: string; role: string; pain: string; solution: string }[] = [
   {
     name: 'Aminata',
     role: 'Graphiste freelance, Abidjan',
-    pain: 'Devis composés sur Canva, factures sur Excel, échanges sur WhatsApp — elle a déjà oublié de facturer un client.',
+    pain: 'Je composais mes devis sur Canva, mes factures sur Excel, mes échanges sur WhatsApp — j’ai fini par oublier de facturer un client.',
     solution:
-      'Avec Freelo, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
+      'Depuis Freelo, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
   },
   {
     name: 'Koffi',
     role: 'Designer UI/UX freelance, Cotonou',
-    pain: 'Ses clients locaux paient en mobile money, ceux de la diaspora par carte — aucun outil ne gère les deux sur un même document.',
+    pain: 'Un client me redemandait sans arrêt des retouches, en disant ne jamais avoir validé le prix de départ.',
     solution:
-      'Freelo facture nativement en FCFA (EUR/USD en Pro), avec un devis qui propose plusieurs formules et un acompte par offre.',
+      'Depuis, il valide lui-même l’offre choisie sur son lien de suivi — le prix est figé, plus de discussion sans fin sur ce qui avait été convenu.',
   },
 ];
 
@@ -657,6 +671,26 @@ export default function Home() {
                 </div>
               ))}
             </div>
+
+            {/* Spotlight bar, not a 7th grid card — this point carries more
+                weight than a plain capability blurb (it's a direct answer to
+                a real dispute pattern), and a lone card on an odd row would
+                read as an accident, not a highlight. Saturated bg-primary
+                icon badge + a visible border set it apart from the plain
+                bg-canvas/bg-tag-green treatment of the cards above. */}
+            <div className="mt-5 flex flex-col items-start gap-4 rounded-lg border-2 border-primary/25 bg-canvas p-5 shadow-card sm:flex-row sm:items-center sm:gap-5">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-primary">
+                <Icon i={TRUST_HIGHLIGHT.icon} size={20} className="text-primary-foreground" />
+              </div>
+              <div>
+                <h3 className="font-headings text-base font-semibold text-foreground">
+                  {TRUST_HIGHLIGHT.title}
+                </h3>
+                <p className="mt-1 font-body text-sm text-muted-foreground">
+                  {TRUST_HIGHLIGHT.description}
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </ScrollReveal>
@@ -683,41 +717,19 @@ export default function Home() {
       {/* ── Personas ("Pensé pour") ─────────────────────────────────── */}
       <ScrollReveal>
         <section className="border-t border-border bg-tag-green">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-                Pensé pour des freelances comme toi
-              </h2>
-              <p className="mt-2 font-body text-sm text-muted-foreground">
-                Deux profils types que Freelo a été conçu pour servir.
-              </p>
-            </div>
-            <div className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-5 sm:grid-cols-2">
-              {PERSONAS.map((persona) => (
-                <div key={persona.name} className={`${inputCardClass} relative overflow-hidden`}>
-                  <Icon
-                    i="message-circle"
-                    size={60}
-                    className="pointer-events-none absolute -top-3 -right-3 text-tag-green/40"
-                  />
-                  <div className="relative flex items-center gap-3">
-                    <Avatar name={persona.name} className="h-10 w-10 flex-shrink-0 text-sm" />
-                    <div>
-                      <p className="font-body text-sm font-semibold text-foreground">
-                        {persona.name}
-                      </p>
-                      <p className="font-body text-xs text-muted-foreground">{persona.role}</p>
-                    </div>
-                  </div>
-                  <p className="relative mt-4 font-body text-sm text-muted-foreground">
-                    « {persona.pain} »
-                  </p>
-                  <p className="relative mt-3 font-body text-sm text-foreground">
-                    {persona.solution}
-                  </p>
-                </div>
-              ))}
-            </div>
+          <div className="mx-auto max-w-2xl px-4 pt-16 text-center sm:px-6">
+            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+              Pensé pour des freelances comme toi
+            </h2>
+            <p className="mt-2 font-body text-sm text-muted-foreground">
+              Deux profils types que Freelo a été conçu pour servir.
+            </p>
+          </div>
+          {/* Bleeds full-width (no max-w container) — the horizontal scroll
+              reads as intentional edge-to-edge motion, not a marquee
+              cramped inside the page's usual content column. */}
+          <div className="pb-16">
+            <PersonasMarquee personas={PERSONAS} />
           </div>
         </section>
       </ScrollReveal>
