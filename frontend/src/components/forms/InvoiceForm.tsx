@@ -7,6 +7,7 @@
 // is structurally different enough from a facture's flat `lineItems` that
 // sharing one form would mean branching almost every field.
 import { useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,11 +132,24 @@ export function InvoiceForm({
   );
   const projects = projectsData?.items ?? [];
   const { data: clientDetail } = useApi<{
-    invoices: { docType: string; status: string; amount: number }[];
+    invoices: { docType: string; status: string; amount: number; projectId: string | null }[];
+    projects: { id: string; name: string }[];
   }>(`/api/clients/${clientId}`, { skip: !clientId });
   const clientTotalBilled = (clientDetail?.invoices ?? [])
     .filter((inv) => inv.docType === 'INVOICE' && inv.status !== 'CANCELED')
     .reduce((sum, inv) => sum + inv.amount, 0);
+
+  // Heads-up only, never a blocker: catches the case where the freelance
+  // uses the standalone "Nouvelle facture" form for a client that already
+  // has a project with no facture yet, forgetting the dedicated "Créer
+  // facture depuis projet" flow on that project's own page. Skipped
+  // entirely when lockedProject is set — that IS the dedicated flow.
+  const billedProjectIds = new Set(
+    (clientDetail?.invoices ?? [])
+      .filter((inv) => inv.docType === 'INVOICE' && inv.projectId)
+      .map((inv) => inv.projectId as string),
+  );
+  const unbilledProject = (clientDetail?.projects ?? []).find((p) => !billedProjectIds.has(p.id));
 
   const [projectId, setProjectId] = useState(lockedProject?.id ?? invoice?.projectId ?? '');
   const [description, setDescription] = useState(
@@ -285,6 +299,12 @@ export function InvoiceForm({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <form onSubmit={onSubmit} className="flex min-w-0 flex-1 flex-col gap-4">
+        {!invoice && (
+          <p className="-mb-1 font-body text-xs text-muted-foreground">
+            Conseil : un devis accepté au préalable évite les malentendus et vous protège
+            juridiquement.
+          </p>
+        )}
         {lockedClient ? (
           <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Client
@@ -325,6 +345,23 @@ export function InvoiceForm({
               </span>
             )}
           </label>
+        )}
+        {!lockedProject && unbilledProject && (
+          <div className="flex items-start gap-2 rounded-lg bg-tag-orange p-3">
+            <Icon i="alert-circle" size={16} className="mt-0.5 flex-shrink-0 text-tag-orange-fg" />
+            <div className="flex flex-col gap-1">
+              <p className="font-body text-sm text-tag-orange-fg">
+                {`Ce client a un projet (${unbilledProject.name}) sans facture. Utilise « Créer facture depuis projet » pour la générer avec le bon montant.`}
+              </p>
+              <Link
+                href={`/projects/${unbilledProject.id}`}
+                onClick={onDone}
+                className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
+              >
+                Voir le projet
+              </Link>
+            </div>
+          </div>
         )}
         {lockedProject ? (
           <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">

@@ -76,6 +76,9 @@ export default function ClientDetailPage() {
 
   if (!user) return null;
 
+  const devisRows = client?.invoices.filter((inv) => inv.docType === 'QUOTE') ?? [];
+  const factureRows = client?.invoices.filter((inv) => inv.docType !== 'QUOTE') ?? [];
+
   async function copyTrackingLink() {
     if (!client) return;
     const url = `${window.location.origin}/suivi/${client.trackingToken}`;
@@ -271,7 +274,50 @@ export default function ClientDetailPage() {
           <div className="rounded-lg border border-border bg-canvas shadow-card">
             <div className="flex items-center justify-between px-5 pt-5">
               <h2 className="font-headings text-sm font-bold text-foreground">
-                Factures &amp; devis ({client.invoices.length})
+                Devis ({devisRows.length})
+              </h2>
+              <button
+                type="button"
+                onClick={() => openCreate('quote')}
+                className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
+              >
+                <Icon i="plus" size={14} />
+                Nouveau devis
+              </button>
+            </div>
+            <div className="p-5">
+              {devisRows.length === 0 ? (
+                <EmptyState
+                  icon="file-text"
+                  title="Aucun devis"
+                  description="Les devis de ce client apparaîtront ici."
+                />
+              ) : (
+                <div>
+                  {devisRows.map((inv) => (
+                    <InvoiceRow
+                      key={inv.id}
+                      invoice={{
+                        id: inv.id,
+                        number: inv.number,
+                        docType: inv.docType,
+                        status: inv.status,
+                        clientName: client.name,
+                        amount: inv.amount,
+                        currency: inv.currency,
+                        dueDateLabel: inv.dueDate ? formatDate(inv.dueDate) : null,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-canvas shadow-card">
+            <div className="flex items-center justify-between px-5 pt-5">
+              <h2 className="font-headings text-sm font-bold text-foreground">
+                Factures ({factureRows.length})
               </h2>
               <button
                 type="button"
@@ -279,19 +325,19 @@ export default function ClientDetailPage() {
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
-                Nouvelle facture
+                Créer facture depuis projet
               </button>
             </div>
             <div className="p-5">
-              {client.invoices.length === 0 ? (
+              {factureRows.length === 0 ? (
                 <EmptyState
                   icon="file-text"
                   title="Aucune facture"
-                  description="Les factures et devis de ce client apparaîtront ici."
+                  description="Les factures de ce client apparaîtront ici."
                 />
               ) : (
                 <div>
-                  {client.invoices.map((inv) => (
+                  {factureRows.map((inv) => (
                     <InvoiceRow
                       key={inv.id}
                       invoice={{

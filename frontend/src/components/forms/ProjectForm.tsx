@@ -273,6 +273,7 @@ export function ProjectForm({
             </p>
             <Link
               href={`/invoices/${highlightedQuote.id}`}
+              onClick={onDone}
               className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
             >
               Voir le devis

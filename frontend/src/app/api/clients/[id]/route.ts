@@ -67,6 +67,7 @@ export async function GET(
             amount: true,
             currency: true,
             dueDate: true,
+            projectId: true,
           },
         },
       },
