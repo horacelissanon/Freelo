@@ -182,11 +182,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const cursor = decodeCursor(url.searchParams.get('cursor'));
     const docType = url.searchParams.get('docType');
     const status = url.searchParams.get('status');
+    const clientId = url.searchParams.get('clientId');
 
     const where: Prisma.InvoiceWhereInput = {
       userId: auth.user.sub,
       ...(docType ? { docType } : {}),
       ...(status ? { status } : {}),
+      ...(clientId ? { clientId } : {}),
       ...cursorWhere(cursor),
     };
 

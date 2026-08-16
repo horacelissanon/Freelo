@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
@@ -43,6 +44,13 @@ interface ClientOption {
   id: string;
   code: string;
   name: string;
+}
+
+interface UnlinkedQuoteRow {
+  id: string;
+  number: string;
+  status: string;
+  projectId: string | null;
 }
 
 export interface ProjectFormInitial {
@@ -109,6 +117,20 @@ export function ProjectForm({
   const clientRef = useRef<HTMLSelectElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
+
+  // Heads-up only, never a blocker: catches the case where the freelance
+  // uses the standalone "Nouveau projet" form for a client that already has
+  // an unlinked devis, forgetting the dedicated "Créer un projet depuis ce
+  // devis" flow (which pre-fills amount/deposit and links Invoice.projectId).
+  // Skipped entirely when lockedClient is set — that IS the dedicated flow.
+  const { data: quotesData } = useApi<{ items: UnlinkedQuoteRow[] }>(
+    clientId ? `/api/invoices?docType=QUOTE&clientId=${clientId}&limit=20` : '',
+    { skip: !clientId || !!lockedClient },
+  );
+  const unlinkedQuotes = (quotesData?.items ?? []).filter(
+    (q) => q.status !== 'CANCELED' && !q.projectId,
+  );
+  const highlightedQuote = unlinkedQuotes.find((q) => q.status === 'ACCEPTED') ?? unlinkedQuotes[0];
 
   function validate(): boolean {
     const errors: typeof fieldErrors = {};
@@ -239,6 +261,28 @@ export function ProjectForm({
             </span>
           )}
         </label>
+      )}
+      {highlightedQuote && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
+          <Icon
+            i="alert-circle"
+            size={16}
+            className="mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400"
+          />
+          <div className="flex flex-col gap-1">
+            <p className="font-body text-sm text-foreground">
+              {highlightedQuote.status === 'ACCEPTED'
+                ? `Ce client a un devis accepté (${highlightedQuote.number}) non encore transformé en projet. Utilise « Créer un projet depuis ce devis » pour reprendre le montant et l'acompte.`
+                : `Ce client a un devis en cours (${highlightedQuote.number}) qui ne sera pas lié à ce projet.`}
+            </p>
+            <Link
+              href={`/invoices/${highlightedQuote.id}`}
+              className="self-start font-body text-xs font-medium text-amber-700 underline dark:text-amber-400"
+            >
+              Voir le devis
+            </Link>
+          </div>
+        </div>
       )}
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Nom du projet *

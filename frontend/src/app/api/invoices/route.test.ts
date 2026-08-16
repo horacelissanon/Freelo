@@ -96,6 +96,13 @@ describe('GET /api/invoices', () => {
     expect(args?.where?.docType).toBe('QUOTE');
     expect(args?.where?.status).toBe('SENT');
   });
+
+  it('?clientId filters the where clause', async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/invoices?docType=QUOTE&clientId=c-1'));
+    const args = prismaMock.invoice.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.clientId).toBe('c-1');
+  });
 });
 
 describe('POST /api/invoices', () => {
