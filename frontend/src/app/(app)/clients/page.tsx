@@ -10,6 +10,7 @@ import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates
 import { Icon } from '@/components/ui/Icon';
 import { ViewToggle, type ListViewMode } from '@/components/ui/ViewToggle';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
+import { formatPrice } from '@/lib/utils';
 import { CLIENT_STATUS_LABELS, type ClientStatus } from '@/lib/constants';
 
 const VIEW_STORAGE_KEY = 'freelo-clients-view';
@@ -49,9 +50,10 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [viewMode, setViewMode] = useState<ListViewMode>('list');
-  const { data, loading, error, refresh } = useApi<{ items: ClientApiRow[] }>(
-    '/api/clients?limit=50',
-  );
+  const { data, loading, error, refresh } = useApi<{
+    items: ClientApiRow[];
+    totalRevenue: number;
+  }>('/api/clients?limit=50');
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_STORAGE_KEY);
@@ -120,12 +122,18 @@ export default function ClientsPage() {
       </div>
 
       {!loading && !error && items.length > 0 && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard label="Total clients" value={String(items.length)} icon="users" />
           <StatCard
             label="Avec un projet actif"
             value={String(items.filter((c) => c.projects.length > 0).length)}
             icon="briefcase"
+          />
+          <StatCard
+            label="Chiffre d'affaires total"
+            value={formatPrice(data?.totalRevenue ?? 0)}
+            unit="XOF"
+            icon="banknote"
           />
         </div>
       )}

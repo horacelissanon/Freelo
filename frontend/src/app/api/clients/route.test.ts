@@ -76,6 +76,7 @@ beforeEach(() => {
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.subscription.findUnique.mockResolvedValue(subscription() as never);
+  prismaMock.invoice.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
 });
 
 describe('GET /api/clients', () => {
@@ -91,7 +92,7 @@ describe('GET /api/clients', () => {
     prismaMock.client.findMany.mockResolvedValue([] as never);
     const res = await GET(makeGet('http://test/api/clients'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ items: [], nextCursor: null });
+    expect(await res.json()).toEqual({ items: [], nextCursor: null, totalRevenue: 0 });
   });
 
   it('where clause scoped by userId', async () => {
@@ -129,6 +130,16 @@ describe('GET /api/clients', () => {
       where: { status: { notIn: ['DRAFT', 'DELIVERED'] } },
       select: { id: true },
     });
+  });
+
+  it('totalRevenue sums PAID invoices scoped to userId, portfolio-wide (not limited to the page)', async () => {
+    prismaMock.client.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.aggregate.mockResolvedValue({ _sum: { amount: 355000 } } as never);
+    const res = await GET(makeGet('http://test/api/clients?limit=1'));
+    const body = await res.json();
+    expect(body.totalRevenue).toBe(355000);
+    const aggArg = prismaMock.invoice.aggregate.mock.calls[0]?.[0];
+    expect(aggArg?.where).toEqual({ userId: 'user-1', docType: 'INVOICE', status: 'PAID' });
   });
 });
 

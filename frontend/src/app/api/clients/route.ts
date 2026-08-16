@@ -77,9 +77,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json(buildPage(rows, limit), {
-      headers: { 'x-request-id': ctx.requestId },
+    // Portfolio-wide, not scoped to the current page/cursor slice — "how
+    // much have I actually earned from my clients" is meant to answer that
+    // question for the whole client base, not just the 50 most recent rows.
+    const revenueAgg = await prisma.invoice.aggregate({
+      where: { userId: auth.user.sub, docType: 'INVOICE', status: 'PAID' },
+      _sum: { amount: true },
     });
+
+    return NextResponse.json(
+      { ...buildPage(rows, limit), totalRevenue: revenueAgg._sum.amount ?? 0 },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }
 
