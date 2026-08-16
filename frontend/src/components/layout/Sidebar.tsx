@@ -1,19 +1,22 @@
 'use client';
 
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
+import { isNavItemActive } from '@/lib/navActive';
 
 const NAV_ITEMS = [
   { icon: 'layout-dashboard', label: 'Tableau de bord', href: '/dashboard' },
   { icon: 'folder-open', label: 'Projets', href: '/projects' },
   { icon: 'users', label: 'Clients', href: '/clients' },
-  { icon: 'file-text', label: 'Devis & Factures', href: '/invoices' },
+  { icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
+  { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
   { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
 ] as const;
@@ -46,12 +49,31 @@ const GLASS_SIDEBAR_CLASS: Record<BottomNavGlass, string> = {
 // content and the parent layout centers it vertically, instead of
 // stretching to fill the column like 'capsule' does. 'classic' stays flush
 // against the viewport edge with just a soft outer-corner sweep.
-export function Sidebar({
+// useSearchParams() opts a subtree out of static rendering unless wrapped
+// in Suspense (Next.js App Router requirement — same reason
+// app/(app)/invoices/page.tsx wraps its own ?tab= read). Sidebar is mounted
+// on every page in the app, so the boundary lives here once instead of at
+// every call site.
+export function Sidebar(props: SidebarProps) {
+  return (
+    <Suspense fallback={<SidebarBody {...props} activeTab={null} />}>
+      <SidebarWithTab {...props} />
+    </Suspense>
+  );
+}
+
+function SidebarWithTab(props: SidebarProps) {
+  const searchParams = useSearchParams();
+  return <SidebarBody {...props} activeTab={searchParams.get('tab')} />;
+}
+
+function SidebarBody({
   onNavigate = () => {},
   collapsed = false,
   onToggleCollapsed,
   shape = 'classic',
-}: SidebarProps) {
+  activeTab,
+}: SidebarProps & { activeTab: string | null }) {
   const pathname = usePathname();
   const { user, logout, loggingOut } = useAuth();
   const { glass } = useBottomNavStyle();
@@ -120,7 +142,7 @@ export function Sidebar({
           </p>
         )}
         {NAV_ITEMS.map((item) => {
-          const active = pathname?.startsWith(item.href);
+          const active = isNavItemActive(pathname, activeTab, item.href);
           return (
             <Link
               key={item.href}

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { useCreateMenu, type CreateEntity } from '@/contexts/CreateMenuContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
+import { isNavItemActive } from '@/lib/navActive';
 
 // 'off' keeps the original solid brand-green bar untouched. Both glass
 // variants stay green on purpose (per product decision — a liquid-glass
@@ -48,7 +49,7 @@ const LEFT_ITEMS = [
 
 const RIGHT_ITEMS = [
   { icon: 'users', label: 'Clients', href: '/clients' },
-  { icon: 'file-text', label: 'Factures', href: '/invoices' },
+  { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
 ] as const;
 
 // Mixes create-actions (open the create modal) with plain navigation links
@@ -60,6 +61,7 @@ type QuickMenuItem =
   | { kind: 'link'; icon: string; label: string; href: string };
 
 const QUICK_MENU: QuickMenuItem[] = [
+  { kind: 'link', icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
   { kind: 'create', icon: 'folder-open', label: 'Nouveau projet', entity: 'project' },
   { kind: 'create', icon: 'users', label: 'Nouveau client', entity: 'client' },
   { kind: 'create', icon: 'file-text', label: 'Nouveau devis', entity: 'quote' },
@@ -98,7 +100,22 @@ function NavItem({
   );
 }
 
+// useSearchParams() opts a subtree out of static rendering unless wrapped in
+// Suspense — same reasoning as Sidebar.tsx's identical wrapper.
 export function BottomNav() {
+  return (
+    <Suspense fallback={<BottomNavBody activeTab={null} />}>
+      <BottomNavWithTab />
+    </Suspense>
+  );
+}
+
+function BottomNavWithTab() {
+  const searchParams = useSearchParams();
+  return <BottomNavBody activeTab={searchParams.get('tab')} />;
+}
+
+function BottomNavBody({ activeTab }: { activeTab: string | null }) {
   const pathname = usePathname();
   const { openCreate } = useCreateMenu();
   const { glass } = useBottomNavStyle();
@@ -161,7 +178,7 @@ export function BottomNav() {
             <NavItem
               key={item.href}
               {...item}
-              active={pathname?.startsWith(item.href) ?? false}
+              active={isNavItemActive(pathname, activeTab, item.href)}
               glass={glass}
             />
           ))}
@@ -183,7 +200,7 @@ export function BottomNav() {
             <NavItem
               key={item.href}
               {...item}
-              active={pathname?.startsWith(item.href) ?? false}
+              active={isNavItemActive(pathname, activeTab, item.href)}
               glass={glass}
             />
           ))}
