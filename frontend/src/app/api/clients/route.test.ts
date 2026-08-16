@@ -120,6 +120,16 @@ describe('GET /api/clients', () => {
       true,
     );
   });
+
+  it('includes a filtered non-draft/non-delivered projects existence check for "Avec un projet actif"', async () => {
+    prismaMock.client.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/clients'));
+    const args = prismaMock.client.findMany.mock.calls[0]?.[0];
+    expect(args?.include?.projects).toEqual({
+      where: { status: { notIn: ['DRAFT', 'DELIVERED'] } },
+      select: { id: true },
+    });
+  });
 });
 
 describe('POST /api/clients', () => {

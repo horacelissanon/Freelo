@@ -25,6 +25,8 @@ interface ClientApiRow {
   status: ClientStatus;
   createdAt: string;
   _count: { projects: number };
+  /** Non-draft, non-delivered projects only — existence check, not a list to render. */
+  projects: { id: string }[];
 }
 
 const inputClass =
@@ -121,8 +123,8 @@ export default function ClientsPage() {
         <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
           <StatCard label="Total clients" value={String(items.length)} icon="users" />
           <StatCard
-            label="Clients actifs"
-            value={String(items.filter((c) => c.status === 'active').length)}
+            label="Avec un projet actif"
+            value={String(items.filter((c) => c.projects.length > 0).length)}
             icon="briefcase"
           />
         </div>

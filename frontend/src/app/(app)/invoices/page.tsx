@@ -256,14 +256,20 @@ function FacturesTab({
   }, [rows, hidePaidByDefault, search, statusFilter, sortBy]);
 
   const totalPaid = rows.filter((r) => r.status === 'PAID').reduce((sum, r) => sum + r.amount, 0);
+  // Split rather than folded together — "En attente" (not yet due) and "En
+  // retard" (past due, needs chasing) call for different actions, so they
+  // stay two distinct cards instead of one combined total.
   const totalPending = rows
-    .filter((r) => r.status === 'SENT' || r.status === 'OVERDUE')
+    .filter((r) => r.status === 'SENT')
+    .reduce((sum, r) => sum + r.amount, 0);
+  const totalOverdue = rows
+    .filter((r) => r.status === 'OVERDUE')
     .reduce((sum, r) => sum + r.amount, 0);
 
   return (
     <>
       {rows.length > 0 && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
             label="Encaissé"
             value={formatPrice(totalPaid)}
@@ -275,6 +281,12 @@ function FacturesTab({
             value={formatPrice(totalPending)}
             unit="XOF"
             icon="file-clock"
+          />
+          <StatCard
+            label="En retard"
+            value={formatPrice(totalOverdue)}
+            unit="XOF"
+            icon="alert-circle"
           />
         </div>
       )}
@@ -330,26 +342,35 @@ function DevisTab({
     return sortRows(result, sortBy);
   }, [rows, search, statusFilter, sortBy]);
 
-  const totalValue = rows.reduce((sum, r) => sum + r.amount, 0);
-  const acceptedCount = rows.filter((r) => r.status === 'ACCEPTED').length;
-  const depositExpected = rows.reduce((sum, r) => sum + (resolveDevisDeposit(r) ?? 0), 0);
+  // Brouillon (never sent) and Expiré (dead, never accepted) are excluded
+  // from every card below — neither represents real pending or won
+  // business, so folding them into "value" totals would inflate the
+  // numbers with speculative or already-lost devis. Still fully visible in
+  // the list underneath via the status filter.
+  const pendingRows = rows.filter((r) => r.status === 'SENT');
+  const acceptedRows = rows.filter((r) => r.status === 'ACCEPTED');
+  const totalPending = pendingRows.reduce((sum, r) => sum + r.amount, 0);
+  const depositExpected = [...pendingRows, ...acceptedRows].reduce(
+    (sum, r) => sum + (resolveDevisDeposit(r) ?? 0),
+    0,
+  );
 
   return (
     <>
       {rows.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
-            label="Valeur totale"
-            value={formatPrice(totalValue)}
+            label="En attente"
+            value={formatPrice(totalPending)}
             unit="XOF"
-            icon="file-text"
+            icon="file-clock"
           />
-          <StatCard label="Acceptés" value={String(acceptedCount)} icon="check-circle" />
+          <StatCard label="Acceptés" value={String(acceptedRows.length)} icon="check-circle" />
           <StatCard
             label="Acompte prévu"
             value={formatPrice(depositExpected)}
             unit="XOF"
-            icon="file-clock"
+            icon="banknote"
           />
         </div>
       )}

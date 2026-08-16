@@ -118,13 +118,24 @@ export default function ProjectsPage() {
     return sorted;
   }, [items, search, statusFilter, monthFilter, sortBy]);
 
-  const totalAmount = items.reduce((sum, p) => sum + p.amount, 0);
-  const inProgressCount = items.filter((p) => p.status === 'IN_PROGRESS').length;
-  const depositsPending = items.reduce(
+  // Brouillons aren't a real commitment yet (see ProjectForm's Enregistrer
+  // brouillon / Créer projet split) — excluded from every card below so a
+  // freelance's totals never include speculative, not-yet-sent projects.
+  // Still fully visible/filterable in the list underneath via "Brouillon" in
+  // the status dropdown.
+  const realItems = items.filter((p) => p.status !== 'DRAFT');
+  const totalAmount = realItems.reduce((sum, p) => sum + p.amount, 0);
+  // "Actifs" mirrors the exact semantic already used app-wide (dashboard's
+  // activeProjects, the free-plan project cap): anything not yet delivered.
+  // The previous "En cours" card only matched the single IN_PROGRESS value,
+  // silently excluding PENDING/IN_REVIEW projects that are just as much
+  // in-flight work.
+  const activeCount = realItems.filter((p) => p.status !== 'DELIVERED').length;
+  const depositsPending = realItems.reduce(
     (sum, p) => sum + (p.deposit.paid ? 0 : p.deposit.amount),
     0,
   );
-  const balancesPending = items.reduce(
+  const balancesPending = realItems.reduce(
     (sum, p) => sum + (p.balance.paid ? 0 : p.balance.amount),
     0,
   );
@@ -135,7 +146,7 @@ export default function ProjectsPage() {
         <div>
           <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">Projets</h1>
           <p className="font-body text-sm text-muted-foreground">
-            {items.length} projet{items.length !== 1 ? 's' : ''} en cours et terminés
+            {realItems.length} projet{realItems.length !== 1 ? 's' : ''} en cours et terminés
           </p>
         </div>
         <button
@@ -159,10 +170,10 @@ export default function ProjectsPage() {
             />
           </div>
           <div className="sm:order-1">
-            <StatCard label="Total projets" value={String(items.length)} icon="folder-open" />
+            <StatCard label="Total projets" value={String(realItems.length)} icon="folder-open" />
           </div>
           <div className="sm:order-2">
-            <StatCard label="En cours" value={String(inProgressCount)} icon="clock" />
+            <StatCard label="Projets actifs" value={String(activeCount)} icon="clock" />
           </div>
           <StatCard
             label="Acomptes en attente"

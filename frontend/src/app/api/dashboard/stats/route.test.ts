@@ -115,6 +115,11 @@ describe('GET /api/dashboard/stats', () => {
     expect(body.pendingInvoices).toEqual({ amount: 185000, currency: 'XOF', overdueCount: 2 });
     const aggArg = prismaMock.invoice.aggregate.mock.calls[2]?.[0];
     expect(aggArg?.where?.status).toEqual({ in: ['SENT', 'OVERDUE'] });
+    // Regression: a devis (QUOTE) can also be SENT — must never inflate this
+    // figure, which is meant to represent real money owed on factures only.
+    expect(aggArg?.where?.docType).toBe('INVOICE');
+    const countArg = prismaMock.invoice.count.mock.calls[0]?.[0];
+    expect(countArg?.where?.docType).toBe('INVOICE');
   });
 
   it('newClients.trend = this-month count - last-month count', async () => {

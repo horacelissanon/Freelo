@@ -139,6 +139,9 @@ describe('POST /api/auth/signup', () => {
     expect((await blank.json()).error).toBe('VALIDATION_FAILED');
   });
 
+  // 6 concurrent real-bcrypt hashes — the default 5s timeout flakes under
+  // full-suite parallel worker load even though it's reliably fast in
+  // isolation; not a regression in the route itself.
   it('returns 429 TOO_MANY_SIGNUP_ATTEMPTS when the per-email limit is hit', async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue({ id: 'u-rate' } as never);
@@ -160,9 +163,7 @@ describe('POST /api/auth/signup', () => {
     const limited = calls.find((r) => r.status === 429)!;
     const body = await limited.json();
     expect(body.error).toBe('TOO_MANY_SIGNUP_ATTEMPTS');
-  }, // full-suite parallel worker load even though it's reliably fast in // 6 concurrent real-bcrypt hashes — the default 5s timeout flakes under
-  // isolation; not a regression in the route itself.
-  15000);
+  }, 15000);
 
   it('rejects pwned passwords with PASSWORD_PWNED when PASSWORD_HIBP_CHECK=1', async () => {
     vi.stubEnv('PASSWORD_HIBP_CHECK', '1');

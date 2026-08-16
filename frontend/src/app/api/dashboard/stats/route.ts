@@ -61,10 +61,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }),
       prisma.project.count({ where: { userId, status: { notIn: ['DELIVERED', 'DRAFT'] } } }),
       prisma.invoice.aggregate({
-        where: { userId, status: { in: ['SENT', 'OVERDUE'] } },
+        // docType: 'INVOICE' is required here — a devis (QUOTE) can also sit
+        // at status SENT (see the devis lifecycle in lib/constants.ts), but
+        // it isn't money owed yet, so it must never inflate this figure.
+        where: { userId, docType: 'INVOICE', status: { in: ['SENT', 'OVERDUE'] } },
         _sum: { amount: true },
       }),
-      prisma.invoice.count({ where: { userId, status: 'OVERDUE' } }),
+      prisma.invoice.count({ where: { userId, docType: 'INVOICE', status: 'OVERDUE' } }),
       prisma.client.count({
         where: { userId, createdAt: { gte: thisMonth.start, lt: thisMonth.end } },
       }),

@@ -64,6 +64,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       take: limit + 1,
       include: {
         _count: { select: { projects: true } },
+        // Bounded existence check (not a real list — `select: { id: true }`
+        // only) so the "Clients actifs" cadran can mean something real: has
+        // at least one non-draft, non-delivered project right now. Separate
+        // from `_count.projects` above (a plain total, still used for the
+        // "Plus de projets" sort) since Prisma can't filter the same
+        // relation twice within one `_count.select`.
+        projects: {
+          where: { status: { notIn: ['DRAFT', 'DELIVERED'] } },
+          select: { id: true },
+        },
       },
     });
 
