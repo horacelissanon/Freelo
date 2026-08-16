@@ -81,6 +81,7 @@ import {
   Film,
   Megaphone,
   RotateCcw,
+  FileSpreadsheet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -163,6 +164,7 @@ const ICONS: Record<string, LucideIcon> = {
   film: Film,
   megaphone: Megaphone,
   'rotate-ccw': RotateCcw,
+  'file-spreadsheet': FileSpreadsheet,
 };
 
 export interface IconProps {

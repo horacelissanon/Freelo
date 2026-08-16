@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
@@ -9,10 +9,14 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import { Icon } from '@/components/ui/Icon';
 import { ViewToggle, type ListViewMode } from '@/components/ui/ViewToggle';
+import { FilterTabs, type FilterTab } from '@/components/ui/FilterTabs';
+import { DateFilterBar } from '@/components/ui/DateFilterBar';
+import { ExportButtons } from '@/components/ui/ExportButtons';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, type ProjectStatus } from '@/lib/constants';
 import type { ProjectType } from '@/lib/constants';
+import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
 interface ProjectApiRow {
   id: string;
@@ -36,34 +40,12 @@ const inputClass =
 
 const VIEW_STORAGE_KEY = 'freelo-projects-view';
 
-type SortKey = 'recent' | 'oldest' | 'amount_desc' | 'amount_asc';
-
-const SORT_LABELS: Record<SortKey, string> = {
-  recent: 'Plus récent',
-  oldest: 'Plus ancien',
-  amount_desc: 'Montant décroissant',
-  amount_asc: 'Montant croissant',
-};
-
-function monthKey(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function monthLabel(key: string): string {
-  const [year, month] = key.split('-').map(Number);
-  return new Date(year ?? 2026, (month ?? 1) - 1, 1)
-    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-    .replace(/^./, (c) => c.toUpperCase());
-}
-
 export default function ProjectsPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [monthFilter, setMonthFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortKey>('recent');
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
   const [viewMode, setViewMode] = useState<ListViewMode>('list');
   const { data, loading, error, refresh } = useApi<{ items: ProjectApiRow[] }>(
     '/api/projects?limit=50',
@@ -83,53 +65,46 @@ export default function ProjectsPage() {
 
   const items = data?.items ?? [];
 
-  const monthOptions = useMemo(() => {
-    const keys = new Set(items.filter((p) => p.dueDate).map((p) => monthKey(p.dueDate as string)));
-    return Array.from(keys).sort();
-  }, [items]);
+  // The date filter scopes the cadrans too (not just the list below) so a
+  // freelance can see "how much this month" at a glance — status tab counts
+  // reflect that same date scope, while status itself obviously isn't
+  // re-applied to its own tab counts.
+  const dateScoped = items.filter((p) => isWithinDateFilter(p.createdAt, dateFilter));
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const rows = items.filter((p) => {
-      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-      if (monthFilter !== 'all' && (!p.dueDate || monthKey(p.dueDate) !== monthFilter))
-        return false;
-      if (!q) return true;
+  const statusTabs: FilterTab[] = [
+    { key: 'all', label: 'Tout', count: dateScoped.length },
+    ...(Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]).map(
+      ([value, label]) => ({
+        key: value,
+        label,
+        count: dateScoped.filter((p) => p.status === value).length,
+      }),
+    ),
+  ];
+
+  const scoped = dateScoped.filter((p) => statusFilter === 'all' || p.status === statusFilter);
+
+  const searchQuery = search.trim().toLowerCase();
+  const filtered = scoped
+    .filter((p) => {
+      if (!searchQuery) return true;
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.client.name.toLowerCase().includes(q) ||
-        PROJECT_TYPE_LABELS[p.type].toLowerCase().includes(q)
+        p.name.toLowerCase().includes(searchQuery) ||
+        p.client.name.toLowerCase().includes(searchQuery) ||
+        PROJECT_TYPE_LABELS[p.type].toLowerCase().includes(searchQuery)
       );
-    });
-    const sorted = [...rows];
-    switch (sortBy) {
-      case 'oldest':
-        sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        break;
-      case 'amount_desc':
-        sorted.sort((a, b) => b.amount - a.amount);
-        break;
-      case 'amount_asc':
-        sorted.sort((a, b) => a.amount - b.amount);
-        break;
-      default:
-        sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    }
-    return sorted;
-  }, [items, search, statusFilter, monthFilter, sortBy]);
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   // Brouillons aren't a real commitment yet (see ProjectForm's Enregistrer
   // brouillon / Créer projet split) — excluded from every card below so a
   // freelance's totals never include speculative, not-yet-sent projects.
   // Still fully visible/filterable in the list underneath via "Brouillon" in
-  // the status dropdown.
-  const realItems = items.filter((p) => p.status !== 'DRAFT');
+  // the status filter.
+  const realItems = scoped.filter((p) => p.status !== 'DRAFT');
   const totalAmount = realItems.reduce((sum, p) => sum + p.amount, 0);
   // "Actifs" mirrors the exact semantic already used app-wide (dashboard's
   // activeProjects, the free-plan project cap): anything not yet delivered.
-  // The previous "En cours" card only matched the single IN_PROGRESS value,
-  // silently excluding PENDING/IN_REVIEW projects that are just as much
-  // in-flight work.
   const activeCount = realItems.filter((p) => p.status !== 'DELIVERED').length;
   const depositsPending = realItems.reduce(
     (sum, p) => sum + (p.deposit.paid ? 0 : p.deposit.amount),
@@ -158,6 +133,18 @@ export default function ProjectsPage() {
           <span className="hidden sm:inline">Nouveau projet</span>
         </button>
       </div>
+
+      {!loading && !error && items.length > 0 && (
+        <div className="mb-6">
+          <FilterTabs tabs={statusTabs} active={statusFilter} onChange={setStatusFilter} />
+        </div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <div className="mb-6">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        </div>
+      )}
 
       {!loading && !error && items.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
@@ -190,63 +177,53 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-canvas shadow-card p-4">
-        <div className="flex gap-2">
-          <div className="relative min-w-0 flex-1">
-            <Icon
-              i="search"
-              size={16}
-              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="text"
-              placeholder="Rechercher un projet (titre, client, type)…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={`${inputClass} w-full pl-9`}
-            />
-          </div>
-          <ViewToggle value={viewMode} onChange={changeView} />
+      <div className="mb-6 flex gap-2 rounded-lg border border-border bg-canvas shadow-card p-4">
+        <div className="relative min-w-0 flex-1">
+          <Icon
+            i="search"
+            size={16}
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            type="text"
+            placeholder="Rechercher un projet (titre, client, type)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`${inputClass} w-full pl-9`}
+          />
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={`${inputClass} col-span-2 sm:col-span-1`}
-          >
-            <option value="all">Tous les statuts</option>
-            {(Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]).map(
-              ([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ),
-            )}
-          </select>
-          <select
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className={inputClass}
-          >
-            <option value="all">Tous les mois</option>
-            {monthOptions.map((key) => (
-              <option key={key} value={key}>
-                {monthLabel(key)}
-              </option>
-            ))}
-          </select>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortKey)}
-            className={inputClass}
-          >
-            {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <ViewToggle value={viewMode} onChange={changeView} />
+        <ExportButtons
+          filename="projets"
+          title="Projets"
+          subtitle={`${filtered.length} projet${filtered.length !== 1 ? 's' : ''}`}
+          columns={[
+            { header: 'Nom', width: 2, value: (p: ProjectApiRow) => p.name },
+            { header: 'Client', width: 2, value: (p: ProjectApiRow) => p.client.name },
+            {
+              header: 'Type',
+              width: 1.5,
+              value: (p: ProjectApiRow) => PROJECT_TYPE_LABELS[p.type],
+            },
+            {
+              header: 'Statut',
+              width: 1,
+              value: (p: ProjectApiRow) => PROJECT_STATUS_LABELS[p.status],
+            },
+            { header: 'Avancement', width: 1, value: (p: ProjectApiRow) => `${p.progress}%` },
+            {
+              header: 'Montant',
+              width: 1,
+              value: (p: ProjectApiRow) => `${p.amount} ${p.currency}`,
+            },
+            {
+              header: 'Échéance',
+              width: 1,
+              value: (p: ProjectApiRow) => (p.dueDate ? formatDate(p.dueDate) : ''),
+            },
+          ]}
+          rows={filtered}
+        />
       </div>
 
       {loading ? (

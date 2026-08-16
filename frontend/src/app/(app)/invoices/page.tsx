@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
@@ -11,24 +11,20 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import { Icon } from '@/components/ui/Icon';
 import { ViewToggle, type ListViewMode } from '@/components/ui/ViewToggle';
+import { FilterTabs, type FilterTab } from '@/components/ui/FilterTabs';
+import { DateFilterBar } from '@/components/ui/DateFilterBar';
+import { ExportButtons } from '@/components/ui/ExportButtons';
+import type { ExportColumn } from '@/lib/export/types';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance, computePackDeposit, type PackDepositSource } from '@/lib/invoiceTotals';
 import { INVOICE_STATUS_LABELS, type InvoiceStatus, type InvoiceDocType } from '@/lib/constants';
+import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
 const VIEW_STORAGE_KEY = 'freelo-invoices-view';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
-
-type SortKey = 'recent' | 'oldest' | 'amount_desc' | 'amount_asc';
-
-const SORT_LABELS: Record<SortKey, string> = {
-  recent: 'Plus récent',
-  oldest: 'Plus ancien',
-  amount_desc: 'Montant décroissant',
-  amount_asc: 'Montant croissant',
-};
 
 // Devis never reach PAID/OVERDUE/CANCELED (those are invoice-lifecycle
 // states) — each tab only offers the statuses that can actually occur on
@@ -68,91 +64,55 @@ function resolveDevisDeposit(row: InvoiceApiRow): number | null {
   return resolvedPack ? computePackDeposit(resolvedPack) : null;
 }
 
-function sortRows(rows: InvoiceApiRow[], sortBy: SortKey): InvoiceApiRow[] {
-  const sorted = [...rows];
-  switch (sortBy) {
-    case 'oldest':
-      sorted.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      break;
-    case 'amount_desc':
-      sorted.sort((a, b) => b.amount - a.amount);
-      break;
-    case 'amount_asc':
-      sorted.sort((a, b) => a.amount - b.amount);
-      break;
-    default:
-      sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-  return sorted;
+function resolveDeposit(row: InvoiceApiRow): number | null {
+  return row.docType === 'INVOICE' ? row.depositAmount : resolveDevisDeposit(row);
 }
 
 function SearchFilterBar({
   search,
   onSearch,
-  statusFilter,
-  onStatusFilter,
-  statuses,
-  sortBy,
-  onSortBy,
   viewMode,
   onChangeView,
   placeholder,
+  exportFilename,
+  exportTitle,
+  exportColumns,
+  exportRows,
 }: {
   search: string;
   onSearch: (v: string) => void;
-  statusFilter: string;
-  onStatusFilter: (v: string) => void;
-  statuses: InvoiceStatus[];
-  sortBy: SortKey;
-  onSortBy: (v: SortKey) => void;
   viewMode: ListViewMode;
   onChangeView: (v: ListViewMode) => void;
   placeholder: string;
+  exportFilename: string;
+  exportTitle: string;
+  exportColumns: ExportColumn<InvoiceApiRow>[];
+  exportRows: InvoiceApiRow[];
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-canvas shadow-card p-4">
-      <div className="flex gap-2">
-        <div className="relative min-w-0 flex-1">
-          <Icon
-            i="search"
-            size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
-          />
-          <input
-            type="text"
-            placeholder={placeholder}
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            className={`${inputClass} w-full pl-9`}
-          />
-        </div>
-        <ViewToggle value={viewMode} onChange={onChangeView} />
+    <div className="mb-6 flex gap-2 rounded-lg border border-border bg-canvas shadow-card p-4">
+      <div className="relative min-w-0 flex-1">
+        <Icon
+          i="search"
+          size={16}
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground"
+        />
+        <input
+          type="text"
+          placeholder={placeholder}
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          className={`${inputClass} w-full pl-9`}
+        />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => onStatusFilter(e.target.value)}
-          className={inputClass}
-        >
-          <option value="all">Tous les statuts</option>
-          {statuses.map((s) => (
-            <option key={s} value={s}>
-              {INVOICE_STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-        <select
-          value={sortBy}
-          onChange={(e) => onSortBy(e.target.value as SortKey)}
-          className={inputClass}
-        >
-          {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <ViewToggle value={viewMode} onChange={onChangeView} />
+      <ExportButtons
+        filename={exportFilename}
+        title={exportTitle}
+        subtitle={`${exportRows.length} document${exportRows.length !== 1 ? 's' : ''}`}
+        columns={exportColumns}
+        rows={exportRows}
+      />
     </div>
   );
 }
@@ -173,7 +133,7 @@ function InvoiceList({
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((i) => {
-          const depositAmount = i.docType === 'INVOICE' ? i.depositAmount : resolveDevisDeposit(i);
+          const depositAmount = resolveDeposit(i);
           return (
             <InvoiceCard
               key={i.id}
@@ -201,7 +161,7 @@ function InvoiceList({
   return (
     <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
       {items.map((i) => {
-        const depositAmount = i.docType === 'INVOICE' ? i.depositAmount : resolveDevisDeposit(i);
+        const depositAmount = resolveDeposit(i);
         return (
           <InvoiceRow
             key={i.id}
@@ -227,6 +187,45 @@ function InvoiceList({
   );
 }
 
+const FACTURE_EXPORT_COLUMNS: ExportColumn<InvoiceApiRow>[] = [
+  { header: 'Numéro', width: 1, value: (r) => r.number },
+  { header: 'Client', width: 2, value: (r) => r.client.name },
+  { header: 'Statut', width: 1, value: (r) => INVOICE_STATUS_LABELS[r.status] },
+  { header: 'Montant', width: 1, value: (r) => `${r.amount} ${r.currency}` },
+  {
+    header: 'Acompte',
+    width: 1,
+    value: (r) => {
+      const deposit = resolveDeposit(r);
+      return deposit != null ? `${deposit} ${r.currency}` : '';
+    },
+  },
+  {
+    header: 'Solde',
+    width: 1,
+    value: (r) => {
+      const deposit = resolveDeposit(r);
+      return deposit != null ? `${computeBalance(r.amount, deposit)} ${r.currency}` : '';
+    },
+  },
+  { header: 'Échéance', width: 1, value: (r) => (r.dueDate ? formatDate(r.dueDate) : '') },
+];
+
+const DEVIS_EXPORT_COLUMNS: ExportColumn<InvoiceApiRow>[] = [
+  { header: 'Numéro', width: 1, value: (r) => r.number },
+  { header: 'Client', width: 2, value: (r) => r.client.name },
+  { header: 'Statut', width: 1, value: (r) => INVOICE_STATUS_LABELS[r.status] },
+  { header: 'Montant', width: 1, value: (r) => `${r.amount} ${r.currency}` },
+  {
+    header: 'Acompte prévu',
+    width: 1,
+    value: (r) => {
+      const deposit = resolveDeposit(r);
+      return deposit != null ? `${deposit} ${r.currency}` : '';
+    },
+  },
+];
+
 function FacturesTab({
   rows,
   hidePaidByDefault,
@@ -242,32 +241,67 @@ function FacturesTab({
 }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortKey>('recent');
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
 
-  const filtered = useMemo(() => {
-    const baseRows = hidePaidByDefault ? rows.filter((r) => r.status !== 'PAID') : rows;
-    const q = search.trim().toLowerCase();
-    const result = baseRows.filter((r) => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-      if (!q) return true;
-      return r.number.toLowerCase().includes(q) || r.client.name.toLowerCase().includes(q);
-    });
-    return sortRows(result, sortBy);
-  }, [rows, hidePaidByDefault, search, statusFilter, sortBy]);
+  // The date filter scopes the cadrans too (not just the list below) — a
+  // freelance picks "Ce mois" and every number on the page reflects that.
+  const dateScoped = rows.filter((r) => isWithinDateFilter(r.createdAt, dateFilter));
 
-  const totalPaid = rows.filter((r) => r.status === 'PAID').reduce((sum, r) => sum + r.amount, 0);
+  const statusTabs: FilterTab[] = [
+    { key: 'all', label: 'Tout', count: dateScoped.length },
+    ...FACTURE_STATUSES.map((s) => ({
+      key: s,
+      label: INVOICE_STATUS_LABELS[s],
+      count: dateScoped.filter((r) => r.status === s).length,
+    })),
+  ];
+
+  // Only applied on "Tout" — an explicit status pick (e.g. "Payée") must
+  // never come back empty just because the default view hides paid rows.
+  const statusScoped =
+    hidePaidByDefault && statusFilter === 'all'
+      ? dateScoped.filter((r) => r.status !== 'PAID')
+      : dateScoped;
+  const scoped = statusScoped.filter((r) => statusFilter === 'all' || r.status === statusFilter);
+
+  const searchQuery = search.trim().toLowerCase();
+  const filtered = scoped
+    .filter((r) => {
+      if (!searchQuery) return true;
+      return (
+        r.number.toLowerCase().includes(searchQuery) ||
+        r.client.name.toLowerCase().includes(searchQuery)
+      );
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  const totalPaid = dateScoped
+    .filter((r) => r.status === 'PAID')
+    .reduce((sum, r) => sum + r.amount, 0);
   // Split rather than folded together — "En attente" (not yet due) and "En
   // retard" (past due, needs chasing) call for different actions, so they
   // stay two distinct cards instead of one combined total.
-  const totalPending = rows
+  const totalPending = dateScoped
     .filter((r) => r.status === 'SENT')
     .reduce((sum, r) => sum + r.amount, 0);
-  const totalOverdue = rows
+  const totalOverdue = dateScoped
     .filter((r) => r.status === 'OVERDUE')
     .reduce((sum, r) => sum + r.amount, 0);
 
   return (
     <>
+      {rows.length > 0 && (
+        <div className="mb-6">
+          <FilterTabs tabs={statusTabs} active={statusFilter} onChange={setStatusFilter} />
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="mb-6">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
@@ -294,14 +328,13 @@ function FacturesTab({
       <SearchFilterBar
         search={search}
         onSearch={setSearch}
-        statusFilter={statusFilter}
-        onStatusFilter={setStatusFilter}
-        statuses={FACTURE_STATUSES}
-        sortBy={sortBy}
-        onSortBy={setSortBy}
         viewMode={viewMode}
         onChangeView={onChangeView}
         placeholder="Rechercher une facture (numéro, client)…"
+        exportFilename="factures"
+        exportTitle="Factures"
+        exportColumns={FACTURE_EXPORT_COLUMNS}
+        exportRows={filtered}
       />
 
       {filtered.length === 0 && rows.length > 0 ? (
@@ -330,25 +363,39 @@ function DevisTab({
 }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<SortKey>('recent');
+  const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const result = rows.filter((r) => {
-      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-      if (!q) return true;
-      return r.number.toLowerCase().includes(q) || r.client.name.toLowerCase().includes(q);
-    });
-    return sortRows(result, sortBy);
-  }, [rows, search, statusFilter, sortBy]);
+  const dateScoped = rows.filter((r) => isWithinDateFilter(r.createdAt, dateFilter));
+
+  const statusTabs: FilterTab[] = [
+    { key: 'all', label: 'Tout', count: dateScoped.length },
+    ...DEVIS_STATUSES.map((s) => ({
+      key: s,
+      label: INVOICE_STATUS_LABELS[s],
+      count: dateScoped.filter((r) => r.status === s).length,
+    })),
+  ];
+
+  const scoped = dateScoped.filter((r) => statusFilter === 'all' || r.status === statusFilter);
+
+  const searchQuery = search.trim().toLowerCase();
+  const filtered = scoped
+    .filter((r) => {
+      if (!searchQuery) return true;
+      return (
+        r.number.toLowerCase().includes(searchQuery) ||
+        r.client.name.toLowerCase().includes(searchQuery)
+      );
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   // Brouillon (never sent) and Expiré (dead, never accepted) are excluded
   // from every card below — neither represents real pending or won
   // business, so folding them into "value" totals would inflate the
   // numbers with speculative or already-lost devis. Still fully visible in
   // the list underneath via the status filter.
-  const pendingRows = rows.filter((r) => r.status === 'SENT');
-  const acceptedRows = rows.filter((r) => r.status === 'ACCEPTED');
+  const pendingRows = dateScoped.filter((r) => r.status === 'SENT');
+  const acceptedRows = dateScoped.filter((r) => r.status === 'ACCEPTED');
   const totalPending = pendingRows.reduce((sum, r) => sum + r.amount, 0);
   const depositExpected = [...pendingRows, ...acceptedRows].reduce(
     (sum, r) => sum + (resolveDevisDeposit(r) ?? 0),
@@ -357,6 +404,18 @@ function DevisTab({
 
   return (
     <>
+      {rows.length > 0 && (
+        <div className="mb-6">
+          <FilterTabs tabs={statusTabs} active={statusFilter} onChange={setStatusFilter} />
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="mb-6">
+          <DateFilterBar value={dateFilter} onChange={setDateFilter} />
+        </div>
+      )}
+
       {rows.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
@@ -378,14 +437,13 @@ function DevisTab({
       <SearchFilterBar
         search={search}
         onSearch={setSearch}
-        statusFilter={statusFilter}
-        onStatusFilter={setStatusFilter}
-        statuses={DEVIS_STATUSES}
-        sortBy={sortBy}
-        onSortBy={setSortBy}
         viewMode={viewMode}
         onChangeView={onChangeView}
         placeholder="Rechercher un devis (numéro, client)…"
+        exportFilename="devis"
+        exportTitle="Devis"
+        exportColumns={DEVIS_EXPORT_COLUMNS}
+        exportRows={filtered}
       />
 
       {filtered.length === 0 && rows.length > 0 ? (
