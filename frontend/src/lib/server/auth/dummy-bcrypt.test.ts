@@ -5,13 +5,16 @@ import { fileURLToPath } from 'node:url';
 import { dummyBcryptCompare } from './dummy-bcrypt';
 
 describe('dummyBcryptCompare', () => {
+  // 3 sequential real-bcrypt (cost 12) compares — ~1.8s in isolation but the
+  // default 5s timeout flakes under full-suite parallel worker load; same
+  // root cause as auth/signup/route.test.ts's rate-limit test.
   it('resolves without throwing for any input', async () => {
     await expect(dummyBcryptCompare('anything')).resolves.toBeUndefined();
     await expect(dummyBcryptCompare('')).resolves.toBeUndefined();
     await expect(
       dummyBcryptCompare('a-very-long-password-string-with-symbols-!@#$%^&*'),
     ).resolves.toBeUndefined();
-  });
+  }, 15000);
 });
 
 describe('dummyBcryptCompare — cost factor invariant (T-1-01)', () => {

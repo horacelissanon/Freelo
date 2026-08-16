@@ -16,6 +16,8 @@ export const APP_ROUTE_SEGMENTS = [
   'invoices',
   'projects',
   'settings',
+  'stats',
+  'reviews',
 ] as const;
 
 export function isAppRoute(pathname: string): boolean {

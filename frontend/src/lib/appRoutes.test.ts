@@ -10,6 +10,8 @@ describe('isAppRoute', () => {
     '/invoices/inv_1/edit-quote',
     '/projects/proj_1',
     '/settings',
+    '/stats',
+    '/reviews',
   ])('treats %s as an app route', (path) => {
     expect(isAppRoute(path)).toBe(true);
   });
