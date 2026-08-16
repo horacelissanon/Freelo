@@ -114,13 +114,19 @@ export default function InvoiceDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [creatingProjectOpen, setCreatingProjectOpen] = useState(false);
-  const [depositConfirmed, setDepositConfirmed] = useState(false);
+  const [depositChoice, setDepositChoice] = useState<'RECEIVED' | 'NOT_RECEIVED' | null>(null);
+  const [depositStepDone, setDepositStepDone] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
   const [depositPaymentMethod, setDepositPaymentMethod] = useState<PaymentMethod | ''>('');
+  const [depositPaymentMethodOther, setDepositPaymentMethodOther] = useState('');
 
   function closeCreatingProject() {
     setCreatingProjectOpen(false);
-    setDepositConfirmed(false);
+    setDepositChoice(null);
+    setDepositStepDone(false);
+    setDepositAmount('');
     setDepositPaymentMethod('');
+    setDepositPaymentMethodOther('');
   }
 
   if (!user) return null;
@@ -799,16 +805,54 @@ export default function InvoiceDetailPage() {
 
       {invoice && creatingProjectOpen && (
         <Modal title="Créer un projet depuis ce devis" onClose={closeCreatingProject}>
-          {!depositConfirmed ? (
+          {depositChoice === null && (
             <div className="flex flex-col gap-4">
               <p className="font-body text-sm text-muted-foreground">
-                Avant de créer le projet, confirme que l&apos;acompte a bien été reçu et précise le
-                moyen de paiement utilisé par le client.
+                L&apos;acompte de ce devis a-t-il déjà été reçu ?
               </p>
               <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5 font-body text-sm text-foreground">
                 Acompte estimé (30%) :{' '}
                 {formatPrice(Math.round(invoice.amount * 0.3), invoice.currency)}
               </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDepositChoice('RECEIVED');
+                    setDepositAmount(String(Math.round(invoice.amount * 0.3)));
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
+                >
+                  Acompte reçu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDepositChoice('NOT_RECEIVED')}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
+                >
+                  Acompte non reçu
+                </button>
+              </div>
+            </div>
+          )}
+
+          {depositChoice === 'RECEIVED' && !depositStepDone && (
+            <div className="flex flex-col gap-4">
+              <p className="font-body text-sm text-muted-foreground">
+                Indique le montant réellement reçu (ajuste-le si le client n&apos;a versé
+                qu&apos;une partie de l&apos;acompte) et le moyen de paiement utilisé.
+              </p>
+              <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Montant reçu ({invoice.currency})
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="rounded-md border border-border bg-input px-3 py-2.5 font-body text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                />
+              </label>
               <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
                 Moyen de paiement utilisé
                 <div className="flex flex-wrap gap-2">
@@ -827,26 +871,69 @@ export default function InvoiceDetailPage() {
                     </button>
                   ))}
                 </div>
+                {depositPaymentMethod === 'OTHER' && (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={depositPaymentMethodOther}
+                    onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
+                    placeholder="Précisez le moyen utilisé…"
+                    maxLength={100}
+                    className="mt-1 rounded-md border border-border bg-input px-3 py-2.5 font-body text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                  />
+                )}
               </div>
-              <label className="flex items-center gap-2 font-body text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={depositConfirmed}
-                  onChange={(e) => setDepositConfirmed(e.target.checked)}
-                  disabled={!depositPaymentMethod}
-                />
-                Je confirme que l&apos;acompte a bien été reçu
-              </label>
-              <button
-                type="button"
-                disabled={!depositPaymentMethod}
-                onClick={() => setDepositConfirmed(true)}
-                className="mt-1 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
-              >
-                Continuer
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDepositChoice(null)}
+                  className="font-body text-sm text-muted-foreground underline"
+                >
+                  Retour
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !depositAmount ||
+                    Number(depositAmount) <= 0 ||
+                    Number(depositAmount) > invoice.amount ||
+                    !depositPaymentMethod ||
+                    (depositPaymentMethod === 'OTHER' && !depositPaymentMethodOther.trim())
+                  }
+                  onClick={() => setDepositStepDone(true)}
+                  className="ml-auto rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  Continuer
+                </button>
+              </div>
             </div>
-          ) : (
+          )}
+
+          {depositChoice === 'NOT_RECEIVED' && !depositStepDone && (
+            <div className="flex flex-col gap-4">
+              <p className="font-body text-sm text-muted-foreground">
+                Continuer et créer le projet sans acompte ?
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDepositChoice(null)}
+                  className="font-body text-sm text-muted-foreground underline"
+                >
+                  Retour
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDepositStepDone(true)}
+                  className="ml-auto rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground"
+                >
+                  Continuer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {depositStepDone && (
             <ProjectForm
               lockedClient={{ id: invoice.client.id, label: invoice.client.name }}
               initial={{
@@ -858,7 +945,18 @@ export default function InvoiceDetailPage() {
                 currency: invoice.currency,
               }}
               submitPath={`/api/invoices/${invoice.id}/create-project`}
-              extraBody={{ depositReceived: true, paymentMethod: depositPaymentMethod }}
+              extraBody={
+                depositChoice === 'RECEIVED'
+                  ? {
+                      depositReceived: true,
+                      depositAmount: Number(depositAmount),
+                      paymentMethod: depositPaymentMethod,
+                      ...(depositPaymentMethod === 'OTHER'
+                        ? { paymentMethodLabel: depositPaymentMethodOther.trim() }
+                        : {}),
+                    }
+                  : { depositReceived: false }
+              }
               onDone={() => {
                 closeCreatingProject();
                 invalidateCachePrefix('/api/invoices');

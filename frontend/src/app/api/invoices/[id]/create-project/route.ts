@@ -53,11 +53,31 @@ const Body = z
     // the freelance dashboard and the client-facing tracking page, with no
     // changes needed to that derivation logic.
     depositReceived: z.boolean().optional(),
+    // The amount actually received — freelance-editable so a partial acompte
+    // (client only paid part of the estimated deposit) is recorded
+    // accurately instead of always assuming the full depositPercent share.
+    depositAmount: z.number().int().positive().optional(),
     paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
+    // Free-text detail — required when paymentMethod is the 'OTHER' catch-all
+    // (the freelance's payment method buttons only cover the fixed list;
+    // this lets them note what the client actually used instead).
+    paymentMethodLabel: z.string().min(1).max(100).optional(),
   })
   .refine((data) => !data.depositReceived || !!data.paymentMethod, {
     message: 'paymentMethod is required when depositReceived is true',
     path: ['paymentMethod'],
+  })
+  .refine((data) => !data.depositReceived || data.depositAmount != null, {
+    message: 'depositAmount is required when depositReceived is true',
+    path: ['depositAmount'],
+  })
+  .refine((data) => data.depositAmount == null || data.depositAmount <= data.amount, {
+    message: "L'acompte ne peut pas dépasser le montant du projet.",
+    path: ['depositAmount'],
+  })
+  .refine((data) => data.paymentMethod !== 'OTHER' || !!data.paymentMethodLabel, {
+    message: 'paymentMethodLabel is required when paymentMethod is OTHER',
+    path: ['paymentMethodLabel'],
   });
 
 export async function POST(
@@ -160,7 +180,8 @@ export async function POST(
       });
       await tx.invoice.update({ where: { id: invoice.id }, data: { projectId: created.id } });
       if (parsed.data.depositReceived && parsed.data.paymentMethod) {
-        const depositAmount = Math.round((created.amount * created.depositPercent) / 100);
+        const depositAmount =
+          parsed.data.depositAmount ?? Math.round((created.amount * created.depositPercent) / 100);
         await tx.order.create({
           data: {
             userId: auth.user.sub,
@@ -169,7 +190,13 @@ export async function POST(
             status: 'PAID',
             provider: 'manual',
             paymentMethod: parsed.data.paymentMethod,
-            metadata: { projectId: created.id, docType: 'DEPOSIT' },
+            metadata: {
+              projectId: created.id,
+              docType: 'DEPOSIT',
+              ...(parsed.data.paymentMethod === 'OTHER' && parsed.data.paymentMethodLabel
+                ? { paymentMethodLabel: parsed.data.paymentMethodLabel }
+                : {}),
+            },
             expiresAt: new Date(),
             paidAt: new Date(),
           },

@@ -182,13 +182,43 @@ describe('POST /api/invoices/[id]/create-project', () => {
   });
 
   it('depositReceived without paymentMethod -> 400 VALIDATION_FAILED, no create', async () => {
-    const res = await POST(makePost(validBody({ depositReceived: true })), ctxWith('i-1'));
+    const res = await POST(
+      makePost(validBody({ depositReceived: true, depositAmount: 30000 })),
+      ctxWith('i-1'),
+    );
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('VALIDATION_FAILED');
     expect(prismaMock.project.create).not.toHaveBeenCalled();
   });
 
-  it('depositReceived + paymentMethod -> records a PAID DEPOSIT Order for the new project', async () => {
+  it('depositReceived without depositAmount -> 400 VALIDATION_FAILED, no create', async () => {
+    const res = await POST(
+      makePost(validBody({ depositReceived: true, paymentMethod: 'WAVE' })),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('depositAmount above the project amount -> 400 VALIDATION_FAILED, no create', async () => {
+    const res = await POST(
+      makePost(
+        validBody({
+          amount: 100000,
+          depositReceived: true,
+          paymentMethod: 'WAVE',
+          depositAmount: 150000,
+        }),
+      ),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('depositReceived + paymentMethod -> records a PAID DEPOSIT Order using the freelance-entered amount, even a partial one', async () => {
     prismaMock.project.create.mockResolvedValue({
       id: 'p-new',
       clientId: 'c-1',
@@ -199,17 +229,68 @@ describe('POST /api/invoices/[id]/create-project', () => {
     prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
 
     const res = await POST(
-      makePost(validBody({ amount: 100000, depositReceived: true, paymentMethod: 'WAVE' })),
+      makePost(
+        validBody({
+          amount: 100000,
+          depositReceived: true,
+          paymentMethod: 'WAVE',
+          depositAmount: 20000,
+        }),
+      ),
       ctxWith('i-1'),
     );
     expect(res.status).toBe(201);
 
     const orderArg = prismaMock.order.create.mock.calls[0]?.[0];
-    expect(orderArg?.data?.amount).toBe(30000);
+    // Freelance only received 20 000, not the full 30% (30 000) estimate.
+    expect(orderArg?.data?.amount).toBe(20000);
     expect(orderArg?.data?.currency).toBe('XOF');
     expect(orderArg?.data?.status).toBe('PAID');
     expect(orderArg?.data?.paymentMethod).toBe('WAVE');
     expect(orderArg?.data?.metadata).toEqual({ projectId: 'p-new', docType: 'DEPOSIT' });
+  });
+
+  it('paymentMethod OTHER without paymentMethodLabel -> 400 VALIDATION_FAILED, no create', async () => {
+    const res = await POST(
+      makePost(validBody({ depositReceived: true, depositAmount: 30000, paymentMethod: 'OTHER' })),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('paymentMethod OTHER + paymentMethodLabel -> label stored in the Order metadata', async () => {
+    prismaMock.project.create.mockResolvedValue({
+      id: 'p-new',
+      clientId: 'c-1',
+      amount: 100000,
+      currency: 'XOF',
+      depositPercent: 30,
+    } as never);
+    prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
+
+    const res = await POST(
+      makePost(
+        validBody({
+          amount: 100000,
+          depositReceived: true,
+          depositAmount: 30000,
+          paymentMethod: 'OTHER',
+          paymentMethodLabel: 'PayPal',
+        }),
+      ),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(201);
+
+    const orderArg = prismaMock.order.create.mock.calls[0]?.[0];
+    expect(orderArg?.data?.paymentMethod).toBe('OTHER');
+    expect(orderArg?.data?.metadata).toEqual({
+      projectId: 'p-new',
+      docType: 'DEPOSIT',
+      paymentMethodLabel: 'PayPal',
+    });
   });
 
   it('no depositReceived -> no Order created', async () => {
