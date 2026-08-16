@@ -59,6 +59,7 @@ export interface InvoiceFormInitial {
   lineItems?: { designation: string; quantity: number; unitPrice: number }[];
   currency?: string;
   dueDate?: string;
+  depositAmount?: number;
 }
 
 function defaultLineItems(
@@ -164,8 +165,49 @@ export function InvoiceForm({
     defaultLineItems(invoice, initial),
   );
   const [depositAmount, setDepositAmount] = useState(
-    invoice?.depositAmount != null ? String(invoice.depositAmount) : '',
+    invoice?.depositAmount != null
+      ? String(invoice.depositAmount)
+      : initial?.depositAmount != null
+        ? String(initial.depositAmount)
+        : '',
   );
+  const [importingProject, setImportingProject] = useState(false);
+  const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
+
+  // Same field-seeding as the dedicated "Créer facture depuis projet" flow,
+  // but inline: fetches the project and fills the already-open form instead
+  // of navigating away. Also links projectId — unlike the ProjectForm side
+  // of this pattern, InvoiceForm's own submit path natively supports it.
+  async function importFromProject() {
+    if (!unbilledProject) return;
+    setImportingProject(true);
+    try {
+      const data = await api<{
+        project: {
+          id: string;
+          name: string;
+          amount: number;
+          currency: string;
+          dueDate: string | null;
+        };
+        deposit: { amount: number; paid: boolean };
+      }>(`/api/projects/${unbilledProject.id}`);
+      setProjectId(data.project.id);
+      setDescription(data.project.name);
+      setLineItems([
+        { designation: data.project.name, quantity: '1', unitPrice: String(data.project.amount) },
+      ]);
+      setCurrency(data.project.currency);
+      if (data.project.dueDate) setDueDate(data.project.dueDate.slice(0, 10));
+      if (data.deposit.paid) setDepositAmount(String(data.deposit.amount));
+      setImportedProjectId(data.project.id);
+      toast('Données du projet importées.', 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Impossible d'importer les données.", 'error');
+    } finally {
+      setImportingProject(false);
+    }
+  }
   const [deliveryDate, setDeliveryDate] = useState(
     invoice?.deliveryDate ? invoice.deliveryDate.slice(0, 10) : '',
   );
@@ -346,20 +388,30 @@ export function InvoiceForm({
             )}
           </label>
         )}
-        {!lockedProject && unbilledProject && (
+        {!lockedProject && unbilledProject && unbilledProject.id !== importedProjectId && (
           <div className="flex items-start gap-2 rounded-lg bg-tag-orange p-3">
             <Icon i="alert-circle" size={16} className="mt-0.5 flex-shrink-0 text-tag-orange-fg" />
             <div className="flex flex-col gap-1">
               <p className="font-body text-sm text-tag-orange-fg">
                 {`Ce client a un projet (${unbilledProject.name}) sans facture. Utilise « Créer facture depuis projet » pour la générer avec le bon montant.`}
               </p>
-              <Link
-                href={`/projects/${unbilledProject.id}`}
-                onClick={onDone}
-                className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
-              >
-                Voir le projet
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href={`/projects/${unbilledProject.id}`}
+                  onClick={onDone}
+                  className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
+                >
+                  Voir le projet
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void importFromProject()}
+                  disabled={importingProject}
+                  className="self-start font-body text-xs font-semibold text-tag-orange-fg underline disabled:opacity-50"
+                >
+                  {importingProject ? 'Import…' : 'Importer les données'}
+                </button>
+              </div>
             </div>
           </div>
         )}

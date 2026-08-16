@@ -981,6 +981,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
               lineItems: [{ designation: project.name, quantity: 1, unitPrice: project.amount }],
               currency: project.currency,
               ...(project.dueDate ? { dueDate: project.dueDate } : {}),
+              ...(deposit.paid ? { depositAmount: deposit.amount } : {}),
             }}
             submitPath={`/api/projects/${project.id}/create-invoice`}
             onDone={() => {

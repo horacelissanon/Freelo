@@ -131,6 +131,48 @@ export function ProjectForm({
     (q) => q.status !== 'CANCELED' && !q.projectId,
   );
   const highlightedQuote = unlinkedQuotes.find((q) => q.status === 'ACCEPTED') ?? unlinkedQuotes[0];
+  const [importingQuote, setImportingQuote] = useState(false);
+  const [importedQuoteId, setImportedQuoteId] = useState<string | null>(null);
+
+  // Same field-seeding as the dedicated "Créer un projet depuis ce devis"
+  // flow, but inline: fetches the devis and fills the already-open form
+  // instead of navigating away. Does NOT link Invoice.projectId back to the
+  // new project — that link only exists inside create-project's own
+  // transaction, unreachable from this generic POST /api/projects path.
+  async function importFromQuote() {
+    if (!highlightedQuote) return;
+    setImportingQuote(true);
+    try {
+      const data = await api<{
+        description: string | null;
+        sector: string | null;
+        type: string | null;
+        amount: number;
+        currency: string;
+        selectedPackId: string | null;
+        packs: { id: string; title: string; description: string | null }[];
+      }>(`/api/invoices/${highlightedQuote.id}`);
+      const selectedPack = data.packs.find((p) => p.id === data.selectedPackId) ?? null;
+      const newType = (data.type as ProjectType | null) ?? 'OTHER';
+      setName(data.description || selectedPack?.title || '');
+      if (selectedPack?.description) setDescription(selectedPack.description);
+      if (data.sector) {
+        const resolved = resolveFreelanceSector(data.sector, newType);
+        setSector(resolved.code);
+        setSectorOther(resolved.other);
+      }
+      setType(newType);
+      setAmount(String(data.amount));
+      setCurrency(data.currency);
+      if (!stepsTouched) setSteps(stepsTemplateFor(newType));
+      setImportedQuoteId(highlightedQuote.id);
+      toast('Données du devis importées.', 'success');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : "Impossible d'importer les données.", 'error');
+    } finally {
+      setImportingQuote(false);
+    }
+  }
 
   function validate(): boolean {
     const errors: typeof fieldErrors = {};
@@ -262,7 +304,7 @@ export function ProjectForm({
           )}
         </label>
       )}
-      {highlightedQuote && (
+      {highlightedQuote && highlightedQuote.id !== importedQuoteId && (
         <div className="flex items-start gap-2 rounded-lg bg-tag-orange p-3">
           <Icon i="alert-circle" size={16} className="mt-0.5 flex-shrink-0 text-tag-orange-fg" />
           <div className="flex flex-col gap-1">
@@ -271,13 +313,23 @@ export function ProjectForm({
                 ? `Ce client a un devis accepté (${highlightedQuote.number}) non encore transformé en projet. Utilise « Créer un projet depuis ce devis » pour reprendre le montant et l'acompte.`
                 : `Ce client a un devis en cours (${highlightedQuote.number}) qui ne sera pas lié à ce projet.`}
             </p>
-            <Link
-              href={`/invoices/${highlightedQuote.id}`}
-              onClick={onDone}
-              className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
-            >
-              Voir le devis
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href={`/invoices/${highlightedQuote.id}`}
+                onClick={onDone}
+                className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
+              >
+                Voir le devis
+              </Link>
+              <button
+                type="button"
+                onClick={() => void importFromQuote()}
+                disabled={importingQuote}
+                className="self-start font-body text-xs font-semibold text-tag-orange-fg underline disabled:opacity-50"
+              >
+                {importingQuote ? 'Import…' : 'Importer les données'}
+              </button>
+            </div>
           </div>
         </div>
       )}
