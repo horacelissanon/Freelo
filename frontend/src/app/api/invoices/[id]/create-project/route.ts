@@ -23,27 +23,42 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { PROJECT_TYPE_VALUES } from '@/lib/constants';
+import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
 
-const Body = z.object({
-  name: z.string().min(1).max(200),
-  sector: z.string().min(1).max(100).default('OTHER'),
-  type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
-  description: z.string().max(2000).optional(),
-  amount: z.number().int().positive(),
-  currency: z.string().length(3).default('XOF'),
-  dueDate: z.string().datetime().optional(),
-  steps: z
-    .array(
-      z.object({
-        title: z.string().min(1).max(200),
-        description: z.string().max(500).optional(),
-      }),
-    )
-    .min(1)
-    .max(20)
-    .optional(),
-});
+const PAYMENT_METHOD_VALUES = Object.keys(PAYMENT_METHOD_LABELS) as [string, ...string[]];
+
+const Body = z
+  .object({
+    name: z.string().min(1).max(200),
+    sector: z.string().min(1).max(100).default('OTHER'),
+    type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
+    description: z.string().max(2000).optional(),
+    amount: z.number().int().positive(),
+    currency: z.string().length(3).default('XOF'),
+    dueDate: z.string().datetime().optional(),
+    steps: z
+      .array(
+        z.object({
+          title: z.string().min(1).max(200),
+          description: z.string().max(500).optional(),
+        }),
+      )
+      .min(1)
+      .max(20)
+      .optional(),
+    // Confirms the devis's acompte was actually received before the project
+    // is created — when true, a PAID Order row is recorded alongside the
+    // project so the existing deposit/balance derivation (GET
+    // /api/projects/[id], GET /api/track/[token]) shows it as paid on both
+    // the freelance dashboard and the client-facing tracking page, with no
+    // changes needed to that derivation logic.
+    depositReceived: z.boolean().optional(),
+    paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
+  })
+  .refine((data) => !data.depositReceived || !!data.paymentMethod, {
+    message: 'paymentMethod is required when depositReceived is true',
+    path: ['paymentMethod'],
+  });
 
 export async function POST(
   req: NextRequest,
@@ -144,6 +159,22 @@ export async function POST(
         ...(parsed.data.steps ? { steps: parsed.data.steps } : {}),
       });
       await tx.invoice.update({ where: { id: invoice.id }, data: { projectId: created.id } });
+      if (parsed.data.depositReceived && parsed.data.paymentMethod) {
+        const depositAmount = Math.round((created.amount * created.depositPercent) / 100);
+        await tx.order.create({
+          data: {
+            userId: auth.user.sub,
+            amount: depositAmount,
+            currency: created.currency,
+            status: 'PAID',
+            provider: 'manual',
+            paymentMethod: parsed.data.paymentMethod,
+            metadata: { projectId: created.id, docType: 'DEPOSIT' },
+            expiresAt: new Date(),
+            paidAt: new Date(),
+          },
+        });
+      }
       return created;
     });
 

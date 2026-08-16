@@ -91,6 +91,11 @@ const Body = z
     // can pre-fill a new project with the same vocabulary.
     sector: z.string().min(1).max(100).nullable().optional(),
     type: z.enum(PROJECT_TYPE_VALUES).nullable().optional(),
+    // QUOTE only — lets the "Prêt à envoyer" action skip the extra PATCH
+    // round-trip by setting SENT directly at creation instead of the DB
+    // default (DRAFT). Deliberately not the full PATCHABLE_STATUSES set —
+    // a devis can't be created already PAID/OVERDUE/ACCEPTED.
+    status: z.enum(['DRAFT', 'SENT']).optional(),
     // QUOTE only, optional — additional devis sections (Processus/Conditions/
     // Modalités de paiement/FAQ), pre-filled client-side from the user's
     // last quote ("last quote as template" — see QuoteBuilderForm.tsx).
@@ -124,12 +129,13 @@ const Body = z
         data.contentBlocks !== undefined ||
         data.paymentTermsNote !== undefined ||
         data.sector !== undefined ||
-        data.type !== undefined
+        data.type !== undefined ||
+        data.status !== undefined
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['docType'],
-          message: 'contentBlocks/paymentTermsNote/sector/type are quote-only fields',
+          message: 'contentBlocks/paymentTermsNote/sector/type/status are quote-only fields',
         });
       }
     } else {
@@ -230,6 +236,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       paymentTermsNote,
       sector,
       type,
+      status,
       currency,
       dueDate,
       depositAmount,
@@ -333,6 +340,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(docType === 'QUOTE' && paymentTermsNote ? { paymentTermsNote } : {}),
         ...(docType === 'QUOTE' && sector ? { sector } : {}),
         ...(docType === 'QUOTE' && type ? { type } : {}),
+        ...(docType === 'QUOTE' && status ? { status } : {}),
       };
 
       try {

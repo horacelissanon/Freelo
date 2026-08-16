@@ -463,8 +463,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     return built;
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function saveQuote(targetStatus: 'DRAFT' | 'SENT') {
     setClientError(null);
     setPacksError(null);
     setInvalidPackIndexes(new Set());
@@ -493,13 +492,17 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       paymentTermsNote: paymentTermsNote.trim() || null,
       currency,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      status: targetStatus,
     };
     try {
       if (quote) {
         await api(`/api/invoices/${quote.id}`, { method: 'PATCH', body: shared });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix(`/api/invoices/${quote.id}`);
-        toast('Devis mis à jour.', 'success');
+        toast(
+          targetStatus === 'SENT' ? 'Devis prêt à envoyer.' : 'Brouillon enregistré.',
+          'success',
+        );
         router.push(`/invoices/${quote.id}`);
       } else {
         const created = await api<{ id: string }>('/api/invoices', {
@@ -508,7 +511,10 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix('/api/dashboard/stats');
-        toast('Devis créé.', 'success');
+        toast(
+          targetStatus === 'SENT' ? 'Devis prêt à envoyer.' : 'Brouillon enregistré.',
+          'success',
+        );
         router.push(`/invoices/${created.id}`);
       }
     } catch (err) {
@@ -520,6 +526,14 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       }
       setSubmitting(false);
     }
+  }
+
+  // Enter-key fallback inside a text input still triggers a native form
+  // submit — treat that as "save draft", the least destructive outcome,
+  // since it wasn't an explicit click on either named action button below.
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void saveQuote('DRAFT');
   }
 
   function cancel() {
@@ -1068,15 +1082,20 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
               Annuler
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={() => void saveQuote('DRAFT')}
+              disabled={submitting}
+              className="rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
+            >
+              {submitting ? 'Enregistrement…' : 'Enregistrer brouillon'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void saveQuote('SENT')}
               disabled={submitting}
               className="rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              {submitting
-                ? 'Enregistrement…'
-                : quote
-                  ? 'Enregistrer les modifications'
-                  : 'Créer le devis'}
+              {submitting ? 'Enregistrement…' : 'Prêt à envoyer'}
             </button>
           </div>
         </div>

@@ -23,10 +23,14 @@ import {
   INVOICE_STATUS_LABELS,
   INVOICE_STATUS_COLORS,
   DOC_TYPE_LABELS,
+  PAYMENT_METHOD_LABELS,
   type InvoiceStatus,
   type InvoiceDocType,
   type ProjectType,
+  type PaymentMethod,
 } from '@/lib/constants';
+
+const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
 const OTHER_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'OVERDUE', 'ACCEPTED'];
 
@@ -110,6 +114,14 @@ export default function InvoiceDetailPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [creatingProjectOpen, setCreatingProjectOpen] = useState(false);
+  const [depositConfirmed, setDepositConfirmed] = useState(false);
+  const [depositPaymentMethod, setDepositPaymentMethod] = useState<PaymentMethod | ''>('');
+
+  function closeCreatingProject() {
+    setCreatingProjectOpen(false);
+    setDepositConfirmed(false);
+    setDepositPaymentMethod('');
+  }
 
   if (!user) return null;
 
@@ -666,7 +678,7 @@ export default function InvoiceDetailPage() {
                     </div>
                   )}
 
-                {invoice.status !== 'PAID' && (
+                {invoice.docType !== 'QUOTE' && invoice.status !== 'PAID' && (
                   <div className="mb-3 flex items-center gap-1.5">
                     <button
                       type="button"
@@ -780,28 +792,75 @@ export default function InvoiceDetailPage() {
       )}
 
       {invoice && creatingProjectOpen && (
-        <Modal
-          title="Créer un projet depuis ce devis"
-          onClose={() => setCreatingProjectOpen(false)}
-        >
-          <ProjectForm
-            lockedClient={{ id: invoice.client.id, label: invoice.client.name }}
-            initial={{
-              name: invoice.description || selectedPack?.title || '',
-              ...(selectedPack?.description ? { description: selectedPack.description } : {}),
-              ...(invoice.sector ? { sector: invoice.sector } : {}),
-              ...(invoice.type ? { type: invoice.type as ProjectType } : {}),
-              amount: invoice.amount,
-              currency: invoice.currency,
-            }}
-            submitPath={`/api/invoices/${invoice.id}/create-project`}
-            onDone={() => {
-              setCreatingProjectOpen(false);
-              invalidateCachePrefix('/api/invoices');
-              void refresh();
-            }}
-            onNeedClient={() => {}}
-          />
+        <Modal title="Créer un projet depuis ce devis" onClose={closeCreatingProject}>
+          {!depositConfirmed ? (
+            <div className="flex flex-col gap-4">
+              <p className="font-body text-sm text-muted-foreground">
+                Avant de créer le projet, confirme que l&apos;acompte a bien été reçu et précise le
+                moyen de paiement utilisé par le client.
+              </p>
+              <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5 font-body text-sm text-foreground">
+                Acompte estimé (30%) :{' '}
+                {formatPrice(Math.round(invoice.amount * 0.3), invoice.currency)}
+              </div>
+              <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Moyen de paiement utilisé
+                <div className="flex flex-wrap gap-2">
+                  {PAYMENT_METHODS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDepositPaymentMethod(value)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        depositPaymentMethod === value
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-canvas text-foreground'
+                      }`}
+                    >
+                      {PAYMENT_METHOD_LABELS[value]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 font-body text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={depositConfirmed}
+                  onChange={(e) => setDepositConfirmed(e.target.checked)}
+                  disabled={!depositPaymentMethod}
+                />
+                Je confirme que l&apos;acompte a bien été reçu
+              </label>
+              <button
+                type="button"
+                disabled={!depositPaymentMethod}
+                onClick={() => setDepositConfirmed(true)}
+                className="mt-1 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                Continuer
+              </button>
+            </div>
+          ) : (
+            <ProjectForm
+              lockedClient={{ id: invoice.client.id, label: invoice.client.name }}
+              initial={{
+                name: invoice.description || selectedPack?.title || '',
+                ...(selectedPack?.description ? { description: selectedPack.description } : {}),
+                ...(invoice.sector ? { sector: invoice.sector } : {}),
+                ...(invoice.type ? { type: invoice.type as ProjectType } : {}),
+                amount: invoice.amount,
+                currency: invoice.currency,
+              }}
+              submitPath={`/api/invoices/${invoice.id}/create-project`}
+              extraBody={{ depositReceived: true, paymentMethod: depositPaymentMethod }}
+              onDone={() => {
+                closeCreatingProject();
+                invalidateCachePrefix('/api/invoices');
+                void refresh();
+              }}
+              onNeedClient={() => {}}
+            />
+          )}
         </Modal>
       )}
 

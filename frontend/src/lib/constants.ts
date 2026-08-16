@@ -27,6 +27,27 @@ export const CURRENCIES: { value: string; label: string }[] = [
   { value: 'USD', label: 'USD — Dollar américain' },
 ];
 
+// Manual/offline payment methods — used to record an acompte received
+// outside the platform (e.g. before creating a project from an accepted
+// devis) as a PAID Order row so the existing deposit/balance derivation
+// (GET /api/projects/[id], GET /api/track/[token]) picks it up unchanged.
+export type PaymentMethod =
+  | 'CASH'
+  | 'WAVE'
+  | 'ORANGE_MONEY'
+  | 'FREE_MONEY'
+  | 'BANK_TRANSFER'
+  | 'OTHER';
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: 'Espèces',
+  WAVE: 'Wave',
+  ORANGE_MONEY: 'Orange Money',
+  FREE_MONEY: 'Free Money',
+  BANK_TRANSFER: 'Virement bancaire',
+  OTHER: 'Autre',
+};
+
 // Secteur freelance — the domain of work, chosen per project/devis (not a
 // fixed user profile trait: one freelancer account can span several
 // sectors). Drives which ProjectType values SECTOR_PROJECT_TYPES offers.

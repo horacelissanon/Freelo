@@ -180,6 +180,51 @@ describe('POST /api/invoices/[id]/create-project', () => {
     const createArg = prismaMock.project.create.mock.calls[0]?.[0];
     expect(createArg?.data?.steps?.create).toHaveLength(4);
   });
+
+  it('depositReceived without paymentMethod -> 400 VALIDATION_FAILED, no create', async () => {
+    const res = await POST(makePost(validBody({ depositReceived: true })), ctxWith('i-1'));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('depositReceived + paymentMethod -> records a PAID DEPOSIT Order for the new project', async () => {
+    prismaMock.project.create.mockResolvedValue({
+      id: 'p-new',
+      clientId: 'c-1',
+      amount: 100000,
+      currency: 'XOF',
+      depositPercent: 30,
+    } as never);
+    prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
+
+    const res = await POST(
+      makePost(validBody({ amount: 100000, depositReceived: true, paymentMethod: 'WAVE' })),
+      ctxWith('i-1'),
+    );
+    expect(res.status).toBe(201);
+
+    const orderArg = prismaMock.order.create.mock.calls[0]?.[0];
+    expect(orderArg?.data?.amount).toBe(30000);
+    expect(orderArg?.data?.currency).toBe('XOF');
+    expect(orderArg?.data?.status).toBe('PAID');
+    expect(orderArg?.data?.paymentMethod).toBe('WAVE');
+    expect(orderArg?.data?.metadata).toEqual({ projectId: 'p-new', docType: 'DEPOSIT' });
+  });
+
+  it('no depositReceived -> no Order created', async () => {
+    prismaMock.project.create.mockResolvedValue({
+      id: 'p-new',
+      clientId: 'c-1',
+      amount: 100000,
+      currency: 'XOF',
+      depositPercent: 30,
+    } as never);
+    prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
+
+    await POST(makePost(validBody()), ctxWith('i-1'));
+    expect(prismaMock.order.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('source invariants', () => {

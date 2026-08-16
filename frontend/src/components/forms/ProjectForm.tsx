@@ -62,6 +62,7 @@ export function ProjectForm({
   initial,
   lockedClient,
   submitPath = '/api/projects',
+  extraBody,
 }: {
   onDone: () => void;
   onNeedClient: () => void;
@@ -77,6 +78,10 @@ export function ProjectForm({
   /** Defaults to the standalone creation endpoint; pass a different path
    *  to reuse this exact form for a specialized creation flow. */
   submitPath?: string;
+  /** Extra fixed fields merged into the submitted body — e.g. a deposit
+   *  confirmation collected in a step before this form is shown. Kept
+   *  generic on purpose: this form has no opinion on what those fields mean. */
+  extraBody?: Record<string, unknown>;
 }) {
   const { toast } = useToast();
   const { data, loading } = useApi<{ items: ClientOption[] }>('/api/clients?limit=50');
@@ -154,6 +159,7 @@ export function ProjectForm({
           ...(description.trim() ? { description: description.trim() } : {}),
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
           ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
+          ...extraBody,
         },
       });
       invalidateCachePrefix('/api/projects');
