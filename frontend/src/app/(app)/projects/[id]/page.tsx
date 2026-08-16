@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useCreateMenu } from '@/contexts/CreateMenuContext';
-import { useApi, invalidateCache } from '@/lib/useApi';
+import { useApi, invalidateCache, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
@@ -16,6 +15,7 @@ import { StarRating } from '@/components/ui/StarRating';
 import { Modal } from '@/components/ui/Modal';
 import { BackButton } from '@/components/ui/BackButton';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
+import { InvoiceForm } from '@/components/forms/InvoiceForm';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import {
   PROJECT_STATUS_LABELS,
@@ -111,7 +111,6 @@ export default function ProjectDetailPage() {
   const user = useUser();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { openCreate } = useCreateMenu();
   const { data, loading, error, refresh } = useApi<ProjectDetail>(`/api/projects/${id}`);
 
   if (!user) return null;
@@ -132,28 +131,17 @@ export default function ProjectDetailPage() {
       ) : error || !data ? (
         <ErrorState message={error ?? 'Projet introuvable.'} onRetry={refresh} />
       ) : (
-        <ProjectDetailView
-          data={data}
-          onCopyLink={copyTrackingLink}
-          onCreateInvoice={() => openCreate('invoice')}
-        />
+        <ProjectDetailView data={data} onCopyLink={copyTrackingLink} />
       )}
     </div>
   );
 }
 
-function ProjectDetailView({
-  data,
-  onCopyLink,
-  onCreateInvoice,
-}: {
-  data: ProjectDetail;
-  onCopyLink: () => void;
-  onCreateInvoice: () => void;
-}) {
+function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLink: () => void }) {
   const { project, steps, comments, review, invoices, files, deposit, balance } = data;
   const { toast } = useToast();
   const user = useUser();
+  const [creatingInvoiceOpen, setCreatingInvoiceOpen] = useState(false);
   const statusColors = PROJECT_STATUS_COLORS[project.status];
   const effectiveSector = resolveFreelanceSector(project.sector, project.type).code;
   const trackingUrl =
@@ -791,7 +779,7 @@ function ProjectDetailView({
               </h2>
               <button
                 type="button"
-                onClick={onCreateInvoice}
+                onClick={() => setCreatingInvoiceOpen(true)}
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
@@ -888,6 +876,31 @@ function ProjectDetailView({
           onClose={() => setEditOpen(false)}
           onSave={patchProject}
         />
+      )}
+
+      {creatingInvoiceOpen && (
+        <Modal
+          title="Nouvelle facture pour ce projet"
+          onClose={() => setCreatingInvoiceOpen(false)}
+        >
+          <InvoiceForm
+            lockedClient={{ id: project.client.id, label: project.client.name }}
+            lockedProject={{ id: project.id, label: project.name }}
+            initial={{
+              description: project.name,
+              lineItems: [{ designation: project.name, quantity: 1, unitPrice: project.amount }],
+              currency: project.currency,
+              ...(project.dueDate ? { dueDate: project.dueDate } : {}),
+            }}
+            submitPath={`/api/projects/${project.id}/create-invoice`}
+            onDone={() => {
+              setCreatingInvoiceOpen(false);
+              invalidateCachePrefix('/api/invoices');
+              invalidateCache(`/api/projects/${project.id}`);
+            }}
+            onNeedClient={() => {}}
+          />
+        </Modal>
       )}
     </>
   );

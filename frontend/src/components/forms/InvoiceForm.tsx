@@ -53,7 +53,17 @@ export interface InvoiceFormExisting {
   footerNote: string | null;
 }
 
-function defaultLineItems(invoice?: InvoiceFormExisting): LineItemDraft[] {
+export interface InvoiceFormInitial {
+  description?: string;
+  lineItems?: { designation: string; quantity: number; unitPrice: number }[];
+  currency?: string;
+  dueDate?: string;
+}
+
+function defaultLineItems(
+  invoice?: InvoiceFormExisting,
+  initial?: InvoiceFormInitial,
+): LineItemDraft[] {
   if (invoice) {
     if (invoice.lineItems.length > 0) {
       return invoice.lineItems.map((it) => ({
@@ -69,6 +79,13 @@ function defaultLineItems(invoice?: InvoiceFormExisting): LineItemDraft[] {
       { designation: invoice.description ?? '', quantity: '1', unitPrice: String(invoice.amount) },
     ];
   }
+  if (initial?.lineItems && initial.lineItems.length > 0) {
+    return initial.lineItems.map((it) => ({
+      designation: it.designation,
+      quantity: String(it.quantity),
+      unitPrice: String(it.unitPrice),
+    }));
+  }
   return [{ designation: '', quantity: '1', unitPrice: '' }];
 }
 
@@ -76,10 +93,29 @@ export function InvoiceForm({
   invoice,
   onDone,
   onNeedClient,
+  initial,
+  lockedClient,
+  lockedProject,
+  submitPath = '/api/invoices',
 }: {
   invoice?: InvoiceFormExisting;
   onDone: () => void;
   onNeedClient: () => void;
+  /** Pre-fills the form — e.g. from a project. Every field stays editable;
+   *  this only seeds the initial values, same as a user typing them in. */
+  initial?: InvoiceFormInitial;
+  /** When set, the client picker is replaced by a read-only label and
+   *  `clientId` is never included in the submitted body — the target route
+   *  derives it itself, so a tampered request can't attach the invoice to a
+   *  different client. */
+  lockedClient?: { id: string; label: string };
+  /** Same idea as `lockedClient`, for the optional project link — replaces
+   *  the "Projet lié" picker with a read-only label and omits `projectId`
+   *  from the body. */
+  lockedProject?: { id: string; label: string };
+  /** Defaults to the standalone creation endpoint; pass a different path to
+   *  reuse this exact form for a specialized creation flow. */
+  submitPath?: string;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -88,10 +124,10 @@ export function InvoiceForm({
   );
   const clients = clientsData?.items ?? [];
 
-  const [clientId, setClientId] = useState(invoice?.clientId ?? '');
+  const [clientId, setClientId] = useState(lockedClient?.id ?? invoice?.clientId ?? '');
   const { data: projectsData } = useApi<{ items: ProjectOption[] }>(
     `/api/projects?clientId=${clientId}&limit=50`,
-    { skip: !clientId },
+    { skip: !clientId || !!lockedProject },
   );
   const projects = projectsData?.items ?? [];
   const { data: clientDetail } = useApi<{
@@ -101,12 +137,18 @@ export function InvoiceForm({
     .filter((inv) => inv.docType === 'INVOICE' && inv.status !== 'CANCELED')
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  const [projectId, setProjectId] = useState(invoice?.projectId ?? '');
-  const [description, setDescription] = useState(invoice?.description ?? '');
-  const [currency, setCurrency] = useState(invoice?.currency ?? 'XOF');
-  const [dueDate, setDueDate] = useState(invoice?.dueDate ? invoice.dueDate.slice(0, 10) : '');
+  const [projectId, setProjectId] = useState(lockedProject?.id ?? invoice?.projectId ?? '');
+  const [description, setDescription] = useState(
+    invoice?.description ?? initial?.description ?? '',
+  );
+  const [currency, setCurrency] = useState(invoice?.currency ?? initial?.currency ?? 'XOF');
+  const [dueDate, setDueDate] = useState(
+    invoice?.dueDate?.slice(0, 10) ?? initial?.dueDate?.slice(0, 10) ?? '',
+  );
 
-  const [lineItems, setLineItems] = useState<LineItemDraft[]>(() => defaultLineItems(invoice));
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>(() =>
+    defaultLineItems(invoice, initial),
+  );
   const [depositAmount, setDepositAmount] = useState(
     invoice?.depositAmount != null ? String(invoice.depositAmount) : '',
   );
@@ -169,7 +211,7 @@ export function InvoiceForm({
     e.preventDefault();
     setClientError(null);
     setLineItemsError(null);
-    if (!clientId) {
+    if (!lockedClient && !clientId) {
       setClientError('Sélectionnez un client.');
       clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       clientRef.current?.focus();
@@ -185,8 +227,8 @@ export function InvoiceForm({
     setPlanLimitMessage(null);
     try {
       const shared = {
-        clientId,
-        projectId: projectId || null,
+        ...(lockedClient ? {} : { clientId }),
+        ...(lockedProject ? {} : { projectId: projectId || null }),
         description: description || null,
         lineItems: items,
         currency,
@@ -202,7 +244,7 @@ export function InvoiceForm({
         invalidateCachePrefix(`/api/invoices/${invoice.id}`);
         toast('Facture mise à jour.', 'success');
       } else {
-        await api('/api/invoices', {
+        await api(submitPath, {
           method: 'POST',
           body: { ...shared, docType: 'INVOICE' },
         });
@@ -223,7 +265,7 @@ export function InvoiceForm({
     }
   }
 
-  if (!clientsLoading && clients.length === 0) {
+  if (!lockedClient && !clientsLoading && clients.length === 0) {
     return (
       <div className="flex flex-col gap-4">
         <p className="font-body text-sm text-muted-foreground">
@@ -243,52 +285,73 @@ export function InvoiceForm({
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <form onSubmit={onSubmit} className="flex min-w-0 flex-1 flex-col gap-4">
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Client *
-          <select
-            ref={clientRef}
-            value={clientId}
-            onChange={(e) => {
-              setClientId(e.target.value);
-              setProjectId('');
-              if (clientError) setClientError(null);
-            }}
-            aria-invalid={!!clientError}
-            className={
-              clientError ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40` : inputClass
-            }
-          >
-            <option value="" disabled>
-              Sélectionner un client
-            </option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
-              </option>
-            ))}
-          </select>
-          {clientError && (
-            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
-              {clientError}
-            </span>
-          )}
-        </label>
-        {clientId && projects.length > 0 && (
+        {lockedClient ? (
+          <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Client
+            <p className={`${inputClass} bg-secondary/50 text-muted-foreground`}>
+              {lockedClient.label}
+            </p>
+          </div>
+        ) : (
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Projet lié (optionnel)
+            Client *
             <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className={inputClass}
+              ref={clientRef}
+              value={clientId}
+              onChange={(e) => {
+                setClientId(e.target.value);
+                setProjectId('');
+                if (clientError) setClientError(null);
+              }}
+              aria-invalid={!!clientError}
+              className={
+                clientError
+                  ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                  : inputClass
+              }
             >
-              <option value="">Aucun</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+              <option value="" disabled>
+                Sélectionner un client
+              </option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
                 </option>
               ))}
             </select>
+            {clientError && (
+              <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+                {clientError}
+              </span>
+            )}
           </label>
+        )}
+        {lockedProject ? (
+          <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Projet lié
+            <p className={`${inputClass} bg-secondary/50 text-muted-foreground`}>
+              {lockedProject.label}
+            </p>
+          </div>
+        ) : (
+          clientId &&
+          projects.length > 0 && (
+            <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+              Projet lié (optionnel)
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Aucun</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )
         )}
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Description
@@ -483,9 +546,11 @@ export function InvoiceForm({
           <div>
             <p className="text-[11px] text-muted-foreground">Pour</p>
             <p className="truncate text-sm font-medium text-foreground">
-              {selectedClient
-                ? `${selectedClient.code} — ${selectedClient.name}`
-                : 'Sélectionnez un client'}
+              {lockedClient
+                ? lockedClient.label
+                : selectedClient
+                  ? `${selectedClient.code} — ${selectedClient.name}`
+                  : 'Sélectionnez un client'}
             </p>
             {selectedClient && clientTotalBilled > 0 && (
               <p className="mt-0.5 text-[11px] text-muted-foreground">
