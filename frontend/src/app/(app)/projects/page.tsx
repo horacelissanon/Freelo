@@ -114,6 +114,11 @@ export default function ProjectsPage() {
     (sum, p) => sum + (p.balance.paid ? 0 : p.balance.amount),
     0,
   );
+  const collectedAmount = realItems.reduce(
+    (sum, p) =>
+      sum + (p.deposit.paid ? p.deposit.amount : 0) + (p.balance.paid ? p.balance.amount : 0),
+    0,
+  );
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -148,20 +153,18 @@ export default function ProjectsPage() {
 
       {!loading && !error && items.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <div className="col-span-2 sm:order-3 sm:col-span-1">
-            <StatCard
-              label="Valeur totale"
-              value={formatPrice(totalAmount)}
-              unit="XOF"
-              icon="banknote"
-            />
-          </div>
-          <div className="sm:order-1">
-            <StatCard label="Total projets" value={String(realItems.length)} icon="folder-open" />
-          </div>
-          <div className="sm:order-2">
-            <StatCard label="Projets actifs" value={String(activeCount)} icon="clock" />
-          </div>
+          <StatCard
+            label="Valeur totale"
+            value={formatPrice(totalAmount)}
+            unit="XOF"
+            icon="banknote"
+          />
+          <StatCard
+            label="Solde encaissé"
+            value={formatPrice(collectedAmount)}
+            unit="XOF"
+            icon="wallet"
+          />
           <StatCard
             label="Acomptes en attente"
             value={formatPrice(depositsPending)}
@@ -174,6 +177,8 @@ export default function ProjectsPage() {
             unit="XOF"
             icon="file-clock"
           />
+          <StatCard label="Total projets" value={String(realItems.length)} icon="folder-open" />
+          <StatCard label="Projets actifs" value={String(activeCount)} icon="clock" />
         </div>
       )}
 

@@ -82,6 +82,7 @@ import {
   Megaphone,
   RotateCcw,
   FileSpreadsheet,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -165,6 +166,7 @@ const ICONS: Record<string, LucideIcon> = {
   megaphone: Megaphone,
   'rotate-ccw': RotateCcw,
   'file-spreadsheet': FileSpreadsheet,
+  wallet: Wallet,
 };
 
 export interface IconProps {
