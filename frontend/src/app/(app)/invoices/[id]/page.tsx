@@ -17,6 +17,7 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { BackButton } from '@/components/ui/BackButton';
 import { PackOfferCard } from '@/components/invoices/PackOfferCard';
 import { InvoiceForm } from '@/components/forms/InvoiceForm';
+import { ProjectForm } from '@/components/forms/ProjectForm';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
 import {
   INVOICE_STATUS_LABELS,
@@ -105,6 +106,7 @@ export default function InvoiceDetailPage() {
   const [issuingCreditNote, setIssuingCreditNote] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creatingProjectOpen, setCreatingProjectOpen] = useState(false);
 
   if (!user) return null;
 
@@ -187,6 +189,8 @@ export default function InvoiceDetailPage() {
       setDeleting(false);
     }
   }
+
+  const selectedPack = invoice?.packs.find((p) => p.id === invoice.selectedPackId) ?? null;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -383,7 +387,7 @@ export default function InvoiceDetailPage() {
                     {invoice.contentBlocks.filter((b) => b.kind === 'PROCESS').length > 0 && (
                       <div>
                         <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-                          Processus de travail
+                          Étapes du projet
                         </p>
                         <ol className="mt-1.5 flex flex-col gap-2">
                           {invoice.contentBlocks
@@ -643,6 +647,22 @@ export default function InvoiceDetailPage() {
                   </p>
                 </div>
 
+                {invoice.docType === 'QUOTE' &&
+                  invoice.status === 'ACCEPTED' &&
+                  !invoice.project && (
+                    <div className="mb-3 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCreatingProjectOpen(true)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
+                      >
+                        <Icon i="folder-open" size={15} />
+                        Créer un projet depuis ce devis
+                      </button>
+                      <InfoTooltip text="Pré-remplit un nouveau projet avec le client et le montant de ce devis — tous les champs restent modifiables avant de valider." />
+                    </div>
+                  )}
+
                 {invoice.status !== 'PAID' && (
                   <div className="mb-3 flex items-center gap-1.5">
                     <button
@@ -749,6 +769,30 @@ export default function InvoiceDetailPage() {
             }}
             onDone={() => {
               setEditOpen(false);
+              void refresh();
+            }}
+            onNeedClient={() => {}}
+          />
+        </Modal>
+      )}
+
+      {invoice && creatingProjectOpen && (
+        <Modal
+          title="Créer un projet depuis ce devis"
+          onClose={() => setCreatingProjectOpen(false)}
+        >
+          <ProjectForm
+            lockedClient={{ id: invoice.client.id, label: invoice.client.name }}
+            initial={{
+              name: invoice.description || selectedPack?.title || '',
+              ...(selectedPack?.description ? { description: selectedPack.description } : {}),
+              amount: invoice.amount,
+              currency: invoice.currency,
+            }}
+            submitPath={`/api/invoices/${invoice.id}/create-project`}
+            onDone={() => {
+              setCreatingProjectOpen(false);
+              invalidateCachePrefix('/api/invoices');
               void refresh();
             }}
             onNeedClient={() => {}}

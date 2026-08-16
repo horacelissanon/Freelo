@@ -75,7 +75,7 @@ const DOC_LABELS: Record<InvoicePdfData['docType'], string> = {
 };
 
 const CONTENT_BLOCK_LABELS: Record<string, string> = {
-  PROCESS: 'Comment ça se passe',
+  PROCESS: 'Étapes du projet',
   CONDITIONS: 'Conditions',
   PAYMENT_METHOD: 'Modalités de paiement',
   FAQ: 'Questions fréquentes',

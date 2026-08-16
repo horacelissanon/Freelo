@@ -844,7 +844,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         </div>
 
         <ContentBlockList
-          title="Processus de travail"
+          title="Étapes du projet"
           icon="list"
           primaryPlaceholder="Titre de l'étape (ex : Brief & découverte)"
           secondaryPlaceholder="Description (optionnel)"

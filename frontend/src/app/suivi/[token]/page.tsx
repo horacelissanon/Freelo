@@ -1050,7 +1050,7 @@ function QuoteInvoiceDetail({
 
       {isQuote && processBlocks.length > 0 && (
         <div className="animate-slide-up-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-          <SectionHeading icon="layers" label="Comment ça se passe" />
+          <SectionHeading icon="layers" label="Étapes du projet" />
           <div className="relative flex flex-col gap-6 pl-1">
             {processBlocks.length > 1 && (
               <div

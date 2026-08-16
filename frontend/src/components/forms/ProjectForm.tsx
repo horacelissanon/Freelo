@@ -42,22 +42,46 @@ interface ClientOption {
   name: string;
 }
 
+export interface ProjectFormInitial {
+  name?: string;
+  type?: ProjectType;
+  description?: string;
+  amount?: number;
+  currency?: string;
+}
+
 export function ProjectForm({
   onDone,
   onNeedClient,
+  initial,
+  lockedClient,
+  submitPath = '/api/projects',
 }: {
   onDone: () => void;
   onNeedClient: () => void;
+  /** Pre-fills the form — e.g. from an accepted devis. Every field stays
+   *  editable; this only seeds the initial values, same as a user typing
+   *  them in by hand. */
+  initial?: ProjectFormInitial;
+  /** When set, the client picker is replaced by a read-only label and
+   *  `clientId` is never included in the submitted body — the target
+   *  route (e.g. invoices/[id]/create-project) derives it itself, so a
+   *  tampered request can't attach the project to a different client. */
+  lockedClient?: { id: string; label: string };
+  /** Defaults to the standalone creation endpoint; pass a different path
+   *  to reuse this exact form for a specialized creation flow. */
+  submitPath?: string;
 }) {
   const { toast } = useToast();
   const { data, loading } = useApi<{ items: ClientOption[] }>('/api/clients?limit=50');
   const clients = data?.items ?? [];
 
-  const [clientId, setClientId] = useState('');
-  const [name, setName] = useState('');
-  const [type, setType] = useState<ProjectType>('OTHER');
-  const [currency, setCurrency] = useState('XOF');
-  const [amount, setAmount] = useState('');
+  const [clientId, setClientId] = useState(lockedClient?.id ?? '');
+  const [name, setName] = useState(initial?.name ?? '');
+  const [type, setType] = useState<ProjectType>(initial?.type ?? 'OTHER');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
+  const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [dueDate, setDueDate] = useState('');
   const [steps, setSteps] = useState<StepDraft[]>(DEFAULT_STEPS);
@@ -108,15 +132,16 @@ export function ProjectForm({
         .map((s) => ({ title: s.title.trim(), description: s.description.trim() }))
         .filter((s) => s.title)
         .map(({ title, description }) => ({ title, ...(description ? { description } : {}) }));
-      await api('/api/projects', {
+      await api(submitPath, {
         method: 'POST',
         body: {
-          clientId,
+          ...(lockedClient ? {} : { clientId }),
           name,
           type,
           amount: Number(amount),
           currency,
           status,
+          ...(description.trim() ? { description: description.trim() } : {}),
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
           ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
         },
@@ -137,7 +162,7 @@ export function ProjectForm({
     }
   }
 
-  if (!loading && clients.length === 0) {
+  if (!lockedClient && !loading && clients.length === 0) {
     return (
       <div className="flex flex-col gap-4">
         <p className="font-body text-sm text-muted-foreground">
@@ -156,37 +181,47 @@ export function ProjectForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-        Client *
-        <select
-          ref={clientRef}
-          value={clientId}
-          onChange={(e) => {
-            setClientId(e.target.value);
-            if (fieldErrors.clientId) setFieldErrors((prev) => ({ ...prev, clientId: undefined }));
-          }}
-          aria-invalid={!!fieldErrors.clientId}
-          className={
-            fieldErrors.clientId
-              ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
-              : inputClass
-          }
-        >
-          <option value="" disabled>
-            Sélectionner un client
-          </option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code} — {c.name}
+      {lockedClient ? (
+        <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Client
+          <p className={`${inputClass} bg-secondary/50 text-muted-foreground`}>
+            {lockedClient.label}
+          </p>
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Client *
+          <select
+            ref={clientRef}
+            value={clientId}
+            onChange={(e) => {
+              setClientId(e.target.value);
+              if (fieldErrors.clientId)
+                setFieldErrors((prev) => ({ ...prev, clientId: undefined }));
+            }}
+            aria-invalid={!!fieldErrors.clientId}
+            className={
+              fieldErrors.clientId
+                ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                : inputClass
+            }
+          >
+            <option value="" disabled>
+              Sélectionner un client
             </option>
-          ))}
-        </select>
-        {fieldErrors.clientId && (
-          <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
-            {fieldErrors.clientId}
-          </span>
-        )}
-      </label>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.clientId && (
+            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+              {fieldErrors.clientId}
+            </span>
+          )}
+        </label>
+      )}
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Nom du projet *
         <input
@@ -230,6 +265,16 @@ export function ProjectForm({
           ))}
         </div>
       </div>
+      <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+        Brief (optionnel)
+        <textarea
+          rows={3}
+          maxLength={2000}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className={inputClass}
+        />
+      </label>
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Devise du projet
         <div className="flex flex-wrap gap-2">

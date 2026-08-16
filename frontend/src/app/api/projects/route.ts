@@ -18,6 +18,7 @@ import {
   isProActive,
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
+import { createProject } from '@/lib/server/projects/createProject';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const Body = z.object({
@@ -41,21 +42,6 @@ const Body = z.object({
     .max(20)
     .optional(),
 });
-
-// Generic lifecycle seeded on every new project when the caller doesn't
-// supply a custom `steps` list (e.g. an older client, or the seed script) —
-// keeps the Client Link Portal (Phase C) demoable out of the box rather than
-// showing an empty "Étapes" section on day one.
-const DEFAULT_STEPS: { order: number; title: string; description: string }[] = [
-  {
-    order: 1,
-    title: 'Brief & découverte',
-    description: 'Collecte de vos informations et objectifs',
-  },
-  { order: 2, title: 'Premiers concepts', description: 'Premières propositions à valider' },
-  { order: 3, title: 'Révisions', description: 'Ajustements selon vos retours' },
-  { order: 4, title: 'Livraison finale', description: 'Remise des fichiers finaux' },
-];
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -148,29 +134,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const project = await prisma.project.create({
-      data: {
-        userId: auth.user.sub,
-        clientId: parsed.data.clientId,
-        name: parsed.data.name,
-        type: parsed.data.type,
-        status: parsed.data.status,
-        progress: parsed.data.progress,
-        amount: parsed.data.amount,
-        currency: parsed.data.currency,
-        ...(parsed.data.description ? { description: parsed.data.description } : {}),
-        ...(parsed.data.dueDate ? { dueDate: new Date(parsed.data.dueDate) } : {}),
-        ...(parsed.data.step ? { step: parsed.data.step } : {}),
-        steps: {
-          create: parsed.data.steps
-            ? parsed.data.steps.map((s, index) => ({
-                order: index + 1,
-                title: s.title,
-                ...(s.description ? { description: s.description } : {}),
-              }))
-            : DEFAULT_STEPS,
-        },
-      },
+    const project = await createProject(prisma, {
+      userId: auth.user.sub,
+      clientId: parsed.data.clientId,
+      name: parsed.data.name,
+      type: parsed.data.type,
+      status: parsed.data.status,
+      progress: parsed.data.progress,
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
+      ...(parsed.data.description ? { description: parsed.data.description } : {}),
+      ...(parsed.data.dueDate ? { dueDate: parsed.data.dueDate } : {}),
+      ...(parsed.data.step ? { step: parsed.data.step } : {}),
+      ...(parsed.data.steps ? { steps: parsed.data.steps } : {}),
     });
 
     return NextResponse.json(project, { status: 201, headers: { 'x-request-id': ctx.requestId } });
