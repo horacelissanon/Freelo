@@ -209,7 +209,13 @@ export default function InvoiceDetailPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <BackButton fallbackHref="/invoices" label="Devis & Factures" className="mb-4 print:hidden" />
+      <BackButton
+        fallbackHref={
+          invoice?.docType === 'QUOTE' ? '/invoices?tab=devis' : '/invoices?tab=factures'
+        }
+        label={invoice?.docType === 'QUOTE' ? 'Devis' : 'Factures'}
+        className="mb-4 print:hidden"
+      />
 
       {loading ? (
         <LoadingState />

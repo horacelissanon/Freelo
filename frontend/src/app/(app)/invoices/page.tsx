@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
@@ -339,12 +339,12 @@ function DevisTab({
 function InvoicesPageInner() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  // Tab lives in the URL (?tab=devis|factures), not just local state — so
-  // that navigating into a devis/facture detail page and back (BackButton's
-  // router.back()) restores the tab you were actually on, instead of always
-  // resetting to "Factures". Same pattern as Paramètres' ?tab= (settings/page.tsx).
+  // Which view this page shows is decided entirely by the URL (?tab=devis|
+  // factures), set by the Sidebar/BottomNav's now-separate Devis/Factures
+  // links (no more in-page tab switcher) — so navigating into a devis/
+  // facture detail page and back (BackButton's router.back()) still
+  // restores the right one, instead of always resetting to "Factures".
   const tabParam = searchParams.get('tab');
   const activeTab: 'factures' | 'devis' = tabParam === 'devis' ? 'devis' : 'factures';
   const [viewMode, setViewMode] = useState<ListViewMode>('list');
@@ -362,10 +362,6 @@ function InvoicesPageInner() {
     localStorage.setItem(VIEW_STORAGE_KEY, mode);
   }
 
-  function setActiveTab(next: 'factures' | 'devis') {
-    router.replace(next === 'devis' ? '/invoices?tab=devis' : '/invoices', { scroll: false });
-  }
-
   if (!user) return null;
 
   const items = data?.items ?? [];
@@ -376,50 +372,11 @@ function InvoicesPageInner() {
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mb-6">
         <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-          Devis &amp; Factures
+          {activeTab === 'devis' ? 'Devis' : 'Factures'}
         </h1>
         <p className="font-body text-sm text-muted-foreground">
-          Gérez vos devis et factures en un seul endroit.
+          {activeTab === 'devis' ? 'Gérez vos devis.' : 'Gérez vos factures.'}
         </p>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border font-body">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('devis')}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === 'devis'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground'
-            }`}
-          >
-            <Icon i="file-clock" size={15} />
-            Devis
-            {devisRows.length > 0 && (
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
-                {devisRows.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('factures')}
-            className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === 'factures'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground'
-            }`}
-          >
-            <Icon i="file-text" size={15} />
-            Factures
-            {factureRows.length > 0 && (
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-xs">
-                {factureRows.length}
-              </span>
-            )}
-          </button>
-        </div>
       </div>
 
       {items.length > 0 && (

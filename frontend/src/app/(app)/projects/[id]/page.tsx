@@ -882,6 +882,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
         <Modal
           title="Nouvelle facture pour ce projet"
           onClose={() => setCreatingInvoiceOpen(false)}
+          size="lg"
         >
           <InvoiceForm
             lockedClient={{ id: project.client.id, label: project.client.name }}
