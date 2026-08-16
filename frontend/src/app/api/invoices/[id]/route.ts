@@ -30,6 +30,7 @@ import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subsc
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
 const PATCHABLE_STATUSES = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'ACCEPTED'] as const;
 
@@ -89,6 +90,9 @@ const PatchBody = z.object({
   // QUOTE-only bulk replace — same reasoning as packs above.
   contentBlocks: z.array(ContentBlockInput).max(80).optional(),
   paymentTermsNote: z.string().max(2000).nullable().optional(),
+  // QUOTE-only — mirrors Project.sector/Project.type, see POST /api/invoices.
+  sector: z.string().min(1).max(100).nullable().optional(),
+  type: z.enum(PROJECT_TYPE_VALUES).nullable().optional(),
   depositAmount: z.number().int().min(0).nullable().optional(),
   deliveryDate: z.string().datetime().nullable().optional(),
   paymentMethodNote: z.string().max(300).nullable().optional(),
@@ -202,6 +206,8 @@ export async function PATCH(
       packs,
       contentBlocks,
       paymentTermsNote,
+      sector,
+      type,
       depositAmount,
       deliveryDate,
       paymentMethodNote,
@@ -218,6 +224,8 @@ export async function PATCH(
       packs !== undefined ||
       contentBlocks !== undefined ||
       paymentTermsNote !== undefined ||
+      sector !== undefined ||
+      type !== undefined ||
       depositAmount !== undefined ||
       deliveryDate !== undefined ||
       paymentMethodNote !== undefined ||
@@ -253,13 +261,17 @@ export async function PATCH(
     }
     if (
       existing.docType === 'INVOICE' &&
-      (packs !== undefined || contentBlocks !== undefined || paymentTermsNote !== undefined)
+      (packs !== undefined ||
+        contentBlocks !== undefined ||
+        paymentTermsNote !== undefined ||
+        sector !== undefined ||
+        type !== undefined)
     ) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
           message:
-            'packs/contentBlocks/paymentTermsNote are not supported for an invoice — use lineItems',
+            'packs/contentBlocks/paymentTermsNote/sector/type are not supported for an invoice — use lineItems',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -359,6 +371,8 @@ export async function PATCH(
       ...(paymentMethodNote !== undefined ? { paymentMethodNote } : {}),
       ...(footerNote !== undefined ? { footerNote } : {}),
       ...(paymentTermsNote !== undefined ? { paymentTermsNote } : {}),
+      ...(sector !== undefined ? { sector } : {}),
+      ...(type !== undefined ? { type } : {}),
     };
 
     let invoice;

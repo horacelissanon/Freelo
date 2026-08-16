@@ -25,6 +25,7 @@ import {
   DOC_TYPE_LABELS,
   type InvoiceStatus,
   type InvoiceDocType,
+  type ProjectType,
 } from '@/lib/constants';
 
 const OTHER_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'OVERDUE', 'ACCEPTED'];
@@ -74,6 +75,8 @@ interface InvoiceDetail {
   docType: InvoiceDocType;
   status: InvoiceStatus;
   description: string | null;
+  sector: string | null;
+  type: string | null;
   amount: number;
   currency: string;
   issueDate: string;
@@ -786,6 +789,8 @@ export default function InvoiceDetailPage() {
             initial={{
               name: invoice.description || selectedPack?.title || '',
               ...(selectedPack?.description ? { description: selectedPack.description } : {}),
+              ...(invoice.sector ? { sector: invoice.sector } : {}),
+              ...(invoice.type ? { type: invoice.type as ProjectType } : {}),
               amount: invoice.amount,
               currency: invoice.currency,
             }}

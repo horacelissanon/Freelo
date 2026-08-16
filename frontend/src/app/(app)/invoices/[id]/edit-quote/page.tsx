@@ -12,6 +12,8 @@ interface QuoteDetail {
   docType: InvoiceDocType;
   status: string;
   description: string | null;
+  sector: string | null;
+  type: string | null;
   currency: string;
   dueDate: string | null;
   paymentTermsNote: string | null;
@@ -63,6 +65,8 @@ export default function EditQuotePage() {
             clientId: quote.client.id,
             projectId: quote.project?.id ?? null,
             description: quote.description,
+            sector: quote.sector,
+            type: quote.type,
             currency: quote.currency,
             dueDate: quote.dueDate,
             paymentTermsNote: quote.paymentTermsNote,

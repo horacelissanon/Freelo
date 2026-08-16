@@ -12,7 +12,19 @@ import { computeItemsTotal } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { CURRENCIES } from '@/lib/constants';
+import {
+  CURRENCIES,
+  FREELANCE_SECTOR_LABELS,
+  FREELANCE_SECTOR_ICONS,
+  PROJECT_TYPE_LABELS,
+  PROJECT_TYPE_ICONS,
+  SECTOR_PROJECT_TYPES,
+  resolveFreelanceSector,
+  type FreelanceSector,
+  type ProjectType,
+} from '@/lib/constants';
+
+const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -59,6 +71,8 @@ export interface QuoteBuilderExisting {
   clientId: string;
   projectId: string | null;
   description: string | null;
+  sector: string | null;
+  type: string | null;
   currency: string;
   dueDate: string | null;
   paymentTermsNote: string | null;
@@ -221,6 +235,15 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
 
   const [projectId, setProjectId] = useState(quote?.projectId ?? '');
   const [description, setDescription] = useState(quote?.description ?? '');
+  const resolvedSector = resolveFreelanceSector(
+    quote?.sector,
+    (quote?.type as ProjectType | null) ?? undefined,
+  );
+  const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
+  const [sectorOther, setSectorOther] = useState(resolvedSector.other);
+  const [projectType, setProjectType] = useState<ProjectType>(
+    (quote?.type as ProjectType | null) ?? 'OTHER',
+  );
   const [currency, setCurrency] = useState(quote?.currency ?? 'XOF');
   const [dueDate, setDueDate] = useState(quote?.dueDate ? quote.dueDate.slice(0, 10) : '');
   const [packs, setPacks] = useState<PackDraft[]>(() => initialPacks(quote));
@@ -463,6 +486,8 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       clientId,
       projectId: projectId || null,
       description: description || null,
+      sector: sector === 'OTHER' ? sectorOther.trim() || 'OTHER' : sector,
+      type: projectType,
       packs: packsPayload,
       contentBlocks: buildContentBlocksPayload(),
       paymentTermsNote: paymentTermsNote.trim() || null,
@@ -589,6 +614,63 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             className={inputClass}
           />
         </label>
+        <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Secteur freelance
+          <div className="flex flex-wrap gap-2">
+            {FREELANCE_SECTORS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => {
+                  setSector(value);
+                  setProjectType(
+                    value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER'),
+                  );
+                }}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  sector === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-canvas text-foreground'
+                }`}
+              >
+                <Icon i={FREELANCE_SECTOR_ICONS[value]} size={13} />
+                {FREELANCE_SECTOR_LABELS[value]}
+              </button>
+            ))}
+          </div>
+          {sector === 'OTHER' && (
+            <input
+              type="text"
+              value={sectorOther}
+              onChange={(e) => setSectorOther(e.target.value)}
+              placeholder="Précisez votre secteur…"
+              maxLength={100}
+              className={`${inputClass} mt-1`}
+            />
+          )}
+        </div>
+        {sector !== 'OTHER' && (
+          <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Type de projet
+            <div className="flex flex-wrap gap-2">
+              {SECTOR_PROJECT_TYPES[sector].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setProjectType(value)}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    projectType === value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-canvas text-foreground'
+                  }`}
+                >
+                  <Icon i={PROJECT_TYPE_ICONS[value]} size={13} />
+                  {PROJECT_TYPE_LABELS[value]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Devise

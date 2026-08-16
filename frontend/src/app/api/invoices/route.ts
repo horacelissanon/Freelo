@@ -29,6 +29,7 @@ import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
 const LineItemInput = z.object({
   designation: z.string().min(1).max(200),
@@ -86,6 +87,10 @@ const Body = z
     lineItems: z.array(LineItemInput).min(1).max(100).optional(),
     // QUOTE only.
     packs: z.array(PackInput).min(1).max(20).optional(),
+    // QUOTE only — mirrors Project.sector/Project.type so an accepted devis
+    // can pre-fill a new project with the same vocabulary.
+    sector: z.string().min(1).max(100).nullable().optional(),
+    type: z.enum(PROJECT_TYPE_VALUES).nullable().optional(),
     // QUOTE only, optional — additional devis sections (Processus/Conditions/
     // Modalités de paiement/FAQ), pre-filled client-side from the user's
     // last quote ("last quote as template" — see QuoteBuilderForm.tsx).
@@ -115,11 +120,16 @@ const Body = z
           message: 'packs is not supported for an invoice',
         });
       }
-      if (data.contentBlocks !== undefined || data.paymentTermsNote !== undefined) {
+      if (
+        data.contentBlocks !== undefined ||
+        data.paymentTermsNote !== undefined ||
+        data.sector !== undefined ||
+        data.type !== undefined
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['docType'],
-          message: 'contentBlocks/paymentTermsNote are quote-only fields',
+          message: 'contentBlocks/paymentTermsNote/sector/type are quote-only fields',
         });
       }
     } else {
@@ -218,6 +228,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       packs,
       contentBlocks,
       paymentTermsNote,
+      sector,
+      type,
       currency,
       dueDate,
       depositAmount,
@@ -319,6 +331,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         currency,
         ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
         ...(docType === 'QUOTE' && paymentTermsNote ? { paymentTermsNote } : {}),
+        ...(docType === 'QUOTE' && sector ? { sector } : {}),
+        ...(docType === 'QUOTE' && type ? { type } : {}),
       };
 
       try {
