@@ -13,6 +13,7 @@ import { Icon } from '@/components/ui/Icon';
 import { ViewToggle, type ListViewMode } from '@/components/ui/ViewToggle';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
+import { computeBalance, computePackDeposit, type PackDepositSource } from '@/lib/invoiceTotals';
 import { INVOICE_STATUS_LABELS, type InvoiceStatus, type InvoiceDocType } from '@/lib/constants';
 
 const VIEW_STORAGE_KEY = 'freelo-invoices-view';
@@ -35,6 +36,10 @@ const SORT_LABELS: Record<SortKey, string> = {
 const FACTURE_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELED'];
 const DEVIS_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'ACCEPTED'];
 
+interface InvoicePackRow extends PackDepositSource {
+  id: string;
+}
+
 interface InvoiceApiRow {
   id: string;
   number: string;
@@ -45,6 +50,22 @@ interface InvoiceApiRow {
   dueDate: string | null;
   createdAt: string;
   client: { id: string; name: string };
+  depositAmount: number | null;
+  selectedPackId: string | null;
+  packs: InvoicePackRow[];
+}
+
+// Facture: depositAmount is a stored figure, solde is the simple remainder.
+// Devis: no stored figure pre-acceptance — estimated from whichever pack the
+// row can unambiguously resolve (the selected one, or the only one); several
+// un-decided offers have no single "the" deposit to show, so null.
+function resolveDevisDeposit(row: InvoiceApiRow): number | null {
+  const resolvedPack = row.selectedPackId
+    ? row.packs.find((p) => p.id === row.selectedPackId)
+    : row.packs.length === 1
+      ? row.packs[0]
+      : undefined;
+  return resolvedPack ? computePackDeposit(resolvedPack) : null;
 }
 
 function sortRows(rows: InvoiceApiRow[], sortBy: SortKey): InvoiceApiRow[] {
@@ -151,8 +172,38 @@ function InvoiceList({
   if (viewMode === 'grid') {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((i) => (
-          <InvoiceCard
+        {items.map((i) => {
+          const depositAmount = i.docType === 'INVOICE' ? i.depositAmount : resolveDevisDeposit(i);
+          return (
+            <InvoiceCard
+              key={i.id}
+              invoice={{
+                id: i.id,
+                number: i.number,
+                docType: i.docType,
+                status: i.status,
+                clientName: i.client.name,
+                amount: i.amount,
+                currency: i.currency,
+                dueDateLabel: i.dueDate ? formatDate(i.dueDate) : null,
+                depositAmount,
+                balanceAmount:
+                  i.docType === 'INVOICE' && depositAmount != null
+                    ? computeBalance(i.amount, depositAmount)
+                    : null,
+              }}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
+      {items.map((i) => {
+        const depositAmount = i.docType === 'INVOICE' ? i.depositAmount : resolveDevisDeposit(i);
+        return (
+          <InvoiceRow
             key={i.id}
             invoice={{
               id: i.id,
@@ -163,29 +214,15 @@ function InvoiceList({
               amount: i.amount,
               currency: i.currency,
               dueDateLabel: i.dueDate ? formatDate(i.dueDate) : null,
+              depositAmount,
+              balanceAmount:
+                i.docType === 'INVOICE' && depositAmount != null
+                  ? computeBalance(i.amount, depositAmount)
+                  : null,
             }}
           />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-      {items.map((i) => (
-        <InvoiceRow
-          key={i.id}
-          invoice={{
-            id: i.id,
-            number: i.number,
-            docType: i.docType,
-            status: i.status,
-            clientName: i.client.name,
-            amount: i.amount,
-            currency: i.currency,
-            dueDateLabel: i.dueDate ? formatDate(i.dueDate) : null,
-          }}
-        />
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -295,11 +332,12 @@ function DevisTab({
 
   const totalValue = rows.reduce((sum, r) => sum + r.amount, 0);
   const acceptedCount = rows.filter((r) => r.status === 'ACCEPTED').length;
+  const depositExpected = rows.reduce((sum, r) => sum + (resolveDevisDeposit(r) ?? 0), 0);
 
   return (
     <>
       {rows.length > 0 && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
             label="Valeur totale"
             value={formatPrice(totalValue)}
@@ -307,6 +345,12 @@ function DevisTab({
             icon="file-text"
           />
           <StatCard label="Acceptés" value={String(acceptedCount)} icon="check-circle" />
+          <StatCard
+            label="Acompte prévu"
+            value={formatPrice(depositExpected)}
+            unit="XOF"
+            icon="file-clock"
+          />
         </div>
       )}
 

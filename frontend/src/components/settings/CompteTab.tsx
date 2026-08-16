@@ -9,6 +9,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { DefaultPaymentMethodsSection } from '@/components/settings/DefaultPaymentMethodsSection';
 import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
@@ -445,6 +446,8 @@ export function CompteTab({ user }: { user: User }) {
           </p>
         )}
       </form>
+
+      <DefaultPaymentMethodsSection />
 
       <section className="flex flex-col gap-4 rounded-lg border border-tag-red-fg/30 bg-canvas p-5 shadow-card">
         <div>

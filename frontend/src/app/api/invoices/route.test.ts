@@ -103,6 +103,38 @@ describe('GET /api/invoices', () => {
     const args = prismaMock.invoice.findMany.mock.calls[0]?.[0];
     expect(args?.where?.clientId).toBe('c-1');
   });
+
+  it('includes a light packs selection (id/depositType/depositValue/items) for the Acompte prévu row figure', async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/invoices'));
+    const args = prismaMock.invoice.findMany.mock.calls[0]?.[0];
+    const packsInclude = args?.include?.packs as { select?: unknown } | undefined;
+    expect(packsInclude?.select).toEqual({
+      id: true,
+      depositType: true,
+      depositValue: true,
+      items: { select: { quantity: true, unitPrice: true } },
+    });
+  });
+
+  it('depositAmount and selectedPackId already come back on each row (plain scalars, no select filtering them out)', async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: 'i-1',
+        docType: 'INVOICE',
+        amount: 60000,
+        depositAmount: 20000,
+        selectedPackId: null,
+        client: { id: 'c-1', name: 'Tekki Foods' },
+        packs: [],
+        createdAt: new Date('2026-05-01T00:00:00Z'),
+      },
+    ] as never);
+    const res = await GET(makeGet('http://test/api/invoices'));
+    const body = await res.json();
+    expect(body.items[0].depositAmount).toBe(20000);
+    expect(body.items[0].selectedPackId).toBeNull();
+  });
 });
 
 describe('POST /api/invoices', () => {

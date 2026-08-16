@@ -12,6 +12,7 @@ import { computeItemsTotal } from '@/lib/invoiceTotals';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { ContentBlockList, type ContentBlockDraft } from '@/components/forms/ContentBlockList';
 import {
   CURRENCIES,
   FREELANCE_SECTOR_LABELS,
@@ -57,14 +58,9 @@ interface PackDraft {
   depositValue: string;
 }
 
-// Generic {primaryText, secondaryText} draft reused across the 4 additional
-// devis sections (PROCESS/CONDITIONS/PAYMENT_METHOD/FAQ) — mirrors
-// QuoteContentBlock's shape, see schema.prisma for why one shape covers all
-// four (title+description, or label+value, or question+answer).
-interface ContentBlockDraft {
-  primaryText: string;
-  secondaryText: string;
-}
+// ContentBlockDraft/ContentBlockList live in @/components/forms/ContentBlockList
+// (shared with the freelancer's default-payment-methods editor in
+// Paramètres → Facturation). Only the kind enum stays local to this form.
 type ContentBlockKind = 'PROCESS' | 'CONDITIONS' | 'PAYMENT_METHOD' | 'FAQ';
 
 export interface QuoteBuilderExisting {
@@ -146,93 +142,6 @@ function conditionsTemplateFor(type: ProjectType): ContentBlockDraft[] {
   );
 }
 
-// Shared editor for the 4 additional devis sections — same repeatable
-// add/remove/update list pattern as pack items, just without the numeric
-// qty/price columns. Kept always-expanded (no "Auto" badge/chevron, unlike
-// the competitor screens that inspired the concept) to match the rest of
-// this builder's visual language.
-function ContentBlockList({
-  title,
-  icon,
-  primaryPlaceholder,
-  secondaryPlaceholder,
-  addLabel,
-  blocks,
-  onChange,
-}: {
-  title: string;
-  icon: string;
-  primaryPlaceholder: string;
-  secondaryPlaceholder: string;
-  addLabel: string;
-  blocks: ContentBlockDraft[];
-  onChange: (blocks: ContentBlockDraft[]) => void;
-}) {
-  function update(index: number, field: keyof ContentBlockDraft, value: string) {
-    onChange(blocks.map((b, i) => (i === index ? { ...b, [field]: value } : b)));
-  }
-  function add() {
-    onChange([...blocks, { primaryText: '', secondaryText: '' }]);
-  }
-  function remove(index: number) {
-    onChange(blocks.filter((_, i) => i !== index));
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
-      <div className="flex items-center gap-2">
-        <Icon i={icon} size={16} className="text-muted-foreground" />
-        <p className="font-body text-sm font-semibold text-foreground">{title}</p>
-      </div>
-      {blocks.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {blocks.map((block, index) => (
-            <div
-              key={index}
-              className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-start"
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <input
-                  type="text"
-                  placeholder={primaryPlaceholder}
-                  value={block.primaryText}
-                  onChange={(e) => update(index, 'primaryText', e.target.value)}
-                  maxLength={500}
-                  className={inputClass}
-                />
-                <textarea
-                  placeholder={secondaryPlaceholder}
-                  value={block.secondaryText}
-                  onChange={(e) => update(index, 'secondaryText', e.target.value)}
-                  maxLength={2000}
-                  rows={2}
-                  className={`${inputClass} resize-none`}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                aria-label="Retirer"
-                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
-              >
-                <Icon i="trash" size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={add}
-        className="flex w-fit items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground"
-      >
-        <Icon i="plus" size={13} />
-        {addLabel}
-      </button>
-    </div>
-  );
-}
-
 export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -307,13 +216,28 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     { skip: !!quote },
   );
   const lastQuoteId = lastQuotesData?.items?.[0]?.id;
-  const { data: lastQuoteDetail } = useApi<{
+  const { data: lastQuoteDetail, error: lastQuoteDetailError } = useApi<{
     paymentTermsNote: string | null;
     contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[];
   }>(`/api/invoices/${lastQuoteId}`, { skip: !lastQuoteId || !!quote });
+  // The freelancer's own default payment methods (Paramètres → Facturation)
+  // take priority over the "last quote as template" mechanism for the
+  // PAYMENT_METHOD section specifically — a durable, intentional source
+  // instead of whatever happened to be typed on whichever devis came before.
+  const { data: defaultPaymentMethodsData, error: defaultPaymentMethodsError } = useApi<{
+    methods: { primaryText: string; secondaryText: string | null }[];
+  }>('/api/settings/payment-methods', { skip: !!quote });
   const templateAppliedRef = useRef(false);
   useEffect(() => {
-    if (quote || templateAppliedRef.current || !lastQuoteDetail) return;
+    if (quote || templateAppliedRef.current) return;
+    // "Settled" = either the data arrived, the fetch errored (don't block
+    // forever on a flaky network), or (last-quote only) we've confirmed
+    // there simply is no prior devis to template from.
+    const lastQuoteSettled =
+      !!lastQuoteDetail || !!lastQuoteDetailError || (!!lastQuotesData && !lastQuoteId);
+    const defaultsSettled = !!defaultPaymentMethodsData || !!defaultPaymentMethodsError;
+    if (!lastQuoteSettled || !defaultsSettled) return;
+
     const untouched =
       processBlocks.length === 0 &&
       conditionBlocks.length === 0 &&
@@ -322,15 +246,36 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       paymentTermsNote === '';
     templateAppliedRef.current = true;
     if (!untouched) return; // user already started typing, don't clobber their edits
-    setProcessBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PROCESS'));
-    setConditionBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'CONDITIONS'));
-    setPaymentBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PAYMENT_METHOD'));
-    setFaqBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'FAQ'));
-    if (lastQuoteDetail.paymentTermsNote) setPaymentTermsNote(lastQuoteDetail.paymentTermsNote);
-    // Only re-run when the template data itself arrives — deliberately not
-    // depending on the draft state above, which would re-trigger on every
-    // keystroke since this effect also writes to that state.
-  }, [lastQuoteDetail]);
+
+    if (lastQuoteDetail) {
+      setProcessBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PROCESS'));
+      setConditionBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'CONDITIONS'));
+      setFaqBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'FAQ'));
+      if (lastQuoteDetail.paymentTermsNote) setPaymentTermsNote(lastQuoteDetail.paymentTermsNote);
+    }
+
+    const defaultMethods = defaultPaymentMethodsData?.methods ?? [];
+    if (defaultMethods.length > 0) {
+      setPaymentBlocks(
+        defaultMethods.map((m) => ({
+          primaryText: m.primaryText,
+          secondaryText: m.secondaryText ?? '',
+        })),
+      );
+    } else if (lastQuoteDetail) {
+      setPaymentBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PAYMENT_METHOD'));
+    }
+    // Only re-run when the template/default data itself arrives —
+    // deliberately not depending on the draft state above, which would
+    // re-trigger on every keystroke since this effect also writes to it.
+  }, [
+    lastQuoteDetail,
+    lastQuoteDetailError,
+    lastQuotesData,
+    lastQuoteId,
+    defaultPaymentMethodsData,
+    defaultPaymentMethodsError,
+  ]);
 
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);

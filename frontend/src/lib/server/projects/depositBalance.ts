@@ -44,20 +44,21 @@ export function theoreticalDepositAmount(project: {
   return Math.round((project.amount * project.depositValue) / 100);
 }
 
-export async function computeDepositBalance(
-  db: Db,
-  project: { id: string; amount: number; depositType: string; depositValue: number },
-): Promise<DepositBalance> {
-  const [paidOrders, paidInvoice] = await Promise.all([
-    db.order.findMany({
-      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
-      select: { amount: true, metadata: true },
-    }),
-    db.invoice.findFirst({
-      where: { projectId: project.id, docType: 'INVOICE', status: 'PAID' },
-      select: { id: true },
-    }),
-  ]);
+type ProjectDepositFields = {
+  id: string;
+  amount: number;
+  depositType: string;
+  depositValue: number;
+};
+
+// Pure per-project math, shared by the single-project (computeDepositBalance)
+// and batched (computeDepositBalanceBatch) entry points below, so a list
+// page's bulk computation can never silently drift from a detail page's.
+function deriveDepositBalance(
+  project: ProjectDepositFields,
+  paidOrders: { amount: number; metadata: unknown }[],
+  invoiceSettled: boolean,
+): DepositBalance {
   const paidByKind = new Map<'DEPOSIT' | 'BALANCE', number>();
   for (const o of paidOrders) {
     const kind = (o.metadata as PaidOrderMeta | null)?.docType;
@@ -69,7 +70,6 @@ export async function computeDepositBalance(
   const theoreticalDeposit = theoreticalDepositAmount(project);
   const depositAmount = paidByKind.get('DEPOSIT') ?? theoreticalDeposit;
   const balanceAmount = paidByKind.get('BALANCE') ?? Math.max(0, project.amount - depositAmount);
-  const invoiceSettled = Boolean(paidInvoice);
   return {
     deposit: {
       amount: depositAmount,
@@ -77,4 +77,73 @@ export async function computeDepositBalance(
     },
     balance: { amount: balanceAmount, paid: paidByKind.has('BALANCE') || invoiceSettled },
   };
+}
+
+export async function computeDepositBalance(
+  db: Db,
+  project: ProjectDepositFields,
+): Promise<DepositBalance> {
+  const [paidOrders, paidInvoice] = await Promise.all([
+    db.order.findMany({
+      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
+      select: { amount: true, metadata: true },
+    }),
+    db.invoice.findFirst({
+      where: { projectId: project.id, docType: 'INVOICE', status: 'PAID' },
+      select: { id: true },
+    }),
+  ]);
+  return deriveDepositBalance(project, paidOrders, Boolean(paidInvoice));
+}
+
+// Bulk variant for list pages (GET /api/projects) — 2 queries total instead
+// of 2×N. `order.metadata.projectId` is a JSON path, not a real column, so it
+// can't use a plain `in` filter; an OR of per-id equals checks is the
+// documented Prisma way to batch a JSON-path lookup across several ids in one
+// round trip. `invoice.projectId` IS a real column, so that half uses `in`
+// directly.
+export async function computeDepositBalanceBatch(
+  db: Db,
+  projects: ProjectDepositFields[],
+): Promise<Map<string, DepositBalance>> {
+  if (projects.length === 0) return new Map();
+  const ids = projects.map((p) => p.id);
+  const [allPaidOrders, paidInvoices] = await Promise.all([
+    db.order.findMany({
+      where: {
+        status: 'PAID',
+        OR: ids.map((id) => ({ metadata: { path: ['projectId'], equals: id } })),
+      },
+      select: { amount: true, metadata: true },
+    }),
+    db.invoice.findMany({
+      where: { projectId: { in: ids }, docType: 'INVOICE', status: 'PAID' },
+      select: { projectId: true },
+    }),
+  ]);
+
+  const ordersByProject = new Map<string, { amount: number; metadata: unknown }[]>();
+  for (const order of allPaidOrders) {
+    const projectId = (order.metadata as PaidOrderMeta | null)?.projectId;
+    if (!projectId) continue;
+    const bucket = ordersByProject.get(projectId);
+    if (bucket) bucket.push(order);
+    else ordersByProject.set(projectId, [order]);
+  }
+  const settledProjectIds = new Set(
+    paidInvoices.map((i) => i.projectId).filter((id) => id != null),
+  );
+
+  const result = new Map<string, DepositBalance>();
+  for (const project of projects) {
+    result.set(
+      project.id,
+      deriveDepositBalance(
+        project,
+        ordersByProject.get(project.id) ?? [],
+        settledProjectIds.has(project.id),
+      ),
+    );
+  }
+  return result;
 }

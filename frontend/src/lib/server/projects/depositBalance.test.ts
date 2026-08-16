@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeDepositBalance } from './depositBalance';
+import { computeDepositBalance, computeDepositBalanceBatch } from './depositBalance';
 
 function makeDb(
   orders: { amount: number; metadata: unknown }[],
@@ -8,6 +8,16 @@ function makeDb(
   return {
     order: { findMany: vi.fn().mockResolvedValue(orders) },
     invoice: { findFirst: vi.fn().mockResolvedValue(paidInvoice) },
+  };
+}
+
+function makeBatchDb(
+  orders: { amount: number; metadata: unknown }[],
+  paidInvoices: { projectId: string }[] = [],
+) {
+  return {
+    order: { findMany: vi.fn().mockResolvedValue(orders) },
+    invoice: { findMany: vi.fn().mockResolvedValue(paidInvoices) },
   };
 }
 
@@ -114,5 +124,79 @@ describe('computeDepositBalance', () => {
     const result = await computeDepositBalance(db as never, noneProject);
     expect(result.deposit).toEqual({ amount: 0, paid: true });
     expect(result.balance).toEqual({ amount: 100000, paid: false });
+  });
+});
+
+describe('computeDepositBalanceBatch', () => {
+  const projectA = { id: 'p-a', amount: 100000, depositType: 'PERCENT', depositValue: 30 };
+  const projectB = { id: 'p-b', amount: 50000, depositType: 'PERCENT', depositValue: 50 };
+
+  it('empty list -> empty map, no queries made', async () => {
+    const db = makeBatchDb([]);
+    const result = await computeDepositBalanceBatch(db as never, []);
+    expect(result.size).toBe(0);
+    expect(db.order.findMany).not.toHaveBeenCalled();
+    expect(db.invoice.findMany).not.toHaveBeenCalled();
+  });
+
+  it('single project, no paid orders -> matches the single-project theoretical result', async () => {
+    const db = makeBatchDb([]);
+    const result = await computeDepositBalanceBatch(db as never, [projectA]);
+    expect(result.get('p-a')).toEqual({
+      deposit: { amount: 30000, paid: false },
+      balance: { amount: 70000, paid: false },
+    });
+  });
+
+  it('groups orders by project, one query for the whole batch', async () => {
+    const db = makeBatchDb([
+      { amount: 30000, metadata: { projectId: 'p-a', docType: 'DEPOSIT' } },
+      { amount: 25000, metadata: { projectId: 'p-b', docType: 'DEPOSIT' } },
+    ]);
+    const result = await computeDepositBalanceBatch(db as never, [projectA, projectB]);
+    expect(result.get('p-a')).toEqual({
+      deposit: { amount: 30000, paid: true },
+      balance: { amount: 70000, paid: false },
+    });
+    expect(result.get('p-b')).toEqual({
+      deposit: { amount: 25000, paid: true },
+      balance: { amount: 25000, paid: false },
+    });
+    expect(db.order.findMany).toHaveBeenCalledTimes(1);
+    const args = db.order.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.status).toBe('PAID');
+    expect(args?.where?.OR).toEqual([
+      { metadata: { path: ['projectId'], equals: 'p-a' } },
+      { metadata: { path: ['projectId'], equals: 'p-b' } },
+    ]);
+  });
+
+  it('a paid linked facture settles both buckets for that project only', async () => {
+    const db = makeBatchDb([], [{ projectId: 'p-a' }]);
+    const result = await computeDepositBalanceBatch(db as never, [projectA, projectB]);
+    expect(result.get('p-a')).toEqual({
+      deposit: { amount: 30000, paid: true },
+      balance: { amount: 70000, paid: true },
+    });
+    expect(result.get('p-b')).toEqual({
+      deposit: { amount: 25000, paid: false },
+      balance: { amount: 25000, paid: false },
+    });
+    expect(db.invoice.findMany).toHaveBeenCalledTimes(1);
+    const args = db.invoice.findMany.mock.calls[0]?.[0];
+    expect(args?.where).toEqual({
+      projectId: { in: ['p-a', 'p-b'] },
+      docType: 'INVOICE',
+      status: 'PAID',
+    });
+  });
+
+  it('an order with no recognized projectId in its metadata is ignored', async () => {
+    const db = makeBatchDb([{ amount: 30000, metadata: { docType: 'DEPOSIT' } }]);
+    const result = await computeDepositBalanceBatch(db as never, [projectA]);
+    expect(result.get('p-a')).toEqual({
+      deposit: { amount: 30000, paid: false },
+      balance: { amount: 70000, paid: false },
+    });
   });
 });

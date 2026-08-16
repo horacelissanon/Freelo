@@ -18,6 +18,30 @@ import { makeRequestContext, withRequestContext } from '@/lib/server/observabili
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
 
+interface TrackedContentBlockShape {
+  id: string;
+  kind: string;
+  primaryText: string;
+  secondaryText: string | null;
+}
+
+// Live (never frozen) fallback for the freelancer's own default payment
+// methods — used wherever a project or devis has no PAYMENT_METHOD content
+// of its own. See DefaultPaymentMethod in schema.prisma.
+async function resolveDefaultPaymentBlocks(userId: string): Promise<TrackedContentBlockShape[]> {
+  const defaults = await prisma.defaultPaymentMethod.findMany({
+    where: { userId },
+    orderBy: { order: 'asc' },
+    select: { id: true, primaryText: true, secondaryText: true },
+  });
+  return defaults.map((d) => ({
+    id: d.id,
+    kind: 'PAYMENT_METHOD',
+    primaryText: d.primaryText,
+    secondaryText: d.secondaryText,
+  }));
+}
+
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ token: string }> },
@@ -96,7 +120,7 @@ export async function GET(
         depositValue: true,
         createdAt: true,
         client: { select: { name: true } },
-        user: { select: { publicPortalEnabled: true, phone: true } },
+        user: { select: { id: true, publicPortalEnabled: true, phone: true } },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
         review: { select: { rating: true, comment: true } },
@@ -116,8 +140,10 @@ export async function GET(
       // The Payments block on the tracking page is informational only (no
       // online charge from here — see /api/track/[token]/pay's comment for
       // why that path stays unlinked from the UI): it reuses whatever
-      // payment info the originating devis carried, falling back to a plain
-      // WhatsApp prompt when the project wasn't created from one.
+      // payment info the originating devis carried, falling back to the
+      // freelancer's own default payment methods (Paramètres → Facturation)
+      // when there's no origin devis, or its PAYMENT_METHOD block was left
+      // empty — this fallback is resolved live on every read, not frozen.
       const originQuote = await prisma.invoice.findFirst({
         where: { projectId: project.id, docType: 'QUOTE' },
         select: {
@@ -125,6 +151,10 @@ export async function GET(
           contentBlocks: { where: { kind: 'PAYMENT_METHOD' }, orderBy: { order: 'asc' } },
         },
       });
+      const paymentBlocks =
+        originQuote && originQuote.contentBlocks.length > 0
+          ? originQuote.contentBlocks
+          : await resolveDefaultPaymentBlocks(project.user.id);
 
       const { steps, comments, review, client: projectClient, user, ...projectFields } = project;
       return NextResponse.json(
@@ -137,9 +167,10 @@ export async function GET(
           deposit,
           balance,
           providerPhone: user.phone,
-          paymentInfo: originQuote
-            ? { note: originQuote.paymentTermsNote, blocks: originQuote.contentBlocks }
-            : null,
+          paymentInfo:
+            originQuote?.paymentTermsNote != null || paymentBlocks.length > 0
+              ? { note: originQuote?.paymentTermsNote ?? null, blocks: paymentBlocks }
+              : null,
         },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -161,6 +192,7 @@ export async function GET(
         client: { select: { name: true } },
         user: {
           select: {
+            id: true,
             publicPortalEnabled: true,
             documentIdentity: true,
             studioName: true,
@@ -191,10 +223,18 @@ export async function GET(
     }
 
     const { user: invoiceUser, ...invoiceFields } = invoice;
+    // Same live fallback as the project branch above — a devis created
+    // before default payment methods existed (or whose block was left
+    // empty) still shows something useful instead of nothing.
+    const hasPaymentBlocks = invoice.contentBlocks.some((b) => b.kind === 'PAYMENT_METHOD');
+    const contentBlocks: TrackedContentBlockShape[] =
+      invoice.docType === 'QUOTE' && !hasPaymentBlocks
+        ? [...invoice.contentBlocks, ...(await resolveDefaultPaymentBlocks(invoiceUser.id))]
+        : invoice.contentBlocks;
     return NextResponse.json(
       {
         kind: invoice.docType === 'QUOTE' ? 'quote' : 'invoice',
-        invoice: invoiceFields,
+        invoice: { ...invoiceFields, contentBlocks },
         provider: resolveDocumentIdentity({
           ...invoiceUser,
           documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',

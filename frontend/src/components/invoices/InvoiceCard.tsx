@@ -20,6 +20,10 @@ export interface InvoiceCardData {
   amount: number;
   currency: string;
   dueDateLabel: string | null;
+  /** Facture: stored acompte. Devis: estimated from the selected/only pack — null when not resolvable. */
+  depositAmount?: number | null;
+  /** Facture only — devis never show a "solde" pre-acceptance. */
+  balanceAmount?: number | null;
 }
 
 export function InvoiceCard({ invoice }: { invoice: InvoiceCardData }) {
@@ -56,6 +60,18 @@ export function InvoiceCard({ invoice }: { invoice: InvoiceCardData }) {
           </p>
           {invoice.dueDateLabel && (
             <p className="text-xs text-muted-foreground">Échéance {invoice.dueDateLabel}</p>
+          )}
+          {invoice.docType === 'INVOICE' &&
+            invoice.depositAmount != null &&
+            invoice.balanceAmount != null && (
+              <p className="text-xs text-muted-foreground">
+                Ac. {formatPrice(invoice.depositAmount)} · Sd. {formatPrice(invoice.balanceAmount)}
+              </p>
+            )}
+          {invoice.docType === 'QUOTE' && invoice.depositAmount != null && (
+            <p className="text-xs text-muted-foreground">
+              Acompte prévu {formatPrice(invoice.depositAmount)}
+            </p>
           )}
         </div>
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">

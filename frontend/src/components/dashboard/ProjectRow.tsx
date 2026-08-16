@@ -17,6 +17,8 @@ export interface ProjectRowData {
   dueDateLabel: string | null;
   publicToken: string;
   clientName?: string;
+  deposit?: { amount: number; paid: boolean };
+  balance?: { amount: number; paid: boolean };
 }
 
 export function ProjectRow({ project, masked }: { project: ProjectRowData; masked?: boolean }) {
@@ -56,7 +58,7 @@ export function ProjectRow({ project, masked }: { project: ProjectRowData; maske
             />
           </div>
         </div>
-        <div className="hidden w-28 flex-shrink-0 text-right sm:block">
+        <div className="hidden w-36 flex-shrink-0 text-right sm:block">
           <p className="text-sm font-medium text-foreground">
             {masked ? (
               '••••••'
@@ -71,6 +73,25 @@ export function ProjectRow({ project, masked }: { project: ProjectRowData; maske
           </p>
           {project.dueDateLabel && (
             <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>
+          )}
+          {!masked && (project.deposit || project.balance) && (
+            <p className="text-xs">
+              {project.deposit && (
+                <span
+                  className={project.deposit.paid ? 'text-tag-green-fg' : 'text-muted-foreground'}
+                >
+                  Ac. {formatPrice(project.deposit.amount)}
+                </span>
+              )}
+              {project.deposit && project.balance && ' · '}
+              {project.balance && (
+                <span
+                  className={project.balance.paid ? 'text-tag-green-fg' : 'text-muted-foreground'}
+                >
+                  Sd. {formatPrice(project.balance.amount)}
+                </span>
+              )}
+            </p>
           )}
         </div>
         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-secondary">

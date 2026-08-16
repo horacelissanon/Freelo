@@ -18,6 +18,10 @@ function ctxWith(token: string): { params: Promise<{ token: string }> } {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: no freelancer-configured default payment methods — most tests
+  // don't care about this fallback and would otherwise crash on
+  // `.map()`-ing the unmocked-deep-mock's `undefined` return.
+  prismaMock.defaultPaymentMethod.findMany.mockResolvedValue([]);
 });
 
 describe('GET /api/track/[token] — client token', () => {
@@ -126,6 +130,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       dueDate: null,
       client: { name: 'Tekki Foods' },
       user: {
+        id: 'user-1',
         publicPortalEnabled: true,
         documentIdentity: 'COMPANY',
         studioName: 'Atelier X',
@@ -173,6 +178,105 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
     expect(body.invoice.user).toBeUndefined();
   });
 
+  it('devis with no PAYMENT_METHOD block falls back to the freelancer default methods', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue(null);
+    prismaMock.invoice.findUnique.mockResolvedValue({
+      id: 'i-1',
+      number: 'QT-2026-001',
+      docType: 'QUOTE',
+      status: 'SENT',
+      description: null,
+      amount: 200000,
+      currency: 'XOF',
+      issueDate: new Date('2026-05-01T00:00:00Z'),
+      dueDate: null,
+      client: { name: 'Tekki Foods' },
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
+        studioName: 'Atelier X',
+        name: null,
+        email: 'atelier@example.com',
+        phone: null,
+        bio: null,
+        address: null,
+        taxId: null,
+        commerceRegistry: null,
+      },
+      lineItems: [],
+      packs: [],
+      contentBlocks: [
+        { id: 'cb-1', kind: 'FAQ', primaryText: 'Délai ?', secondaryText: '2 semaines.' },
+      ],
+      paymentTermsNote: null,
+      depositAmount: null,
+      deliveryDate: null,
+      paymentMethodNote: null,
+      footerNote: null,
+    } as never);
+    prismaMock.defaultPaymentMethod.findMany.mockResolvedValue([
+      { id: 'dpm-1', primaryText: 'Wave', secondaryText: '07 XX XX XX XX' },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-invoice-1'), ctxWith('tok-invoice-1'));
+    const body = await res.json();
+    expect(body.invoice.contentBlocks).toEqual([
+      { id: 'cb-1', kind: 'FAQ', primaryText: 'Délai ?', secondaryText: '2 semaines.' },
+      { id: 'dpm-1', kind: 'PAYMENT_METHOD', primaryText: 'Wave', secondaryText: '07 XX XX XX XX' },
+    ]);
+    const defaultsArgs = prismaMock.defaultPaymentMethod.findMany.mock.calls[0]?.[0];
+    expect(defaultsArgs?.where).toEqual({ userId: 'user-1' });
+  });
+
+  it('devis already has a PAYMENT_METHOD block -> no fallback lookup', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue(null);
+    prismaMock.invoice.findUnique.mockResolvedValue({
+      id: 'i-1',
+      number: 'QT-2026-001',
+      docType: 'QUOTE',
+      status: 'SENT',
+      description: null,
+      amount: 200000,
+      currency: 'XOF',
+      issueDate: new Date('2026-05-01T00:00:00Z'),
+      dueDate: null,
+      client: { name: 'Tekki Foods' },
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
+        studioName: 'Atelier X',
+        name: null,
+        email: 'atelier@example.com',
+        phone: null,
+        bio: null,
+        address: null,
+        taxId: null,
+        commerceRegistry: null,
+      },
+      lineItems: [],
+      packs: [],
+      contentBlocks: [
+        { id: 'cb-1', kind: 'PAYMENT_METHOD', primaryText: 'Orange Money', secondaryText: null },
+      ],
+      paymentTermsNote: null,
+      depositAmount: null,
+      deliveryDate: null,
+      paymentMethodNote: null,
+      footerNote: null,
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-invoice-1'), ctxWith('tok-invoice-1'));
+    const body = await res.json();
+    expect(body.invoice.contentBlocks).toEqual([
+      { id: 'cb-1', kind: 'PAYMENT_METHOD', primaryText: 'Orange Money', secondaryText: null },
+    ]);
+    expect(prismaMock.defaultPaymentMethod.findMany).not.toHaveBeenCalled();
+  });
+
   it('SENT invoice -> 200 { kind: "invoice" }', async () => {
     prismaMock.client.findUnique.mockResolvedValue(null);
     prismaMock.project.findUnique.mockResolvedValue(null);
@@ -187,7 +291,13 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       issueDate: new Date('2026-05-01T00:00:00Z'),
       dueDate: null,
       client: { name: 'Tekki Foods' },
-      user: { publicPortalEnabled: true, studioName: 'Atelier X', name: null, bio: null },
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        studioName: 'Atelier X',
+        name: null,
+        bio: null,
+      },
       lineItems: [{ id: 'li-1', designation: 'Service', quantity: 1, unitPrice: 60000 }],
       packs: [],
       contentBlocks: [],
@@ -203,6 +313,9 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
     const body = await res.json();
     expect(body.kind).toBe('invoice');
     expect(body.invoice.lineItems).toHaveLength(1);
+    // A facture (not a devis) never gets the default-payment-methods
+    // fallback — that section only exists on devis tracking pages.
+    expect(prismaMock.defaultPaymentMethod.findMany).not.toHaveBeenCalled();
   });
 
   it('owner has publicPortalEnabled=false -> 404 NOT_FOUND', async () => {
@@ -303,7 +416,7 @@ describe('GET /api/track/[token] — project token', () => {
       depositValue: 30,
       createdAt: new Date('2026-05-01T00:00:00Z'),
       client: { name: 'Tekki Foods' },
-      user: { publicPortalEnabled: true, phone: '+221700000000' },
+      user: { id: 'user-1', publicPortalEnabled: true, phone: '+221700000000' },
       steps: [],
       comments: [],
     } as never);
@@ -332,7 +445,7 @@ describe('GET /api/track/[token] — project token', () => {
     expect(invoiceArgs?.where).toEqual({ projectId: 'p-1', docType: 'QUOTE' });
   });
 
-  it('no originating devis -> paymentInfo is null', async () => {
+  it('no originating devis and no default payment methods -> paymentInfo is null', async () => {
     prismaMock.client.findUnique.mockResolvedValue(null);
     prismaMock.project.findUnique.mockResolvedValue({
       id: 'p-1',
@@ -347,7 +460,7 @@ describe('GET /api/track/[token] — project token', () => {
       depositValue: 30,
       createdAt: new Date('2026-05-01T00:00:00Z'),
       client: { name: 'Tekki Foods' },
-      user: { publicPortalEnabled: true, phone: null },
+      user: { id: 'user-1', publicPortalEnabled: true, phone: null },
       steps: [],
       comments: [],
     } as never);
@@ -358,6 +471,82 @@ describe('GET /api/track/[token] — project token', () => {
     const body = await res.json();
     expect(body.paymentInfo).toBeNull();
     expect(body.providerPhone).toBeNull();
+  });
+
+  it('no originating devis but freelancer has default payment methods -> paymentInfo falls back to them', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositType: 'PERCENT',
+      depositValue: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: { id: 'user-1', publicPortalEnabled: true, phone: null },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+    prismaMock.defaultPaymentMethod.findMany.mockResolvedValue([
+      { id: 'dpm-1', primaryText: 'Wave', secondaryText: '07 XX XX XX XX' },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.paymentInfo).toEqual({
+      note: null,
+      blocks: [
+        {
+          id: 'dpm-1',
+          kind: 'PAYMENT_METHOD',
+          primaryText: 'Wave',
+          secondaryText: '07 XX XX XX XX',
+        },
+      ],
+    });
+    const defaultsArgs = prismaMock.defaultPaymentMethod.findMany.mock.calls[0]?.[0];
+    expect(defaultsArgs?.where).toEqual({ userId: 'user-1' });
+  });
+
+  it('originating devis has no PAYMENT_METHOD blocks -> falls back to default payment methods too', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositType: 'PERCENT',
+      depositValue: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: { id: 'user-1', publicPortalEnabled: true, phone: null },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ paymentTermsNote: null, contentBlocks: [] } as never);
+    prismaMock.defaultPaymentMethod.findMany.mockResolvedValue([
+      { id: 'dpm-1', primaryText: 'Wave', secondaryText: null },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.paymentInfo.blocks).toEqual([
+      { id: 'dpm-1', kind: 'PAYMENT_METHOD', primaryText: 'Wave', secondaryText: null },
+    ]);
   });
 
   it('unknown token (neither client, project, nor invoice) -> 404 NOT_FOUND', async () => {

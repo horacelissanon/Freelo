@@ -84,6 +84,7 @@ model User {
   reviews           Review[]
   subscription      Subscription?
   sessions          Session[]
+  defaultPaymentMethods DefaultPaymentMethod[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
@@ -662,6 +663,27 @@ model QuoteContentBlock {
   updatedAt     DateTime @updatedAt
 
   @@index([invoiceId, kind, order])
+}
+
+// The freelancer's own default payment methods (Paramètres → Facturation) —
+// same {primaryText, secondaryText, order} shape as QuoteContentBlock's
+// PAYMENT_METHOD kind, reused for two purposes: (1) pre-fills a brand-new
+// devis's own PAYMENT_METHOD blocks (which the freelancer keeps as their own
+// editable copy from then on, same "each quote owns its copy" invariant as
+// QuoteContentBlock), and (2) a live fallback in GET /api/track/[token] for
+// anything with no copy of its own — a standalone project with no origin
+// devis, or a devis whose PAYMENT_METHOD block was left empty.
+model DefaultPaymentMethod {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order         Int
+  primaryText   String
+  secondaryText String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, order])
 }
 
 // Client-submitted review — one per Project, collected via the Client Link

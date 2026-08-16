@@ -198,6 +198,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       take: limit + 1,
       include: {
         client: { select: { id: true, name: true } },
+        // Light select (no titles/descriptions) — just enough for the list
+        // row to compute a devis's "Acompte prévu" via computePackDeposit,
+        // without pulling full pack detail for every row on the page.
+        packs: {
+          select: {
+            id: true,
+            depositType: true,
+            depositValue: true,
+            items: { select: { quantity: true, unitPrice: true } },
+          },
+        },
       },
     });
 

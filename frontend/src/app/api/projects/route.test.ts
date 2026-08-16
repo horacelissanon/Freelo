@@ -46,6 +46,8 @@ function project(overrides: Partial<{ id: string; createdAt: Date }> = {}) {
     progress: 65,
     amount: 120000,
     currency: 'XOF',
+    depositType: 'PERCENT',
+    depositValue: 30,
     dueDate: null,
     step: 'Maquettes en revue',
     publicToken: 'tok-1',
@@ -76,6 +78,11 @@ beforeEach(() => {
     }
     return Promise.resolve(cb);
   });
+  // Default for GET's computeDepositBalanceBatch call — most tests don't
+  // care about the acompte/solde figures and would otherwise crash
+  // iterating the unmocked-deep-mock's `undefined` return.
+  prismaMock.order.findMany.mockResolvedValue([] as never);
+  prismaMock.invoice.findMany.mockResolvedValue([] as never);
 });
 
 describe('GET /api/projects', () => {
@@ -107,6 +114,23 @@ describe('GET /api/projects', () => {
     const res = await GET(makeGet('http://test/api/projects'));
     const body = await res.json();
     expect(body.items[0].client).toEqual({ id: 'c-1', name: 'Bakeli Studio' });
+  });
+
+  it('attaches acompte/solde to each row via a single batched lookup, not one per row', async () => {
+    prismaMock.project.findMany.mockResolvedValue([
+      project({ id: 'p-1' }),
+      project({ id: 'p-2' }),
+    ] as never);
+    prismaMock.order.findMany.mockResolvedValue([
+      { amount: 40000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/projects'));
+    const body = await res.json();
+    expect(body.items[0].deposit).toEqual({ amount: 40000, paid: true });
+    expect(body.items[1].deposit.paid).toBe(false);
+    expect(prismaMock.order.findMany).toHaveBeenCalledTimes(1);
+    expect(prismaMock.invoice.findMany).toHaveBeenCalledTimes(1);
   });
 });
 

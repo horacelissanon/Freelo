@@ -28,6 +28,8 @@ export interface ProjectCardData {
   dueDateLabel: string | null;
   publicToken: string;
   clientName?: string;
+  deposit?: { amount: number; paid: boolean };
+  balance?: { amount: number; paid: boolean };
 }
 
 export function ProjectCard({ project }: { project: ProjectCardData }) {
@@ -90,6 +92,25 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
           </p>
           {project.dueDateLabel && (
             <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>
+          )}
+          {(project.deposit || project.balance) && (
+            <p className="text-xs">
+              {project.deposit && (
+                <span
+                  className={project.deposit.paid ? 'text-tag-green-fg' : 'text-muted-foreground'}
+                >
+                  Ac. {formatPrice(project.deposit.amount)}
+                </span>
+              )}
+              {project.deposit && project.balance && ' · '}
+              {project.balance && (
+                <span
+                  className={project.balance.paid ? 'text-tag-green-fg' : 'text-muted-foreground'}
+                >
+                  Sd. {formatPrice(project.balance.amount)}
+                </span>
+              )}
+            </p>
           )}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5">

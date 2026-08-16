@@ -27,6 +27,8 @@ interface ProjectApiRow {
   publicToken: string;
   createdAt: string;
   client: { id: string; name: string };
+  deposit: { amount: number; paid: boolean };
+  balance: { amount: number; paid: boolean };
 }
 
 const inputClass =
@@ -118,6 +120,14 @@ export default function ProjectsPage() {
 
   const totalAmount = items.reduce((sum, p) => sum + p.amount, 0);
   const inProgressCount = items.filter((p) => p.status === 'IN_PROGRESS').length;
+  const depositsPending = items.reduce(
+    (sum, p) => sum + (p.deposit.paid ? 0 : p.deposit.amount),
+    0,
+  );
+  const balancesPending = items.reduce(
+    (sum, p) => sum + (p.balance.paid ? 0 : p.balance.amount),
+    0,
+  );
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -154,6 +164,18 @@ export default function ProjectsPage() {
           <div className="sm:order-2">
             <StatCard label="En cours" value={String(inProgressCount)} icon="clock" />
           </div>
+          <StatCard
+            label="Acomptes en attente"
+            value={formatPrice(depositsPending)}
+            unit="XOF"
+            icon="file-clock"
+          />
+          <StatCard
+            label="Soldes en attente"
+            value={formatPrice(balancesPending)}
+            unit="XOF"
+            icon="file-clock"
+          />
         </div>
       )}
 
@@ -250,6 +272,8 @@ export default function ProjectsPage() {
                 dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
                 publicToken: p.publicToken,
                 clientName: p.client.name,
+                deposit: p.deposit,
+                balance: p.balance,
               }}
             />
           ))}
@@ -270,6 +294,8 @@ export default function ProjectsPage() {
                 dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
                 publicToken: p.publicToken,
                 clientName: p.client.name,
+                deposit: p.deposit,
+                balance: p.balance,
               }}
             />
           ))}

@@ -19,6 +19,7 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { createProject } from '@/lib/server/projects/createProject';
+import { computeDepositBalanceBatch } from '@/lib/server/projects/depositBalance';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
 
@@ -125,9 +126,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json(buildPage(rows, limit), {
-      headers: { 'x-request-id': ctx.requestId },
+    const page = buildPage(rows, limit);
+    // Acompte/solde visible on the list without opening each project — one
+    // batched pair of queries for the whole page (see
+    // computeDepositBalanceBatch's own comment for why this can't be a plain
+    // `include`).
+    const balances = await computeDepositBalanceBatch(prisma, page.items);
+    const items = page.items.map((project) => {
+      const balance = balances.get(project.id);
+      return {
+        ...project,
+        deposit: balance?.deposit ?? { amount: 0, paid: false },
+        balance: balance?.balance ?? { amount: 0, paid: false },
+      };
     });
+
+    return NextResponse.json({ ...page, items }, { headers: { 'x-request-id': ctx.requestId } });
   });
 }
 
