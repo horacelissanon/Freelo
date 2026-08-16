@@ -195,7 +195,7 @@ export default function TrackingPage() {
   }, [load]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-12">
+    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-background px-4 py-12">
       <Brand />
 
       {loading ? (
@@ -220,7 +220,7 @@ export default function TrackingPage() {
 function ClientProjectsList({ view }: { view: ClientView }) {
   return (
     <div className="animate-fade-in rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-      <div className="relative -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-lg bg-gradient-to-br from-primary to-accent p-6 sm:-mx-8 sm:-mt-8 sm:mb-8 sm:p-8">
+      <div className="relative -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-lg bg-gradient-to-br from-primary to-track-hero p-6 sm:-mx-8 sm:-mt-8 sm:mb-8 sm:p-8">
         <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
         <p className="relative font-body text-xs tracking-widest text-white/70 uppercase">
           Suivi client
@@ -397,7 +397,7 @@ function ProjectDetail({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent p-6 shadow-card sm:p-8">
+      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-track-hero p-6 shadow-card sm:p-8">
         <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
         <p className="relative font-body text-xs tracking-widest text-white/70 uppercase">
           Suivi de projet — {project.client.name}
@@ -975,7 +975,7 @@ function QuoteInvoiceDetail({
 
   return (
     <div className="flex flex-col gap-6 pb-24">
-      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-accent p-6 shadow-card sm:p-8">
+      <div className="animate-fade-in relative overflow-hidden rounded-lg bg-gradient-to-br from-primary to-track-hero p-6 shadow-card sm:p-8">
         {/* Decorative texture — subtle, doesn't compete with the content. */}
         <div
           aria-hidden
