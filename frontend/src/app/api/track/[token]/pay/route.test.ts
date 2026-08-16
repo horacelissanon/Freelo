@@ -118,13 +118,35 @@ describe('POST /api/track/[token]/pay', () => {
   it('deposit already paid -> 409 ALREADY_PAID', async () => {
     prismaMock.project.findUnique.mockResolvedValue(projectFixture as never);
     prismaMock.order.findMany.mockResolvedValue([
-      { metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+      { amount: 150000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
     ] as never);
 
     const res = await POST(makePost({ kind: 'DEPOSIT' }, 'tok-1'), ctxWith('tok-1'));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toBe('ALREADY_PAID');
+  });
+
+  it('balance charge adjusts to the real remaining amount when a partial acompte was already recorded', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(projectFixture as never);
+    // Only 100 000 was actually recorded as the deposit, not the theoretical
+    // 30% (150 000) — the balance charge must reflect the true 400 000 owed.
+    prismaMock.order.findMany.mockResolvedValue([
+      { amount: 100000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+    ] as never);
+    prismaMock.order.create.mockResolvedValue({ id: 'order-2' } as never);
+    prismaMock.order.update.mockResolvedValue({} as never);
+    mockGetProvider.mockReturnValue({ name: 'bictorys', charge: vi.fn() } as never);
+    mockExecute.mockResolvedValue({
+      providerChargeId: 'charge-2',
+      paymentUrl: 'https://pay.bictorys.com/checkout/abc',
+      status: 'PENDING',
+    });
+
+    const res = await POST(makePost({ kind: 'BALANCE' }, 'tok-1'), ctxWith('tok-1'));
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.order.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.amount).toBe(400000);
   });
 
   it('balance requested before deposit is paid -> 409 DEPOSIT_REQUIRED', async () => {

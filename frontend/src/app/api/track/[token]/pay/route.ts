@@ -24,6 +24,7 @@ import {
 import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
 import { isProActive } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
 
 const Body = z.object({
   kind: z.enum(['DEPOSIT', 'BALANCE']),
@@ -34,11 +35,6 @@ const ORDER_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_PREFIX = 'rl:track:pay:';
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_HITS = 5;
-
-interface PaidOrderMeta {
-  projectId?: string;
-  docType?: 'DEPOSIT' | 'BALANCE';
-}
 
 function fingerprint(input: { projectId: string; kind: string }): string {
   return createHash('sha256').update(JSON.stringify(input)).digest('hex');
@@ -120,24 +116,20 @@ export async function POST(
       );
     }
 
-    const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
-    const balanceAmount = project.amount - depositAmount;
-    const amount = kind === 'DEPOSIT' ? depositAmount : balanceAmount;
-
-    const paidOrders = await prisma.order.findMany({
-      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
-      select: { metadata: true },
-    });
-    const paidKinds = new Set(
-      paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
-    );
-    if (paidKinds.has(kind)) {
+    // Reads the real, possibly-partial acompte already recorded (e.g. via
+    // the devis->projet flow) so the balance charged here is the true
+    // remaining amount, not a fixed depositPercent split that could over-
+    // or under-charge the client if a manual entry already diverged from it.
+    const { deposit, balance } = await computeDepositBalance(prisma, project);
+    const amount = kind === 'DEPOSIT' ? deposit.amount : balance.amount;
+    const alreadyPaid = kind === 'DEPOSIT' ? deposit.paid : balance.paid;
+    if (alreadyPaid) {
       return NextResponse.json(
         { error: 'ALREADY_PAID', message: 'Ce montant a déjà été réglé.' },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    if (kind === 'BALANCE' && !paidKinds.has('DEPOSIT')) {
+    if (kind === 'BALANCE' && !deposit.paid) {
       return NextResponse.json(
         { error: 'DEPOSIT_REQUIRED', message: "L'acompte doit être réglé avant le solde." },
         { status: 409, headers: { 'x-request-id': reqCtx.requestId } },

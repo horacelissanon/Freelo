@@ -90,6 +90,16 @@ describe('GET /api/projects/[id]', () => {
     expect(body.deposit).toEqual({ amount: 30000, paid: false });
     expect(body.balance).toEqual({ amount: 70000, paid: false });
   });
+
+  it('a partial acompte actually paid shows the real amount, not the 30% estimate', async () => {
+    prismaMock.order.findMany.mockResolvedValue([
+      { amount: 15000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+    ] as never);
+    const res = await GET(makeGet('p-1'), ctxWith('p-1'));
+    const body = await res.json();
+    expect(body.deposit).toEqual({ amount: 15000, paid: true });
+    expect(body.balance).toEqual({ amount: 85000, paid: false });
+  });
 });
 
 describe('PATCH /api/projects/[id]', () => {

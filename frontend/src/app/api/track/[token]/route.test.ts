@@ -240,7 +240,7 @@ describe('GET /api/track/[token] — project token', () => {
       comments: [{ id: 'c-1', author: 'CLIENT', body: 'Merci !', createdAt: new Date() }],
     } as never);
     prismaMock.order.findMany.mockResolvedValue([
-      { metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+      { amount: 150000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
     ] as never);
 
     const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
@@ -256,6 +256,34 @@ describe('GET /api/track/[token] — project token', () => {
 
     const orderArgs = prismaMock.order.findMany.mock.calls[0]?.[0];
     expect(orderArgs?.where?.status).toBe('PAID');
+  });
+
+  it('a partial acompte actually paid shows the real amount, not the theoretical split', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositPercent: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: { publicPortalEnabled: true },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([
+      { amount: 75000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.deposit).toEqual({ amount: 75000, paid: true });
+    expect(body.balance).toEqual({ amount: 425000, paid: false });
   });
 
   it('unknown token (neither client, project, nor invoice) -> 404 NOT_FOUND', async () => {

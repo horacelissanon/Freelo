@@ -12,12 +12,8 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
 import { PROJECT_TYPE_VALUES } from '@/lib/constants';
-
-interface PaidOrderMeta {
-  projectId?: string;
-  docType?: 'DEPOSIT' | 'BALANCE';
-}
 
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -79,16 +75,7 @@ export async function GET(
       );
     }
 
-    const paidOrders = await prisma.order.findMany({
-      where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
-      select: { metadata: true },
-    });
-    const paidKinds = new Set(
-      paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
-    );
-
-    const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
-    const balanceAmount = project.amount - depositAmount;
+    const { deposit, balance } = await computeDepositBalance(prisma, project);
 
     const { steps, comments, review, invoices, files, ...projectFields } = project;
     return NextResponse.json(
@@ -99,8 +86,8 @@ export async function GET(
         review: review ?? null,
         invoices,
         files,
-        deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
-        balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
+        deposit,
+        balance,
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

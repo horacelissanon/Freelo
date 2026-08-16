@@ -16,11 +16,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
-
-interface PaidOrderMeta {
-  projectId?: string;
-  docType?: 'DEPOSIT' | 'BALANCE';
-}
+import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
 
 export async function GET(
   req: NextRequest,
@@ -111,18 +107,10 @@ export async function GET(
 
       // Deposit/balance status is derived from PAID Orders tagged with this
       // project in `metadata` — no dedicated payment table (reuses the
-      // existing Order model rather than inventing a parallel one). Filtered
-      // at the DB level via a JSON path match, not loaded-then-filtered.
-      const paidOrders = await prisma.order.findMany({
-        where: { status: 'PAID', metadata: { path: ['projectId'], equals: project.id } },
-        select: { metadata: true },
-      });
-      const paidKinds = new Set(
-        paidOrders.map((o) => (o.metadata as PaidOrderMeta | null)?.docType).filter(Boolean),
-      );
-
-      const depositAmount = Math.round((project.amount * project.depositPercent) / 100);
-      const balanceAmount = project.amount - depositAmount;
+      // existing Order model rather than inventing a parallel one). Shared
+      // with GET /api/projects/[id] via computeDepositBalance so the
+      // authenticated dashboard and this public portal never disagree.
+      const { deposit, balance } = await computeDepositBalance(prisma, project);
 
       const { steps, comments, review, client: projectClient, user, ...projectFields } = project;
       void user; // consumed above for the publicPortalEnabled gate; excluded from the response
@@ -133,8 +121,8 @@ export async function GET(
           steps,
           comments,
           review: review ?? null,
-          deposit: { amount: depositAmount, paid: paidKinds.has('DEPOSIT') },
-          balance: { amount: balanceAmount, paid: paidKinds.has('BALANCE') },
+          deposit,
+          balance,
         },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );
