@@ -12,26 +12,17 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
 interface PaidOrderMeta {
   projectId?: string;
   docType?: 'DEPOSIT' | 'BALANCE';
 }
 
-const PROJECT_TYPES = [
-  'LOGO',
-  'IDENTITY',
-  'POSTER',
-  'PACKAGING',
-  'SOCIAL',
-  'PRINT',
-  'UI_WEB',
-  'OTHER',
-] as const;
-
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
-  type: z.enum(PROJECT_TYPES).optional(),
+  sector: z.string().min(1).max(100).optional(),
+  type: z.enum(PROJECT_TYPE_VALUES).optional(),
   description: z.string().max(2000).nullable().optional(),
   amount: z.number().int().positive().optional(),
   dueDate: z.string().datetime().nullable().optional(),
@@ -152,12 +143,13 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    const { name, type, description, amount, dueDate } = parsed.data;
+    const { name, sector, type, description, amount, dueDate } = parsed.data;
 
     const project = await prisma.project.update({
       where: { id },
       data: {
         ...(name !== undefined ? { name } : {}),
+        ...(sector !== undefined ? { sector } : {}),
         ...(type !== undefined ? { type } : {}),
         ...(description !== undefined ? { description } : {}),
         ...(amount !== undefined ? { amount } : {}),

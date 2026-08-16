@@ -11,12 +11,17 @@ import {
   PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,
   PROJECT_TYPE_ICONS,
+  FREELANCE_SECTOR_LABELS,
+  FREELANCE_SECTOR_ICONS,
+  SECTOR_PROJECT_TYPES,
+  resolveFreelanceSector,
   CURRENCIES,
   type ProjectStatus,
   type ProjectType,
+  type FreelanceSector,
 } from '@/lib/constants';
 
-const PROJECT_TYPES = Object.keys(PROJECT_TYPE_LABELS) as ProjectType[];
+const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
 
 interface StepDraft {
   title: string;
@@ -44,6 +49,7 @@ interface ClientOption {
 
 export interface ProjectFormInitial {
   name?: string;
+  sector?: string;
   type?: ProjectType;
   description?: string;
   amount?: number;
@@ -76,8 +82,11 @@ export function ProjectForm({
   const { data, loading } = useApi<{ items: ClientOption[] }>('/api/clients?limit=50');
   const clients = data?.items ?? [];
 
+  const resolvedSector = resolveFreelanceSector(initial?.sector, initial?.type);
   const [clientId, setClientId] = useState(lockedClient?.id ?? '');
   const [name, setName] = useState(initial?.name ?? '');
+  const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
+  const [sectorOther, setSectorOther] = useState(resolvedSector.other);
   const [type, setType] = useState<ProjectType>(initial?.type ?? 'OTHER');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
@@ -137,6 +146,7 @@ export function ProjectForm({
         body: {
           ...(lockedClient ? {} : { clientId }),
           name,
+          sector: sector === 'OTHER' ? sectorOther.trim() || 'OTHER' : sector,
           type,
           amount: Number(amount),
           currency,
@@ -246,25 +256,60 @@ export function ProjectForm({
         )}
       </label>
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-        Type de projet
+        Secteur freelance
         <div className="flex flex-wrap gap-2">
-          {PROJECT_TYPES.map((value) => (
+          {FREELANCE_SECTORS.map((value) => (
             <button
               key={value}
               type="button"
-              onClick={() => setType(value)}
+              onClick={() => {
+                setSector(value);
+                setType(value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER'));
+              }}
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                type === value
+                sector === value
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border bg-canvas text-foreground'
               }`}
             >
-              <Icon i={PROJECT_TYPE_ICONS[value]} size={13} />
-              {PROJECT_TYPE_LABELS[value]}
+              <Icon i={FREELANCE_SECTOR_ICONS[value]} size={13} />
+              {FREELANCE_SECTOR_LABELS[value]}
             </button>
           ))}
         </div>
+        {sector === 'OTHER' && (
+          <input
+            type="text"
+            value={sectorOther}
+            onChange={(e) => setSectorOther(e.target.value)}
+            placeholder="Précisez votre secteur…"
+            maxLength={100}
+            className={`${inputClass} mt-1`}
+          />
+        )}
       </div>
+      {sector !== 'OTHER' && (
+        <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Type de projet
+          <div className="flex flex-wrap gap-2">
+            {SECTOR_PROJECT_TYPES[sector].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setType(value)}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  type === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-canvas text-foreground'
+                }`}
+              >
+                <Icon i={PROJECT_TYPE_ICONS[value]} size={13} />
+                {PROJECT_TYPE_LABELS[value]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Brief (optionnel)
         <textarea

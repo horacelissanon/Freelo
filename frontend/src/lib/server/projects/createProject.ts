@@ -6,6 +6,7 @@
 // own ownership/plan-limit checks; this function only inserts.
 import 'server-only';
 import type { Prisma } from '@prisma/client';
+import type { ProjectType } from '@/lib/constants';
 
 // Structurally satisfied by both the plain `prisma` client and a `tx`
 // passed into `prisma.$transaction(async (tx) => ...)` — only the one
@@ -16,7 +17,8 @@ export interface CreateProjectInput {
   userId: string;
   clientId: string;
   name: string;
-  type: 'LOGO' | 'IDENTITY' | 'POSTER' | 'PACKAGING' | 'SOCIAL' | 'PRINT' | 'UI_WEB' | 'OTHER';
+  sector: string;
+  type: ProjectType;
   description?: string;
   status: 'IN_PROGRESS' | 'PENDING' | 'DELIVERED';
   progress: number;
@@ -48,6 +50,7 @@ export function createProject(db: Db, input: CreateProjectInput) {
       userId: input.userId,
       clientId: input.clientId,
       name: input.name,
+      sector: input.sector,
       type: input.type,
       status: input.status,
       progress: input.progress,

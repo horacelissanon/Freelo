@@ -22,15 +22,20 @@ import {
   PROJECT_STATUS_COLORS,
   PROJECT_TYPE_LABELS,
   PROJECT_TYPE_ICONS,
+  FREELANCE_SECTOR_LABELS,
+  FREELANCE_SECTOR_ICONS,
+  SECTOR_PROJECT_TYPES,
+  resolveFreelanceSector,
   STEP_STATUS_LABELS,
   type ProjectStatus,
   type ProjectType,
+  type FreelanceSector,
   type ProjectStepStatus,
   type InvoiceStatus,
   type InvoiceDocType,
 } from '@/lib/constants';
 
-const PROJECT_TYPES = Object.keys(PROJECT_TYPE_LABELS) as ProjectType[];
+const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
 
 interface ProjectDetailStep {
   id: string;
@@ -73,6 +78,7 @@ interface ProjectDetail {
   project: {
     id: string;
     name: string;
+    sector: string;
     type: ProjectType;
     description: string | null;
     status: ProjectStatus;
@@ -149,6 +155,7 @@ function ProjectDetailView({
   const { toast } = useToast();
   const user = useUser();
   const statusColors = PROJECT_STATUS_COLORS[project.status];
+  const effectiveSector = resolveFreelanceSector(project.sector, project.type).code;
   const trackingUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/suivi/${project.publicToken}` : '';
   const studioLabel = user ? resolveDocumentIdentity(user).name : '';
@@ -181,6 +188,7 @@ function ProjectDetailView({
 
   async function patchProject(partial: {
     name?: string;
+    sector?: string;
     type?: ProjectType;
     description?: string | null;
     amount?: number;
@@ -442,9 +450,14 @@ function ProjectDetailView({
           </div>
 
           <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5">
-            <h2 className="mb-3 font-headings text-sm font-bold text-foreground">Type de projet</h2>
+            <h2 className="mb-3 font-headings text-sm font-bold text-foreground">
+              Type de projet
+              <span className="ml-2 font-body text-xs font-normal text-muted-foreground">
+                {FREELANCE_SECTOR_LABELS[effectiveSector]}
+              </span>
+            </h2>
             <div className="flex flex-wrap gap-2">
-              {PROJECT_TYPES.map((value) => (
+              {SECTOR_PROJECT_TYPES[effectiveSector].map((value) => (
                 <button
                   key={value}
                   type="button"
@@ -889,6 +902,7 @@ function EditProjectModal({
   onClose: () => void;
   onSave: (partial: {
     name?: string;
+    sector?: string;
     type?: ProjectType;
     description?: string | null;
     amount?: number;
@@ -896,7 +910,10 @@ function EditProjectModal({
   }) => Promise<void>;
 }) {
   const { toast } = useToast();
+  const resolvedSector = resolveFreelanceSector(project.sector, project.type);
   const [name, setName] = useState(project.name);
+  const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
+  const [sectorOther, setSectorOther] = useState(resolvedSector.other);
   const [type, setType] = useState<ProjectType>(project.type);
   const [description, setDescription] = useState(project.description ?? '');
   const [amount, setAmount] = useState(String(project.amount));
@@ -914,6 +931,7 @@ function EditProjectModal({
     try {
       await onSave({
         name,
+        sector: sector === 'OTHER' ? sectorOther.trim() || 'OTHER' : sector,
         type,
         description: description.trim() ? description.trim() : null,
         amount: Number(amount),
@@ -942,25 +960,62 @@ function EditProjectModal({
           />
         </label>
         <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Type de projet
+          Secteur freelance
           <div className="flex flex-wrap gap-2">
-            {PROJECT_TYPES.map((value) => (
+            {FREELANCE_SECTORS.map((value) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setType(value)}
+                onClick={() => {
+                  setSector(value);
+                  setType(
+                    value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER'),
+                  );
+                }}
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  type === value
+                  sector === value
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-canvas text-foreground'
                 }`}
               >
-                <Icon i={PROJECT_TYPE_ICONS[value]} size={13} />
-                {PROJECT_TYPE_LABELS[value]}
+                <Icon i={FREELANCE_SECTOR_ICONS[value]} size={13} />
+                {FREELANCE_SECTOR_LABELS[value]}
               </button>
             ))}
           </div>
+          {sector === 'OTHER' && (
+            <input
+              type="text"
+              value={sectorOther}
+              onChange={(e) => setSectorOther(e.target.value)}
+              placeholder="Précisez votre secteur…"
+              maxLength={100}
+              className={`${inputClass} mt-1`}
+            />
+          )}
         </div>
+        {sector !== 'OTHER' && (
+          <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Type de projet
+            <div className="flex flex-wrap gap-2">
+              {SECTOR_PROJECT_TYPES[sector].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setType(value)}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    type === value
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border bg-canvas text-foreground'
+                  }`}
+                >
+                  <Icon i={PROJECT_TYPE_ICONS[value]} size={13} />
+                  {PROJECT_TYPE_LABELS[value]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Montant (XOF) *
           <input

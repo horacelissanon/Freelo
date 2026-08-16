@@ -452,7 +452,8 @@ model Project {
   clientId    String
   client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name        String
-  type        String    @default("OTHER") // LOGO | IDENTITY | POSTER | PACKAGING | SOCIAL | PRINT | UI_WEB | OTHER
+  sector      String    @default("OTHER") // Secteur freelance — DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER; scopes which `type` values the UI offers (see SECTOR_PROJECT_TYPES in lib/constants.ts)
+  type        String    @default("OTHER") // scoped to `sector` — see PROJECT_TYPE_LABELS in lib/constants.ts
   description String? // short brief, freeform (v1)
   status      String    @default("IN_PROGRESS") // IN_PROGRESS | PENDING | DELIVERED
   progress    Int       @default(0) // 0-100
@@ -534,6 +535,14 @@ model Invoice {
   deliveryDate      DateTime? // Date de livraison — distinct from dueDate (payment due date)
   paymentMethodNote String? // Règlement — free text, e.g. "Orange Money +221..."
   footerNote        String? // Note de bas de page
+
+  // Devis-only (QUOTE docType) — the freelance sector and project type this
+  // devis is for, mirroring Project.sector/Project.type so an accepted devis
+  // can pre-fill a new project with the same vocabulary (see
+  // POST /api/invoices/[id]/create-project). Optional: devis created before
+  // this field existed simply have both null, no backfill needed.
+  sector String? // DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER
+  type   String? // scoped to `sector` — see SECTOR_PROJECT_TYPES in lib/constants.ts
 
   // Devis-only free paragraph (QUOTE docType) — the intro text above the
   // structured payment-method content blocks, e.g. "Un acompte de 50% est

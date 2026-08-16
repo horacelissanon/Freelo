@@ -20,13 +20,13 @@ import {
 } from '@/lib/server/billing/subscription';
 import { createProject } from '@/lib/server/projects/createProject';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
 const Body = z.object({
   clientId: z.string().min(1),
   name: z.string().min(1).max(200),
-  type: z
-    .enum(['LOGO', 'IDENTITY', 'POSTER', 'PACKAGING', 'SOCIAL', 'PRINT', 'UI_WEB', 'OTHER'])
-    .default('OTHER'),
+  sector: z.string().min(1).max(100).default('OTHER'),
+  type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
   description: z.string().max(2000).optional(),
   status: z.enum(['IN_PROGRESS', 'PENDING', 'DELIVERED']).default('IN_PROGRESS'),
   progress: z.number().int().min(0).max(100).default(0),
@@ -138,6 +138,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId: auth.user.sub,
       clientId: parsed.data.clientId,
       name: parsed.data.name,
+      sector: parsed.data.sector,
       type: parsed.data.type,
       status: parsed.data.status,
       progress: parsed.data.progress,

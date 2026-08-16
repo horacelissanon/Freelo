@@ -23,12 +23,12 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
 const Body = z.object({
   name: z.string().min(1).max(200),
-  type: z
-    .enum(['LOGO', 'IDENTITY', 'POSTER', 'PACKAGING', 'SOCIAL', 'PRINT', 'UI_WEB', 'OTHER'])
-    .default('OTHER'),
+  sector: z.string().min(1).max(100).default('OTHER'),
+  type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
   description: z.string().max(2000).optional(),
   amount: z.number().int().positive(),
   currency: z.string().length(3).default('XOF'),
@@ -133,6 +133,7 @@ export async function POST(
         userId: auth.user.sub,
         clientId: invoice.clientId,
         name: parsed.data.name,
+        sector: parsed.data.sector,
         type: parsed.data.type,
         status: 'IN_PROGRESS',
         progress: 0,

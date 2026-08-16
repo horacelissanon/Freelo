@@ -77,6 +77,9 @@ import {
   Star,
   BarChart3,
   LogOut,
+  Wrench,
+  Film,
+  Megaphone,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -155,6 +158,9 @@ const ICONS: Record<string, LucideIcon> = {
   star: Star,
   'bar-chart': BarChart3,
   'log-out': LogOut,
+  wrench: Wrench,
+  film: Film,
+  megaphone: Megaphone,
 };
 
 export interface IconProps {
