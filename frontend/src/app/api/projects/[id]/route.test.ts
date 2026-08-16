@@ -71,6 +71,12 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.project.findFirst.mockResolvedValue(baseProject as never);
   prismaMock.order.findMany.mockResolvedValue([]);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
 });
 
 describe('GET /api/projects/[id]', () => {
@@ -159,11 +165,16 @@ describe('PATCH /api/projects/[id]', () => {
     });
   });
 
-  it('status is not a recognized field — silently stripped, never reaches the update', async () => {
-    prismaMock.project.update.mockResolvedValue(baseProject as never);
-    await PATCH(makePatch({ status: 'DELIVERED' }), ctxWith('p-1'));
-    const updateArg = prismaMock.project.update.mock.calls[0]?.[0];
-    expect(updateArg?.data).toEqual({});
+  it('status: DELIVERED is not a valid target value -> 400, never reaches the update', async () => {
+    const res = await PATCH(makePatch({ status: 'DELIVERED' }), ctxWith('p-1'));
+    expect(res.status).toBe(400);
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+  });
+
+  it('status: PENDING on a non-DRAFT project -> 409, never reaches the update', async () => {
+    const res = await PATCH(makePatch({ status: 'PENDING' }), ctxWith('p-1'));
+    expect(res.status).toBe(409);
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
 });
 

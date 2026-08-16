@@ -44,11 +44,13 @@ export async function GET(
             address: true,
             taxId: true,
             commerceRegistry: true,
+            brandColor: true,
           },
         },
         lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
         packs: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
         contentBlocks: { orderBy: [{ kind: 'asc' }, { order: 'asc' }] },
+        project: { select: { name: true } },
       },
     });
 
@@ -57,10 +59,14 @@ export async function GET(
     }
 
     const { user: invoiceUser, ...invoiceFields } = invoice;
-    const provider = resolveDocumentIdentity({
-      ...invoiceUser,
-      documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
-    });
+    const provider = {
+      ...resolveDocumentIdentity({
+        ...invoiceUser,
+        documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+      }),
+      email: invoiceUser.email,
+      brandColor: invoiceUser.brandColor,
+    };
 
     const pdf = await renderInvoicePdf({
       ...invoiceFields,

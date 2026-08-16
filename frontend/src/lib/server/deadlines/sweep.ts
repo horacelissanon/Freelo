@@ -76,7 +76,7 @@ export async function sweepDeadlineAlerts(
   const reminderCutoff = new Date(now.getTime() + PROJECT_REMINDER_WINDOW_MS);
   const upcomingProjects = await prisma.project.findMany({
     where: {
-      status: { not: 'DELIVERED' },
+      status: { notIn: ['DELIVERED', 'DRAFT'] },
       dueDate: { gt: now, lte: reminderCutoff },
     },
     select: { id: true, userId: true, name: true, dueDate: true },

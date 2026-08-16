@@ -189,7 +189,6 @@ describe('POST /api/invoices', () => {
         lineItems: oneLineItem(1000),
         projectId: null,
         description: null,
-        dueDate: null,
         depositAmount: null,
         deliveryDate: null,
         paymentMethodNote: null,
@@ -200,7 +199,6 @@ describe('POST /api/invoices', () => {
     const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
     expect(createArg?.data).not.toHaveProperty('projectId');
     expect(createArg?.data).not.toHaveProperty('description');
-    expect(createArg?.data).not.toHaveProperty('dueDate');
     expect(createArg?.data).not.toHaveProperty('deliveryDate');
     expect(createArg?.data).not.toHaveProperty('paymentMethodNote');
     expect(createArg?.data).not.toHaveProperty('footerNote');

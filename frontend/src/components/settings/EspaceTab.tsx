@@ -238,6 +238,22 @@ export function EspaceTab({ user }: { user: User }) {
     }
   }
 
+  // The accent color (buttons/links across the workspace) doubles as the
+  // brand color for server-rendered client-facing documents (PDF footer
+  // band, tracking page footer) — those render outside the browser, so they
+  // can't read AccentColorContext's localStorage-backed value directly.
+  // Best-effort: the accent still applies instantly client-side either way;
+  // a failed sync here only means the PDF/tracking page lag behind until the
+  // next color change, not worth surfacing as an error toast.
+  async function persistAccentColor(hex: string) {
+    try {
+      await api('/api/auth/me', { method: 'PATCH', body: { brandColor: hex } });
+      await refresh();
+    } catch {
+      // non-critical, see comment above
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col divide-y divide-border rounded-lg border border-border bg-canvas p-5 shadow-card">
@@ -357,6 +373,7 @@ export function EspaceTab({ user }: { user: User }) {
                 onClick={() => {
                   setSidebarColor(duo.sidebar);
                   setAccent(duo.accent);
+                  void persistAccentColor(ACCENT_PRESET_HEX[duo.accent]);
                   toast(`Palette « ${duo.name} » appliquée.`, 'success');
                 }}
                 aria-pressed={isActive}
@@ -505,6 +522,7 @@ export function EspaceTab({ user }: { user: User }) {
               type="button"
               onClick={() => {
                 setAccent(opt.value);
+                void persistAccentColor(opt.hex);
                 toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
               }}
               aria-label={opt.label}
@@ -526,7 +544,10 @@ export function EspaceTab({ user }: { user: User }) {
               type="color"
               value={accentHex}
               onChange={(e) => setCustomAccent(e.target.value)}
-              onBlur={() => toast("Couleur d'accent mise à jour.", 'success')}
+              onBlur={(e) => {
+                void persistAccentColor(e.target.value);
+                toast("Couleur d'accent mise à jour.", 'success');
+              }}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               aria-label="Choisir une couleur d'accent personnalisée"
             />
@@ -543,6 +564,7 @@ export function EspaceTab({ user }: { user: User }) {
             value={accentHex}
             onCommit={(hex) => {
               setCustomAccent(hex);
+              void persistAccentColor(hex);
               toast("Couleur d'accent mise à jour.", 'success');
             }}
             ariaLabel="Code hexadécimal de la couleur d'accent"

@@ -16,6 +16,7 @@ import { Modal } from '@/components/ui/Modal';
 import { BackButton } from '@/components/ui/BackButton';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { InvoiceForm } from '@/components/forms/InvoiceForm';
+import { ProjectForm } from '@/components/forms/ProjectForm';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import {
   PROJECT_STATUS_LABELS,
@@ -51,7 +52,7 @@ interface ProjectDetailComment {
   author: 'FREELANCER' | 'CLIENT';
   body: string;
   attachmentUrl: string | null;
-  attachmentType: 'IMAGE' | 'AUDIO' | null;
+  attachmentType: 'IMAGE' | 'AUDIO' | 'FILE' | null;
   createdAt: string;
 }
 
@@ -229,6 +230,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [savingType, setSavingType] = useState(false);
@@ -361,7 +363,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
     }
   }
 
-  async function sendAttachment(file: File, attachmentType: 'IMAGE' | 'AUDIO') {
+  async function sendAttachment(file: File, attachmentType: 'IMAGE' | 'AUDIO' | 'FILE') {
     setPosting(true);
     setCommentError(null);
     try {
@@ -383,6 +385,13 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
     e.target.value = '';
     if (!file) return;
     await sendAttachment(file, 'IMAGE');
+  }
+
+  async function onChatFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await sendAttachment(file, 'FILE');
   }
 
   async function startRecording() {
@@ -807,6 +816,17 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                         className="mt-1.5 h-9 w-full max-w-xs"
                       />
                     )}
+                    {c.attachmentType === 'FILE' && c.attachmentUrl && (
+                      <a
+                        href={c.attachmentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1.5 flex w-fit items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:bg-secondary"
+                      >
+                        <Icon i="file-text" size={13} />
+                        Fichier joint
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
@@ -841,6 +861,22 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                 }`}
               >
                 <Icon i="mic" size={16} />
+              </button>
+              <input
+                ref={chatFileInputRef}
+                type="file"
+                accept="application/pdf,image/png,image/jpeg,application/zip,application/postscript"
+                className="hidden"
+                onChange={(e) => void onChatFileSelected(e)}
+              />
+              <button
+                type="button"
+                disabled={posting}
+                onClick={() => chatFileInputRef.current?.click()}
+                aria-label="Envoyer un fichier"
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
+              >
+                <Icon i="file-text" size={16} />
               </button>
               <input
                 type="text"
@@ -981,12 +1017,39 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
         </div>
       </div>
 
-      {editOpen && (
+      {editOpen && project.status !== 'DRAFT' && (
         <EditProjectModal
           project={project}
           onClose={() => setEditOpen(false)}
           onSave={patchProject}
         />
+      )}
+
+      {editOpen && project.status === 'DRAFT' && (
+        <Modal title="Modifier le brouillon" onClose={() => setEditOpen(false)} size="lg">
+          <ProjectForm
+            projectId={project.id}
+            initial={{
+              clientId: project.client.id,
+              name: project.name,
+              sector: project.sector,
+              type: project.type,
+              ...(project.description ? { description: project.description } : {}),
+              amount: project.amount,
+              currency: project.currency,
+              ...(project.dueDate ? { dueDate: project.dueDate } : {}),
+              depositType: project.depositType as 'NONE' | 'FIXED' | 'PERCENT',
+              depositValue: project.depositValue,
+              steps: steps.map((s) => ({ title: s.title, description: s.description })),
+            }}
+            onDone={() => {
+              setEditOpen(false);
+              invalidateCache(`/api/projects/${project.id}`);
+              invalidateCache('/api/projects?limit=50');
+            }}
+            onNeedClient={() => {}}
+          />
+        </Modal>
       )}
 
       {creatingInvoiceOpen && (
@@ -1002,7 +1065,6 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
               description: project.name,
               lineItems: [{ designation: project.name, quantity: 1, unitPrice: project.amount }],
               currency: project.currency,
-              ...(project.dueDate ? { dueDate: project.dueDate } : {}),
               ...(deposit.paid ? { depositAmount: deposit.amount } : {}),
             }}
             submitPath={`/api/projects/${project.id}/create-invoice`}

@@ -5,7 +5,7 @@
 // for the authenticated app.
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
@@ -113,6 +113,7 @@ interface QuoteOrInvoiceView {
   // for the "J'ai envoyé l'acompte" WhatsApp button even when the provider
   // shows a COMPANY identity (which hides provider.phone from the document).
   providerPhone: string | null;
+  brandColor: string | null;
 }
 
 interface ProjectStep {
@@ -128,6 +129,8 @@ interface ProjectComment {
   id: string;
   author: 'FREELANCER' | 'CLIENT';
   body: string;
+  attachmentUrl: string | null;
+  attachmentType: 'IMAGE' | 'AUDIO' | 'FILE' | null;
   createdAt: string;
 }
 
@@ -320,6 +323,11 @@ function ProjectDetail({
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const [reviewRating, setReviewRating] = useState(review?.rating ?? 0);
   const [reviewComment, setReviewComment] = useState(review?.comment ?? '');
@@ -349,6 +357,77 @@ function ProjectDetail({
     } finally {
       setPosting(false);
     }
+  }
+
+  async function sendAttachment(file: File, attachmentType: 'IMAGE' | 'AUDIO' | 'FILE') {
+    setPosting(true);
+    setCommentError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const uploadRes = await fetch(`/api/track/${token}/upload`, { method: 'POST', body: form });
+      const uploaded = await uploadRes.json();
+      if (!uploadRes.ok) {
+        setCommentError(uploaded.message ?? "Échec de l'envoi.");
+        return;
+      }
+      const res = await fetch(`/api/track/${token}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: '', attachmentUrl: uploaded.url, attachmentType }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCommentError(data.message ?? "Échec de l'envoi.");
+        return;
+      }
+      onRefresh();
+    } catch {
+      setCommentError('Erreur réseau. Réessayez.');
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  async function onPhotoSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await sendAttachment(file, 'IMAGE');
+  }
+
+  async function onChatFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await sendAttachment(file, 'FILE');
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        const file = new File([blob], 'note-vocale.webm', { type: blob.type });
+        void sendAttachment(file, 'AUDIO');
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+    } catch {
+      setCommentError('Micro indisponible ou accès refusé.');
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
   }
 
   async function onSubmitReview(e: FormEvent) {
@@ -568,12 +647,12 @@ function ProjectDetail({
       )}
 
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <h2 className="mb-4 font-headings text-base font-bold text-foreground">Commentaires</h2>
+        <h2 className="mb-4 font-headings text-base font-bold text-foreground">
+          Messagerie ({comments.length})
+        </h2>
         <div className="flex flex-col gap-3">
           {comments.length === 0 ? (
-            <p className="font-body text-sm text-muted-foreground">
-              Aucun commentaire pour le moment.
-            </p>
+            <p className="font-body text-sm text-muted-foreground">Aucun message pour le moment.</p>
           ) : (
             comments.map((c) => (
               <div key={c.id} className="border-b border-border pb-3 last:border-b-0">
@@ -585,7 +664,30 @@ function ProjectDetail({
                     {formatDate(c.createdAt)}
                   </p>
                 </div>
-                <p className="mt-0.5 font-body text-sm text-foreground">{c.body}</p>
+                {c.body && <p className="mt-0.5 font-body text-sm text-foreground">{c.body}</p>}
+                {c.attachmentType === 'IMAGE' && c.attachmentUrl && (
+                  <a href={c.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={c.attachmentUrl}
+                      alt="Pièce jointe"
+                      className="mt-1.5 max-h-48 rounded-md border border-border"
+                    />
+                  </a>
+                )}
+                {c.attachmentType === 'AUDIO' && c.attachmentUrl && (
+                  <audio controls src={c.attachmentUrl} className="mt-1.5 h-9 w-full max-w-xs" />
+                )}
+                {c.attachmentType === 'FILE' && c.attachmentUrl && (
+                  <a
+                    href={c.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 flex w-fit items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:bg-secondary"
+                  >
+                    <Icon i="file-text" size={13} />
+                    Fichier joint
+                  </a>
+                )}
               </div>
             ))
           )}
@@ -593,8 +695,53 @@ function ProjectDetail({
 
         <form onSubmit={onSubmitComment} className="mt-4 flex items-center gap-2">
           <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => void onPhotoSelected(e)}
+          />
+          <button
+            type="button"
+            disabled={posting}
+            onClick={() => photoInputRef.current?.click()}
+            aria-label="Envoyer une photo"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
+          >
+            <Icon i="camera" size={16} />
+          </button>
+          <button
+            type="button"
+            disabled={posting}
+            onClick={() => (recording ? stopRecording() : void startRecording())}
+            aria-label={recording ? 'Arrêter l’enregistrement' : 'Enregistrer un message vocal'}
+            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border disabled:opacity-50 ${
+              recording
+                ? 'border-tag-red-fg bg-tag-red text-tag-red-fg'
+                : 'border-border text-muted-foreground'
+            }`}
+          >
+            <Icon i="mic" size={16} />
+          </button>
+          <input
+            ref={chatFileInputRef}
+            type="file"
+            accept="application/pdf,image/png,image/jpeg,application/zip,application/postscript"
+            className="hidden"
+            onChange={(e) => void onChatFileSelected(e)}
+          />
+          <button
+            type="button"
+            disabled={posting}
+            onClick={() => chatFileInputRef.current?.click()}
+            aria-label="Envoyer un fichier"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
+          >
+            <Icon i="file-text" size={16} />
+          </button>
+          <input
             type="text"
-            placeholder="Votre commentaire…"
+            placeholder="Votre message…"
             value={commentBody}
             onChange={(e) => setCommentBody(e.target.value)}
             maxLength={2000}
@@ -1331,9 +1478,12 @@ function QuoteInvoiceDetail({
             </div>
           )}
         {!isQuote && invoice.footerNote && (
-          <p className="mt-4 border-t border-border pt-4 font-body text-xs text-muted-foreground italic">
-            {invoice.footerNote}
-          </p>
+          <div
+            className="mt-4 rounded-md px-4 py-3"
+            style={{ backgroundColor: view.brandColor ?? '#059669' }}
+          >
+            <p className="font-body text-xs text-white/90 italic">{invoice.footerNote}</p>
+          </div>
         )}
       </div>
 

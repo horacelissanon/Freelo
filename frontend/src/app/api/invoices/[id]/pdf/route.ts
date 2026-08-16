@@ -32,6 +32,7 @@ export async function GET(
         lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
         packs: { orderBy: { order: 'asc' }, include: { items: { orderBy: { order: 'asc' } } } },
         contentBlocks: { orderBy: [{ kind: 'asc' }, { order: 'asc' }] },
+        project: { select: { name: true } },
       },
     });
 
@@ -54,6 +55,7 @@ export async function GET(
         address: true,
         taxId: true,
         commerceRegistry: true,
+        brandColor: true,
       },
     });
     if (!owner) {
@@ -63,10 +65,14 @@ export async function GET(
       );
     }
 
-    const provider = resolveDocumentIdentity({
-      ...owner,
-      documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
-    });
+    const provider = {
+      ...resolveDocumentIdentity({
+        ...owner,
+        documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
+      }),
+      email: owner.email,
+      brandColor: owner.brandColor,
+    };
 
     const pdf = await renderInvoicePdf({
       ...invoice,

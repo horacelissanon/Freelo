@@ -113,7 +113,7 @@ describe('GET /api/projects', () => {
     prismaMock.project.findMany.mockResolvedValue([] as never);
     await GET(makeGet('http://test/api/projects?status=ACTIVE'));
     const args = prismaMock.project.findMany.mock.calls[0]?.[0];
-    expect(args?.where?.status).toEqual({ not: 'DELIVERED' });
+    expect(args?.where?.status).toEqual({ notIn: ['DELIVERED', 'DRAFT'] });
   });
 
   it('includes client name/id and returns rows', async () => {

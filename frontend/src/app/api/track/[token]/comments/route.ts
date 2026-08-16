@@ -13,9 +13,16 @@ import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-tok
 import { isProActive } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const Body = z.object({
-  body: z.string().min(1).max(2000),
-});
+const Body = z
+  .object({
+    body: z.string().max(2000).default(''),
+    attachmentUrl: z.string().url().optional(),
+    attachmentType: z.enum(['IMAGE', 'AUDIO', 'FILE']).optional(),
+  })
+  .refine((data) => data.body.trim().length > 0 || !!data.attachmentUrl, {
+    message: 'body or attachmentUrl is required',
+    path: ['body'],
+  });
 
 const RATE_LIMIT_PREFIX = 'rl:track:comment:';
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -80,6 +87,8 @@ export async function POST(
         projectId: project.id,
         author: 'CLIENT',
         body: parsed.data.body,
+        ...(parsed.data.attachmentUrl ? { attachmentUrl: parsed.data.attachmentUrl } : {}),
+        ...(parsed.data.attachmentType ? { attachmentType: parsed.data.attachmentType } : {}),
       },
     });
 

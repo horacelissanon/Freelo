@@ -31,6 +31,10 @@ const Body = z
     name: z.string().min(1).max(200),
     sector: z.string().min(1).max(100).default('OTHER'),
     type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
+    // "Enregistrer brouillon" vs "Créer projet" — the only freelance-chosen
+    // status value; PENDING+ is fully derived from step completion after
+    // this point (see lib/server/projects/progress.ts).
+    status: z.enum(['DRAFT', 'PENDING']).default('PENDING'),
     description: z.string().max(2000).optional(),
     progress: z.number().int().min(0).max(100).default(0),
     amount: z.number().int().positive(),
@@ -113,7 +117,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // an exact status match — used by widgets that want "still actionable"
     // regardless of which of the 3 non-final statuses a project is in.
     const statusFilter =
-      status === 'ACTIVE' ? { status: { not: 'DELIVERED' } } : status ? { status } : {};
+      status === 'ACTIVE'
+        ? { status: { notIn: ['DELIVERED', 'DRAFT'] } }
+        : status
+          ? { status }
+          : {};
 
     const where: Prisma.ProjectWhereInput = {
       userId: auth.user.sub,
@@ -193,17 +201,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           { status: 403, headers: { 'x-request-id': ctx.requestId } },
         );
       }
-      const activeProjectCount = await prisma.project.count({
-        where: { userId: auth.user.sub, status: { not: 'DELIVERED' } },
-      });
-      if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
-        return NextResponse.json(
-          {
-            error: 'PLAN_LIMIT_PROJECTS',
-            message: `Le plan Gratuit est limité à ${FREE_PLAN_LIMITS.maxActiveProjects} projets actifs. Passe en Pro pour en créer davantage.`,
-          },
-          { status: 403, headers: { 'x-request-id': ctx.requestId } },
-        );
+      // A draft isn't a real commitment yet — only check the cap when
+      // actually finalizing a project (status: PENDING).
+      if (parsed.data.status === 'PENDING') {
+        const activeProjectCount = await prisma.project.count({
+          where: { userId: auth.user.sub, status: { notIn: ['DELIVERED', 'DRAFT'] } },
+        });
+        if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
+          return NextResponse.json(
+            {
+              error: 'PLAN_LIMIT_PROJECTS',
+              message: `Le plan Gratuit est limité à ${FREE_PLAN_LIMITS.maxActiveProjects} projets actifs. Passe en Pro pour en créer davantage.`,
+            },
+            { status: 403, headers: { 'x-request-id': ctx.requestId } },
+          );
+        }
       }
     }
 
@@ -213,9 +225,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       name: parsed.data.name,
       sector: parsed.data.sector,
       type: parsed.data.type,
-      // Always PENDING at creation — status is fully derived from step
-      // completion from this point on, never a freelance-chosen value.
-      status: 'PENDING' as const,
+      status: parsed.data.status,
       progress: parsed.data.progress,
       amount: parsed.data.amount,
       currency: parsed.data.currency,

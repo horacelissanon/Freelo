@@ -101,7 +101,7 @@ describe('GET /api/dashboard/stats', () => {
     expect(body.activeProjects).toEqual({ count: 4 });
     const arg = prismaMock.project.count.mock.calls[0]?.[0];
     expect(arg?.where?.userId).toBe('user-1');
-    expect(arg?.where?.status).toEqual({ not: 'DELIVERED' });
+    expect(arg?.where?.status).toEqual({ notIn: ['DELIVERED', 'DRAFT'] });
   });
 
   it('pendingInvoices sums SENT+OVERDUE amount and counts OVERDUE separately', async () => {

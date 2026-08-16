@@ -174,7 +174,7 @@ export async function POST(
         );
       }
       const activeProjectCount = await prisma.project.count({
-        where: { userId: auth.user.sub, status: { not: 'DELIVERED' } },
+        where: { userId: auth.user.sub, status: { notIn: ['DELIVERED', 'DRAFT'] } },
       });
       if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
         return NextResponse.json(

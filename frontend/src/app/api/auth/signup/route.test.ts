@@ -160,7 +160,9 @@ describe('POST /api/auth/signup', () => {
     const limited = calls.find((r) => r.status === 429)!;
     const body = await limited.json();
     expect(body.error).toBe('TOO_MANY_SIGNUP_ATTEMPTS');
-  });
+  }, // full-suite parallel worker load even though it's reliably fast in // 6 concurrent real-bcrypt hashes — the default 5s timeout flakes under
+  // isolation; not a regression in the route itself.
+  15000);
 
   it('rejects pwned passwords with PASSWORD_PWNED when PASSWORD_HIBP_CHECK=1', async () => {
     vi.stubEnv('PASSWORD_HIBP_CHECK', '1');

@@ -91,10 +91,10 @@ const Body = z
     // can pre-fill a new project with the same vocabulary.
     sector: z.string().min(1).max(100).nullable().optional(),
     type: z.enum(PROJECT_TYPE_VALUES).nullable().optional(),
-    // QUOTE only — lets the "Prêt à envoyer" action skip the extra PATCH
-    // round-trip by setting SENT directly at creation instead of the DB
-    // default (DRAFT). Deliberately not the full PATCHABLE_STATUSES set —
-    // a devis can't be created already PAID/OVERDUE/ACCEPTED.
+    // Lets "Prêt à envoyer"/"Enregistrer brouillon" skip the extra PATCH
+    // round-trip by setting the target status directly at creation instead
+    // of the DB default (DRAFT). Deliberately not the full PATCHABLE_STATUSES
+    // set — nothing can be created already PAID/OVERDUE/ACCEPTED/EXPIRED.
     status: z.enum(['DRAFT', 'SENT']).optional(),
     // QUOTE only, optional — additional devis sections (Processus/Conditions/
     // Modalités de paiement/FAQ), pre-filled client-side from the user's
@@ -102,12 +102,21 @@ const Body = z
     contentBlocks: z.array(ContentBlockInput).max(80).optional(),
     paymentTermsNote: z.string().max(2000).nullable().optional(),
     currency: z.string().length(3).default('XOF'),
+    // QUOTE only — the freely-picked "Échéance" feeding the EXPIRED sweep.
+    // INVOICE no longer accepts an absolute due date directly (see
+    // issueDate/overdueAfterDays below) — dueDate is server-computed.
     dueDate: z.string().datetime().nullable().optional(),
     // INVOICE only — Acompte/Livraison/Règlement/Note de bas de page.
     depositAmount: z.number().int().min(0).nullable().optional(),
     deliveryDate: z.string().datetime().nullable().optional(),
     paymentMethodNote: z.string().max(300).nullable().optional(),
     footerNote: z.string().max(1000).nullable().optional(),
+    // INVOICE only — "Date facture" (issueDate, defaults to now) + "Jours
+    // avant retard" (overdueAfterDays, defaults to 5). dueDate is computed
+    // server-side from these two whenever provided, replacing the old
+    // freely-picked Échéance field.
+    issueDate: z.string().datetime().optional(),
+    overdueAfterDays: z.number().int().min(1).max(365).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.docType === 'INVOICE') {
@@ -125,17 +134,23 @@ const Body = z
           message: 'packs is not supported for an invoice',
         });
       }
+      if (data.dueDate !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['dueDate'],
+          message: 'dueDate is quote-only for an invoice — use issueDate/overdueAfterDays',
+        });
+      }
       if (
         data.contentBlocks !== undefined ||
         data.paymentTermsNote !== undefined ||
         data.sector !== undefined ||
-        data.type !== undefined ||
-        data.status !== undefined
+        data.type !== undefined
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['docType'],
-          message: 'contentBlocks/paymentTermsNote/sector/type/status are quote-only fields',
+          message: 'contentBlocks/paymentTermsNote/sector/type are quote-only fields',
         });
       }
     } else {
@@ -157,13 +172,15 @@ const Body = z
         data.depositAmount !== undefined ||
         data.deliveryDate !== undefined ||
         data.paymentMethodNote !== undefined ||
-        data.footerNote !== undefined
+        data.footerNote !== undefined ||
+        data.issueDate !== undefined ||
+        data.overdueAfterDays !== undefined
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['docType'],
           message:
-            'depositAmount/deliveryDate/paymentMethodNote/footerNote are invoice-only fields',
+            'depositAmount/deliveryDate/paymentMethodNote/footerNote/issueDate/overdueAfterDays are invoice-only fields',
         });
       }
     }
@@ -256,6 +273,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       deliveryDate,
       paymentMethodNote,
       footerNote,
+      issueDate,
+      overdueAfterDays,
     } = parsed.data;
 
     const client = await prisma.client.findFirst({
@@ -332,6 +351,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const year = new Date().getFullYear();
 
+    // INVOICE: dueDate is never accepted directly — computed from
+    // issueDate ("Date facture", defaults to now) + overdueAfterDays
+    // ("Jours avant retard", defaults to 5). QUOTE keeps its freely-picked
+    // absolute Échéance.
+    const resolvedIssueDate = issueDate ? new Date(issueDate) : new Date();
+    const resolvedOverdueAfterDays = overdueAfterDays ?? 5;
+    const computedDueDate =
+      docType === 'INVOICE'
+        ? new Date(resolvedIssueDate.getTime() + resolvedOverdueAfterDays * 24 * 60 * 60 * 1000)
+        : dueDate
+          ? new Date(dueDate)
+          : null;
+
     let invoice = null;
     for (let attempt = 0; attempt < MAX_NUMBER_RETRIES && !invoice; attempt++) {
       const yearStart = new Date(Date.UTC(year, 0, 1));
@@ -349,11 +381,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(description ? { description } : {}),
         amount: computedAmount,
         currency,
-        ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+        ...(computedDueDate ? { dueDate: computedDueDate } : {}),
+        ...(docType === 'INVOICE'
+          ? { issueDate: resolvedIssueDate, overdueAfterDays: resolvedOverdueAfterDays }
+          : {}),
         ...(docType === 'QUOTE' && paymentTermsNote ? { paymentTermsNote } : {}),
         ...(docType === 'QUOTE' && sector ? { sector } : {}),
         ...(docType === 'QUOTE' && type ? { type } : {}),
-        ...(docType === 'QUOTE' && status ? { status } : {}),
+        ...(status ? { status } : {}),
       };
 
       try {

@@ -27,6 +27,8 @@ export interface User {
   commerceRegistry: string | null;
   address: string | null;
   documentIdentity: 'PERSONAL' | 'COMPANY';
+  brandColor: string;
+  defaultLegalMention: string | null;
   defaultCurrency: string;
   language: string;
   showPaidInvoicesDefault: boolean;

@@ -32,7 +32,13 @@ import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES } from '@/lib/constants';
 
-const PATCHABLE_STATUSES = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'ACCEPTED'] as const;
+// Only the transitions still driven by the UI: InvoiceForm/QuoteBuilderForm
+// save DRAFT/SENT on every save, "Marquer comme payée"/"non payée" toggle
+// SENT<->PAID. OVERDUE/EXPIRED are sweep-only (lib/server/deadlines/sweep.ts,
+// writes status directly via updateMany) and ACCEPTED is client-driven
+// (POST /api/track/[token]/validate) — neither goes through this route, so
+// neither belongs in the set a freelance can PATCH manually.
+const PATCHABLE_STATUSES = ['DRAFT', 'SENT', 'PAID'] as const;
 
 const LineItemInput = z.object({
   designation: z.string().min(1).max(200),
@@ -97,6 +103,9 @@ const PatchBody = z.object({
   deliveryDate: z.string().datetime().nullable().optional(),
   paymentMethodNote: z.string().max(300).nullable().optional(),
   footerNote: z.string().max(1000).nullable().optional(),
+  // INVOICE-only — "Date facture"/"Jours avant retard", see POST /api/invoices.
+  issueDate: z.string().datetime().optional(),
+  overdueAfterDays: z.number().int().min(1).max(365).optional(),
 });
 
 export async function GET(
@@ -155,7 +164,15 @@ export async function PATCH(
 
     const existing = await prisma.invoice.findFirst({
       where: { id, userId: auth.user.sub },
-      select: { id: true, docType: true, status: true, amount: true, depositAmount: true },
+      select: {
+        id: true,
+        docType: true,
+        status: true,
+        amount: true,
+        depositAmount: true,
+        issueDate: true,
+        overdueAfterDays: true,
+      },
     });
     if (!existing) {
       return NextResponse.json(
@@ -212,6 +229,8 @@ export async function PATCH(
       deliveryDate,
       paymentMethodNote,
       footerNote,
+      issueDate,
+      overdueAfterDays,
     } = parsed.data;
 
     const editingContent =
@@ -229,7 +248,9 @@ export async function PATCH(
       depositAmount !== undefined ||
       deliveryDate !== undefined ||
       paymentMethodNote !== undefined ||
-      footerNote !== undefined;
+      footerNote !== undefined ||
+      issueDate !== undefined ||
+      overdueAfterDays !== undefined;
 
     // Frozen once non-draft — but ONLY for a facture (INVOICE). A devis
     // (QUOTE) stays editable through SENT/ACCEPTED/EXPIRED (CANCELED is
@@ -254,13 +275,15 @@ export async function PATCH(
         depositAmount !== undefined ||
         deliveryDate !== undefined ||
         paymentMethodNote !== undefined ||
-        footerNote !== undefined)
+        footerNote !== undefined ||
+        issueDate !== undefined ||
+        overdueAfterDays !== undefined)
     ) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
           message:
-            'lineItems/depositAmount/deliveryDate/paymentMethodNote/footerNote are invoice-only fields',
+            'lineItems/depositAmount/deliveryDate/paymentMethodNote/footerNote/issueDate/overdueAfterDays are invoice-only fields',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -271,13 +294,14 @@ export async function PATCH(
         contentBlocks !== undefined ||
         paymentTermsNote !== undefined ||
         sector !== undefined ||
-        type !== undefined)
+        type !== undefined ||
+        dueDate !== undefined)
     ) {
       return NextResponse.json(
         {
           error: 'VALIDATION_FAILED',
           message:
-            'packs/contentBlocks/paymentTermsNote/sector/type are not supported for an invoice — use lineItems',
+            'packs/contentBlocks/paymentTermsNote/sector/type/dueDate are not supported for an invoice — use lineItems/issueDate/overdueAfterDays',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -362,6 +386,20 @@ export async function PATCH(
       }
     }
 
+    // INVOICE: dueDate is never accepted directly (rejected above) —
+    // recomputed from issueDate/overdueAfterDays whenever either changes,
+    // falling back to the existing stored value for the one not provided.
+    const invoiceDueDateUpdate =
+      existing.docType === 'INVOICE' && (issueDate !== undefined || overdueAfterDays !== undefined)
+        ? (() => {
+            const resolvedIssueDate = issueDate ? new Date(issueDate) : existing.issueDate;
+            const resolvedOverdueAfterDays = overdueAfterDays ?? existing.overdueAfterDays;
+            return new Date(
+              resolvedIssueDate.getTime() + resolvedOverdueAfterDays * 24 * 60 * 60 * 1000,
+            );
+          })()
+        : undefined;
+
     const updateData = {
       ...(status !== undefined ? { status } : {}),
       ...(clientId !== undefined ? { clientId } : {}),
@@ -369,7 +407,12 @@ export async function PATCH(
       ...(description !== undefined ? { description } : {}),
       ...(newAmount !== undefined ? { amount: newAmount } : {}),
       ...(currency !== undefined ? { currency } : {}),
-      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      ...(existing.docType === 'QUOTE' && dueDate !== undefined
+        ? { dueDate: dueDate ? new Date(dueDate) : null }
+        : {}),
+      ...(issueDate !== undefined ? { issueDate: new Date(issueDate) } : {}),
+      ...(overdueAfterDays !== undefined ? { overdueAfterDays } : {}),
+      ...(invoiceDueDateUpdate !== undefined ? { dueDate: invoiceDueDateUpdate } : {}),
       ...(depositAmount !== undefined ? { depositAmount } : {}),
       ...(deliveryDate !== undefined
         ? { deliveryDate: deliveryDate ? new Date(deliveryDate) : null }

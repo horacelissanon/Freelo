@@ -1,0 +1,3 @@
+ALTER TABLE "Invoice" ADD COLUMN "overdueAfterDays" INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE "User" ADD COLUMN "brandColor" TEXT DEFAULT '#059669';
+ALTER TABLE "User" ADD COLUMN "defaultLegalMention" TEXT;

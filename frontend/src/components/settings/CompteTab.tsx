@@ -62,6 +62,7 @@ export function CompteTab({ user }: { user: User }) {
   const [documentIdentity, setDocumentIdentity] = useState<'PERSONAL' | 'COMPANY'>(
     user.documentIdentity,
   );
+  const [defaultLegalMention, setDefaultLegalMention] = useState(user.defaultLegalMention ?? '');
   const [defaultCurrency, setDefaultCurrency] = useState(user.defaultCurrency);
   const [language, setLanguage] = useState(user.language);
 
@@ -113,6 +114,7 @@ export function CompteTab({ user }: { user: User }) {
           commerceRegistry: commerceRegistry.trim(),
           address: address.trim(),
           documentIdentity,
+          defaultLegalMention: defaultLegalMention.trim(),
           defaultCurrency,
           language,
         },
@@ -142,6 +144,7 @@ export function CompteTab({ user }: { user: User }) {
     setCommerceRegistry(user.commerceRegistry ?? '');
     setAddress(user.address ?? '');
     setDocumentIdentity(user.documentIdentity);
+    setDefaultLegalMention(user.defaultLegalMention ?? '');
     setDefaultCurrency(user.defaultCurrency);
     setLanguage(user.language);
     setDirty(false);
@@ -400,6 +403,23 @@ export function CompteTab({ user }: { user: User }) {
                 markDirty();
               }}
               maxLength={300}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Mention légale par défaut
+            <span className="font-body text-xs font-normal text-muted-foreground">
+              Pré-remplit le pied de page de chaque nouvelle facture — reste modifiable facture par
+              facture.
+            </span>
+            <textarea
+              value={defaultLegalMention}
+              onChange={(e) => {
+                setDefaultLegalMention(e.target.value);
+                markDirty();
+              }}
+              maxLength={1000}
+              rows={3}
               className={inputClass}
             />
           </label>

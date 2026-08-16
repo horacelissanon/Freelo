@@ -63,6 +63,7 @@ export async function GET(
         name: true,
         user: { select: { publicPortalEnabled: true } },
         projects: {
+          where: { status: { not: 'DRAFT' } },
           orderBy: { createdAt: 'desc' },
           select: {
             id: true,
@@ -128,7 +129,7 @@ export async function GET(
     });
 
     if (project) {
-      if (!project.user.publicPortalEnabled) return notFound();
+      if (!project.user.publicPortalEnabled || project.status === 'DRAFT') return notFound();
 
       // Deposit/balance status is derived from PAID Orders tagged with this
       // project in `metadata` — no dedicated payment table (reuses the
@@ -203,6 +204,7 @@ export async function GET(
             address: true,
             taxId: true,
             commerceRegistry: true,
+            brandColor: true,
           },
         },
         // lineItems always carries invoiceId, even for a QUOTE's pack items —
@@ -244,6 +246,7 @@ export async function GET(
         // freelancer still has a real WhatsApp number to notify once the
         // client sends the acompte (see the post-validation modal).
         providerPhone: invoiceUser.phone,
+        brandColor: invoiceUser.brandColor,
       },
       { headers: { 'x-request-id': reqCtx.requestId } },
     );

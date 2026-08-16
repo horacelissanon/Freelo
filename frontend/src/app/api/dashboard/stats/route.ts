@@ -59,7 +59,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         },
         _sum: { amount: true },
       }),
-      prisma.project.count({ where: { userId, status: { not: 'DELIVERED' } } }),
+      prisma.project.count({ where: { userId, status: { notIn: ['DELIVERED', 'DRAFT'] } } }),
       prisma.invoice.aggregate({
         where: { userId, status: { in: ['SENT', 'OVERDUE'] } },
         _sum: { amount: true },

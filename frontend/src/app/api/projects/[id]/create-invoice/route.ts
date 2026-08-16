@@ -34,11 +34,13 @@ const Body = z.object({
   description: z.string().max(500).optional(),
   lineItems: z.array(LineItemInput).min(1).max(100),
   currency: z.string().length(3).default('XOF'),
-  dueDate: z.string().datetime().optional(),
   depositAmount: z.number().int().min(0).optional(),
   deliveryDate: z.string().datetime().optional(),
   paymentMethodNote: z.string().max(300).optional(),
   footerNote: z.string().max(1000).optional(),
+  status: z.enum(['DRAFT', 'SENT']).optional(),
+  issueDate: z.string().datetime().optional(),
+  overdueAfterDays: z.number().int().min(1).max(365).optional(),
 });
 
 export async function POST(
@@ -104,6 +106,12 @@ export async function POST(
 
     const year = new Date().getFullYear();
 
+    const resolvedIssueDate = parsed.data.issueDate ? new Date(parsed.data.issueDate) : new Date();
+    const resolvedOverdueAfterDays = parsed.data.overdueAfterDays ?? 5;
+    const computedDueDate = new Date(
+      resolvedIssueDate.getTime() + resolvedOverdueAfterDays * 24 * 60 * 60 * 1000,
+    );
+
     let invoice = null;
     for (let attempt = 0; attempt < MAX_NUMBER_RETRIES && !invoice; attempt++) {
       const yearStart = new Date(Date.UTC(year, 0, 1));
@@ -123,7 +131,10 @@ export async function POST(
             ...(parsed.data.description ? { description: parsed.data.description } : {}),
             amount: computedAmount,
             currency: parsed.data.currency,
-            ...(parsed.data.dueDate ? { dueDate: new Date(parsed.data.dueDate) } : {}),
+            dueDate: computedDueDate,
+            issueDate: resolvedIssueDate,
+            overdueAfterDays: resolvedOverdueAfterDays,
+            ...(parsed.data.status ? { status: parsed.data.status } : {}),
             ...(parsed.data.depositAmount !== undefined
               ? { depositAmount: parsed.data.depositAmount }
               : {}),

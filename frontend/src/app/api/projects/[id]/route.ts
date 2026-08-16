@@ -13,7 +13,14 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
-import { PROJECT_TYPE_VALUES } from '@/lib/constants';
+import {
+  getOrCreateSubscription,
+  isProActive,
+  FREE_PLAN_LIMITS,
+} from '@/lib/server/billing/subscription';
+import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
+
+const PAYMENT_METHOD_VALUES = Object.keys(PAYMENT_METHOD_LABELS) as [string, ...string[]];
 
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -21,9 +28,32 @@ const PatchBody = z.object({
   type: z.enum(PROJECT_TYPE_VALUES).optional(),
   description: z.string().max(2000).nullable().optional(),
   amount: z.number().int().positive().optional(),
+  currency: z.string().length(3).optional(),
   dueDate: z.string().datetime().nullable().optional(),
-  // No `status` field — it's fully derived from step completion (see
-  // lib/server/projects/progress.ts), never independently writable.
+  // "Enregistrer brouillon" vs "Créer projet" — only meaningful while the
+  // project is still DRAFT (guarded below). Once PENDING+, status is fully
+  // derived from step completion (see lib/server/projects/progress.ts) and
+  // this field is rejected.
+  status: z.enum(['DRAFT', 'PENDING']).optional(),
+  // DRAFT-only bulk fields, all guarded below — a real (PENDING+) project
+  // never accepts these; only the light field set above stays patchable.
+  clientId: z.string().min(1).optional(),
+  steps: z
+    .array(
+      z.object({
+        title: z.string().min(1).max(200),
+        description: z.string().max(500).optional(),
+      }),
+    )
+    .min(1)
+    .max(20)
+    .optional(),
+  depositType: z.enum(['NONE', 'FIXED', 'PERCENT']).optional(),
+  depositValue: z.number().int().nonnegative().optional(),
+  depositReceived: z.boolean().optional(),
+  depositAmount: z.number().int().positive().optional(),
+  paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
+  paymentMethodLabel: z.string().min(1).max(100).optional(),
 });
 
 export async function GET(
@@ -112,7 +142,7 @@ export async function PATCH(
 
     const existing = await prisma.project.findFirst({
       where: { id, userId: auth.user.sub },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!existing) {
       return NextResponse.json(
@@ -132,18 +162,133 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    const { name, sector, type, description, amount, dueDate } = parsed.data;
+    const {
+      name,
+      sector,
+      type,
+      description,
+      amount,
+      currency,
+      dueDate,
+      status,
+      clientId,
+      steps,
+      depositType,
+      depositValue,
+      depositReceived,
+      depositAmount,
+      paymentMethod,
+      paymentMethodLabel,
+    } = parsed.data;
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: {
-        ...(name !== undefined ? { name } : {}),
-        ...(sector !== undefined ? { sector } : {}),
-        ...(type !== undefined ? { type } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(amount !== undefined ? { amount } : {}),
-        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-      },
+    // Full content (client/currency/steps/deposit terms/status) only stays
+    // reachable while the project is still a DRAFT — mirrors the devis/
+    // facture content-freeze pattern (see invoices/[id]/route.ts). Once
+    // PENDING+, only the light field set (name/sector/type/description/
+    // amount/dueDate) remains patchable.
+    if (
+      existing.status !== 'DRAFT' &&
+      (status !== undefined ||
+        clientId !== undefined ||
+        steps !== undefined ||
+        currency !== undefined ||
+        depositType !== undefined ||
+        depositValue !== undefined ||
+        depositReceived !== undefined ||
+        depositAmount !== undefined ||
+        paymentMethod !== undefined ||
+        paymentMethodLabel !== undefined)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'PROJECT_NOT_DRAFT',
+          message:
+            'Seul un brouillon peut avoir son client, ses étapes ou son acompte modifiés — un projet déjà créé ne garde que ses champs simples éditables.',
+        },
+        { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    if (clientId !== undefined) {
+      const client = await prisma.client.findFirst({
+        where: { id: clientId, userId: auth.user.sub },
+        select: { id: true },
+      });
+      if (!client) {
+        return NextResponse.json(
+          { error: 'CLIENT_NOT_FOUND', message: 'Client does not exist or does not belong to you' },
+          { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+        );
+      }
+    }
+
+    // Same free-plan gate as POST /api/projects — only enforced when
+    // actually finalizing (DRAFT -> PENDING), never for re-saving a draft.
+    if (status === 'PENDING') {
+      const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
+      if (!isProActive(subscription)) {
+        const activeProjectCount = await prisma.project.count({
+          where: { userId: auth.user.sub, status: { notIn: ['DELIVERED', 'DRAFT'] } },
+        });
+        if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
+          return NextResponse.json(
+            {
+              error: 'PLAN_LIMIT_PROJECTS',
+              message: `Le plan Gratuit est limité à ${FREE_PLAN_LIMITS.maxActiveProjects} projets actifs. Passe en Pro pour en créer davantage.`,
+            },
+            { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
+          );
+        }
+      }
+    }
+
+    const updateData = {
+      ...(name !== undefined ? { name } : {}),
+      ...(sector !== undefined ? { sector } : {}),
+      ...(type !== undefined ? { type } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(amount !== undefined ? { amount } : {}),
+      ...(currency !== undefined ? { currency } : {}),
+      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(clientId !== undefined ? { clientId } : {}),
+      ...(depositType !== undefined ? { depositType } : {}),
+      ...(depositValue !== undefined ? { depositValue } : {}),
+    };
+
+    const project = await prisma.$transaction(async (tx) => {
+      if (steps !== undefined) {
+        await tx.projectStep.deleteMany({ where: { projectId: id } });
+        await tx.projectStep.createMany({
+          data: steps.map((s, i) => ({
+            projectId: id,
+            order: i + 1,
+            title: s.title,
+            ...(s.description ? { description: s.description } : {}),
+          })),
+        });
+      }
+      const updated = await tx.project.update({ where: { id }, data: updateData });
+      if (depositReceived && paymentMethod && depositAmount != null) {
+        await tx.order.create({
+          data: {
+            userId: auth.user.sub,
+            amount: depositAmount,
+            currency: updated.currency,
+            status: 'PAID',
+            provider: 'manual',
+            paymentMethod,
+            metadata: {
+              projectId: updated.id,
+              docType: 'DEPOSIT',
+              ...(paymentMethod === 'OTHER' && paymentMethodLabel ? { paymentMethodLabel } : {}),
+            },
+            expiresAt: new Date(),
+            paidAt: new Date(),
+          },
+        });
+      }
+      return updated;
     });
 
     return NextResponse.json(project, { headers: { 'x-request-id': reqCtx.requestId } });

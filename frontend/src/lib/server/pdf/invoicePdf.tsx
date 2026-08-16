@@ -51,15 +51,18 @@ export interface InvoicePdfData {
   };
   provider: {
     name: string;
+    email: string;
     bio?: string | null;
     phone?: string | null;
     address?: string | null;
     taxId?: string | null;
     commerceRegistry?: string | null;
+    brandColor?: string | null;
   };
   lineItems: PdfLineItem[];
   packs: PdfPack[];
   selectedPackId?: string | null;
+  project?: { name: string } | null;
   contentBlocks: PdfContentBlock[];
   paymentTermsNote?: string | null;
   depositAmount?: number | null;
@@ -84,7 +87,10 @@ const CONTENT_BLOCK_LABELS: Record<string, string> = {
 const PRIMARY = '#0b6e4f';
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  // paddingBottom reserves room below the normal content flow so the fixed
+  // footerBand (absolutely positioned, see below) never overlaps the last
+  // lines of a longer invoice/devis.
+  page: { padding: 40, paddingBottom: 90, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
   providerName: { fontSize: 13, fontWeight: 700, marginBottom: 3 },
   muted: { color: '#6b6b6b', fontSize: 9 },
@@ -158,13 +164,23 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 11, fontWeight: 700, marginBottom: 6, color: PRIMARY },
   blockPrimary: { fontSize: 10, fontWeight: 700, marginBottom: 2 },
   blockSecondary: { fontSize: 9, color: '#4a4a4a', marginBottom: 8 },
-  footer: {
-    marginTop: 28,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#ececec',
+  // Pinned to the true bottom of the physical A4 sheet (not flowed right
+  // after the content, wherever that happens to end) — `fixed` makes it
+  // repeat at the same spot on every paginated page if the invoice overflows
+  // to more than one. left/right/bottom match styles.page's own padding so
+  // the band's edges line up with the rest of the content.
+  footerBand: {
+    position: 'absolute',
+    left: 40,
+    right: 40,
+    bottom: 40,
+    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  footerBandText: {
     fontSize: 8.5,
-    color: '#6b6b6b',
+    color: '#ffffff',
   },
 });
 
@@ -194,6 +210,20 @@ function LineItemsTable({ items, currency }: { items: PdfLineItem[]; currency: s
 function InvoiceDocument({ data }: { data: InvoicePdfData }) {
   const isQuote = data.docType === 'QUOTE';
   const balance = computeBalance(data.amount, data.depositAmount);
+  // Defensive fallback: a real invoice created through the app always has
+  // >=1 lineItem (enforced at creation), but rows can exist without one
+  // (legacy data) — mirrors the on-screen invoice page's same fallback so
+  // the PDF never renders an empty désignation table.
+  const flatLineItems =
+    data.lineItems.length > 0
+      ? data.lineItems
+      : [
+          {
+            designation: data.description || data.project?.name || DOC_LABELS[data.docType],
+            quantity: 1,
+            unitPrice: data.amount,
+          },
+        ];
   const processBlocks = data.contentBlocks.filter((b) => b.kind === 'PROCESS');
   const conditionBlocks = data.contentBlocks.filter((b) => b.kind === 'CONDITIONS');
   const paymentBlocks = data.contentBlocks.filter((b) => b.kind === 'PAYMENT_METHOD');
@@ -240,6 +270,8 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           <View style={styles.partyBlock}>
             <Text style={styles.label}>Prestataire</Text>
             <Text style={styles.partyName}>{data.provider.name}</Text>
+            {data.provider.phone && <Text style={styles.muted}>{data.provider.phone}</Text>}
+            <Text style={styles.muted}>{data.provider.email}</Text>
             {data.provider.bio && <Text style={styles.muted}>{data.provider.bio}</Text>}
           </View>
           <View style={styles.partyBlock}>
@@ -294,7 +326,7 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           </>
         ) : (
           <>
-            <LineItemsTable items={data.lineItems} currency={data.currency} />
+            <LineItemsTable items={flatLineItems} currency={data.currency} />
             <View style={styles.totalsBlock}>
               {data.depositAmount != null && data.depositAmount > 0 && (
                 <>
@@ -393,7 +425,14 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
           </View>
         )}
 
-        {data.footerNote && <Text style={styles.footer}>{data.footerNote}</Text>}
+        {data.footerNote && (
+          <View
+            fixed
+            style={[styles.footerBand, { backgroundColor: data.provider.brandColor ?? PRIMARY }]}
+          >
+            <Text style={styles.footerBandText}>{data.footerNote}</Text>
+          </View>
+        )}
       </Page>
     </Document>
   );

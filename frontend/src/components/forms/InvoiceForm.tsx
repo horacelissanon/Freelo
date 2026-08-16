@@ -46,7 +46,8 @@ export interface InvoiceFormExisting {
   description: string | null;
   amount: number;
   currency: string;
-  dueDate: string | null;
+  issueDate: string;
+  overdueAfterDays: number;
   lineItems: { designation: string; quantity: number; unitPrice: number }[];
   depositAmount: number | null;
   deliveryDate: string | null;
@@ -58,7 +59,6 @@ export interface InvoiceFormInitial {
   description?: string;
   lineItems?: { designation: string; quantity: number; unitPrice: number }[];
   currency?: string;
-  dueDate?: string;
   depositAmount?: number;
 }
 
@@ -157,8 +157,11 @@ export function InvoiceForm({
     invoice?.description ?? initial?.description ?? '',
   );
   const [currency, setCurrency] = useState(invoice?.currency ?? initial?.currency ?? 'XOF');
-  const [dueDate, setDueDate] = useState(
-    invoice?.dueDate?.slice(0, 10) ?? initial?.dueDate?.slice(0, 10) ?? '',
+  const [issueDate, setIssueDate] = useState(
+    invoice?.issueDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+  );
+  const [overdueAfterDays, setOverdueAfterDays] = useState(
+    invoice?.overdueAfterDays != null ? String(invoice.overdueAfterDays) : '5',
   );
 
   const [lineItems, setLineItems] = useState<LineItemDraft[]>(() =>
@@ -188,7 +191,6 @@ export function InvoiceForm({
           name: string;
           amount: number;
           currency: string;
-          dueDate: string | null;
         };
         deposit: { amount: number; paid: boolean };
       }>(`/api/projects/${unbilledProject.id}`);
@@ -198,7 +200,6 @@ export function InvoiceForm({
         { designation: data.project.name, quantity: '1', unitPrice: String(data.project.amount) },
       ]);
       setCurrency(data.project.currency);
-      if (data.project.dueDate) setDueDate(data.project.dueDate.slice(0, 10));
       if (data.deposit.paid) setDepositAmount(String(data.deposit.amount));
       setImportedProjectId(data.project.id);
       toast('Données du projet importées.', 'success');
@@ -212,7 +213,12 @@ export function InvoiceForm({
     invoice?.deliveryDate ? invoice.deliveryDate.slice(0, 10) : '',
   );
   const [paymentMethodNote, setPaymentMethodNote] = useState(invoice?.paymentMethodNote ?? '');
-  const [footerNote, setFooterNote] = useState(invoice?.footerNote ?? '');
+  // A new facture pre-fills footerNote from the freelance's default legal
+  // mention (Paramètres → Compte) — stays freely editable per invoice, and
+  // an existing invoice's own saved footerNote always wins.
+  const [footerNote, setFooterNote] = useState(
+    invoice?.footerNote ?? user?.defaultLegalMention ?? '',
+  );
 
   const [error, setError] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
@@ -243,6 +249,9 @@ export function InvoiceForm({
   const lineItemsTotal = computeItemsTotal(numericLineItems);
   const depositValue = depositAmount ? Number(depositAmount) : null;
   const balance = computeBalance(lineItemsTotal, depositValue);
+  const previewDueDate = new Date(
+    new Date(issueDate).getTime() + (Number(overdueAfterDays) || 5) * 24 * 60 * 60 * 1000,
+  );
 
   function buildLineItemsPayload():
     | { designation: string; quantity: number; unitPrice: number }[]
@@ -263,8 +272,7 @@ export function InvoiceForm({
     return items;
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function saveInvoice(targetStatus: 'DRAFT' | 'SENT') {
     setClientError(null);
     setLineItemsError(null);
     if (!lockedClient && !clientId) {
@@ -288,17 +296,22 @@ export function InvoiceForm({
         description: description || null,
         lineItems: items,
         currency,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        issueDate: new Date(issueDate).toISOString(),
+        overdueAfterDays: Number(overdueAfterDays) || 5,
         depositAmount: depositAmount ? Number(depositAmount) : null,
         deliveryDate: deliveryDate ? new Date(deliveryDate).toISOString() : null,
         paymentMethodNote: paymentMethodNote || null,
         footerNote: footerNote || null,
+        status: targetStatus,
       };
       if (invoice) {
         await api(`/api/invoices/${invoice.id}`, { method: 'PATCH', body: shared });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix(`/api/invoices/${invoice.id}`);
-        toast('Facture mise à jour.', 'success');
+        toast(
+          targetStatus === 'SENT' ? 'Facture prête à envoyer.' : 'Brouillon enregistré.',
+          'success',
+        );
       } else {
         await api(submitPath, {
           method: 'POST',
@@ -306,7 +319,10 @@ export function InvoiceForm({
         });
         invalidateCachePrefix('/api/invoices');
         invalidateCachePrefix('/api/dashboard/stats');
-        toast('Facture créée.', 'success');
+        toast(
+          targetStatus === 'SENT' ? 'Facture prête à envoyer.' : 'Brouillon enregistré.',
+          'success',
+        );
       }
       onDone();
     } catch (err) {
@@ -319,6 +335,11 @@ export function InvoiceForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void saveInvoice('DRAFT');
   }
 
   if (!lockedClient && !clientsLoading && clients.length === 0) {
@@ -590,8 +611,22 @@ export function InvoiceForm({
         </label>
 
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Échéance
-          <DatePicker value={dueDate} onChange={setDueDate} />
+          Date facture
+          <DatePicker value={issueDate} onChange={setIssueDate} />
+        </label>
+        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Jours avant retard
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={overdueAfterDays}
+            onChange={(e) => setOverdueAfterDays(e.target.value)}
+            className={`${inputClass} max-w-[100px]`}
+          />
+          <span className="font-body text-xs text-muted-foreground">
+            Passe automatiquement en retard si non payée après ce délai.
+          </span>
         </label>
         {planLimitMessage && <PlanLimitPrompt message={planLimitMessage} />}
         {error && (
@@ -599,17 +634,24 @@ export function InvoiceForm({
             {error}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="mt-2 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {submitting
-            ? 'Enregistrement…'
-            : invoice
-              ? 'Enregistrer les modifications'
-              : 'Créer la facture'}
-        </button>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void saveInvoice('DRAFT')}
+            disabled={submitting}
+            className="rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
+          >
+            Enregistrer brouillon
+          </button>
+          <button
+            type="button"
+            onClick={() => void saveInvoice('SENT')}
+            disabled={submitting}
+            className="rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {submitting ? 'Enregistrement…' : 'Prêt à envoyer'}
+          </button>
+        </div>
       </form>
 
       <div className="lg:sticky lg:top-0 lg:w-64 lg:flex-shrink-0 lg:self-start">
@@ -683,9 +725,9 @@ export function InvoiceForm({
               </>
             )}
           </div>
-          {dueDate && (
-            <p className="text-[11px] text-muted-foreground">Échéance {formatDate(dueDate)}</p>
-          )}
+          <p className="text-[11px] text-muted-foreground">
+            En retard à partir du {formatDate(previewDueDate.toISOString())}
+          </p>
         </div>
       </div>
 

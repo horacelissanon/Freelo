@@ -102,7 +102,7 @@ describe('sweepDeadlineAlerts', () => {
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: { not: 'DELIVERED' } }),
+        where: expect.objectContaining({ status: { notIn: ['DELIVERED', 'DRAFT'] } }),
       }),
     );
     expect(prismaMock.notification.create).toHaveBeenCalledWith(

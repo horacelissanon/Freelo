@@ -72,6 +72,12 @@ export interface ProjectFormInitial {
   currency?: string;
   depositType?: DepositType;
   depositValue?: number;
+  /** Edit-mode only (see `projectId`) — the form otherwise seeds dueDate
+   *  empty and steps from the type template, since "initial" elsewhere means
+   *  "pre-fill from a devis", not "load this project's saved state". */
+  clientId?: string;
+  dueDate?: string;
+  steps?: { title: string; description?: string | null }[];
 }
 
 export function ProjectForm({
@@ -81,12 +87,12 @@ export function ProjectForm({
   lockedClient,
   submitPath = '/api/projects',
   extraBody,
+  projectId,
 }: {
   onDone: () => void;
   onNeedClient: () => void;
-  /** Pre-fills the form — e.g. from an accepted devis. Every field stays
-   *  editable; this only seeds the initial values, same as a user typing
-   *  them in by hand. */
+  /** Pre-fills the form — e.g. from an accepted devis, or (with `projectId`
+   *  set) an existing draft's saved state. Every field stays editable. */
   initial?: ProjectFormInitial;
   /** When set, the client picker is replaced by a read-only label and
    *  `clientId` is never included in the submitted body — the target
@@ -100,13 +106,16 @@ export function ProjectForm({
    *  confirmation collected in a step before this form is shown. Kept
    *  generic on purpose: this form has no opinion on what those fields mean. */
   extraBody?: Record<string, unknown>;
+  /** Edit mode for an existing DRAFT project — saves PATCH /api/projects/{id}
+   *  instead of POST submitPath. Mirrors QuoteBuilderForm's `quote` prop. */
+  projectId?: string;
 }) {
   const { toast } = useToast();
   const { data, loading } = useApi<{ items: ClientOption[] }>('/api/clients?limit=50');
   const clients = data?.items ?? [];
 
   const resolvedSector = resolveFreelanceSector(initial?.sector, initial?.type);
-  const [clientId, setClientId] = useState(lockedClient?.id ?? '');
+  const [clientId, setClientId] = useState(lockedClient?.id ?? initial?.clientId ?? '');
   const [name, setName] = useState(initial?.name ?? '');
   const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
   const [sectorOther, setSectorOther] = useState(resolvedSector.other);
@@ -114,8 +123,12 @@ export function ProjectForm({
   const [description, setDescription] = useState(initial?.description ?? '');
   const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
-  const [dueDate, setDueDate] = useState('');
-  const [steps, setSteps] = useState<StepDraft[]>(() => stepsTemplateFor(initial?.type ?? 'OTHER'));
+  const [dueDate, setDueDate] = useState(initial?.dueDate?.slice(0, 10) ?? '');
+  const [steps, setSteps] = useState<StepDraft[]>(() =>
+    initial?.steps && initial.steps.length > 0
+      ? initial.steps.map((s) => ({ title: s.title, description: s.description ?? '' }))
+      : stepsTemplateFor(initial?.type ?? 'OTHER'),
+  );
   const [stepsTouched, setStepsTouched] = useState(false);
   // Deposit terms expected for this project going forward — what's owed, not
   // what's already been paid (see depositReceived below). System default
@@ -238,8 +251,11 @@ export function ProjectForm({
     setSteps((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function saveProject(targetStatus: 'DRAFT' | 'PENDING') {
+    // Same validation for both targets — mirrors QuoteBuilderForm.saveQuote,
+    // which validates identically regardless of DRAFT vs SENT. A brouillon
+    // just isn't finalized/sent to the client yet and doesn't count against
+    // the plan limit — it isn't a "fill in less" mode.
     if (!validate()) return;
     setSubmitting(true);
     setError(null);
@@ -249,36 +265,39 @@ export function ProjectForm({
         .map((s) => ({ title: s.title.trim(), description: s.description.trim() }))
         .filter((s) => s.title)
         .map(({ title, description }) => ({ title, ...(description ? { description } : {}) }));
-      await api(submitPath, {
-        method: 'POST',
-        body: {
-          ...(lockedClient ? {} : { clientId }),
-          name,
-          sector: sector === 'OTHER' ? sectorOther.trim() || 'OTHER' : sector,
-          type,
-          amount: Number(amount),
-          currency,
-          ...(description.trim() ? { description: description.trim() } : {}),
-          ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
-          ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
-          depositType,
-          depositValue: Number(depositTypeValue || 0),
-          ...(!lockedClient && depositReceived
-            ? {
-                depositReceived: true,
-                depositAmount: Number(depositAmount),
-                paymentMethod: depositPaymentMethod,
-                ...(depositPaymentMethod === 'OTHER'
-                  ? { paymentMethodLabel: depositPaymentMethodOther.trim() }
-                  : {}),
-              }
-            : {}),
-          ...extraBody,
-        },
-      });
+      const body = {
+        ...(lockedClient ? {} : { clientId }),
+        name,
+        sector: sector === 'OTHER' ? sectorOther.trim() || 'OTHER' : sector,
+        type,
+        amount: Number(amount),
+        currency,
+        status: targetStatus,
+        ...(description.trim() ? { description: description.trim() } : {}),
+        ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
+        ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
+        depositType,
+        depositValue: Number(depositTypeValue || 0),
+        ...(!lockedClient && depositReceived
+          ? {
+              depositReceived: true,
+              depositAmount: Number(depositAmount),
+              paymentMethod: depositPaymentMethod,
+              ...(depositPaymentMethod === 'OTHER'
+                ? { paymentMethodLabel: depositPaymentMethodOther.trim() }
+                : {}),
+            }
+          : {}),
+        ...extraBody,
+      };
+      if (projectId) {
+        await api(`/api/projects/${projectId}`, { method: 'PATCH', body });
+      } else {
+        await api(submitPath, { method: 'POST', body });
+      }
       invalidateCachePrefix('/api/projects');
       invalidateCachePrefix('/api/dashboard/stats');
-      toast('Projet créé.', 'success');
+      toast(targetStatus === 'PENDING' ? 'Projet créé.' : 'Brouillon enregistré.', 'success');
       onDone();
     } catch (err) {
       if (err instanceof ApiError && isPlanLimitCode(err.code)) {
@@ -290,6 +309,11 @@ export function ProjectForm({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void saveProject('DRAFT');
   }
 
   const depositTermsValid =
@@ -543,7 +567,10 @@ export function ProjectForm({
             <button
               key={value}
               type="button"
-              onClick={() => setDepositType(value)}
+              onClick={() => {
+                setDepositType(value);
+                if (value === 'NONE') setDepositReceived(false);
+              }}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                 depositType === value
                   ? 'border-primary bg-primary text-primary-foreground'
@@ -567,7 +594,7 @@ export function ProjectForm({
           />
         )}
       </div>
-      {!lockedClient && (
+      {!lockedClient && depositType !== 'NONE' && (
         <div className="flex flex-col gap-2 rounded-md border border-border p-3">
           <label className="flex items-center gap-2 font-body text-sm text-foreground">
             <input
@@ -578,12 +605,12 @@ export function ProjectForm({
                 setDepositReceived(checked);
                 if (checked && !depositAmount) {
                   const total = Number(amount || 0);
+                  // depositType is guaranteed FIXED/PERCENT here — this whole
+                  // section only renders when depositType !== 'NONE'.
                   const estimate =
-                    depositType === 'NONE'
-                      ? 0
-                      : depositType === 'FIXED'
-                        ? Number(depositTypeValue || 0)
-                        : Math.round((total * Number(depositTypeValue || 0)) / 100);
+                    depositType === 'FIXED'
+                      ? Number(depositTypeValue || 0)
+                      : Math.round((total * Number(depositTypeValue || 0)) / 100);
                   setDepositAmount(estimate > 0 ? String(estimate) : '');
                 }
               }}
@@ -698,13 +725,24 @@ export function ProjectForm({
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={submitting || !depositTermsValid || !depositValid}
-        className="mt-2 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
-      >
-        {submitting ? 'Création…' : 'Créer le projet'}
-      </button>
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void saveProject('DRAFT')}
+          disabled={submitting || !depositTermsValid || !depositValid}
+          className="rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
+        >
+          Enregistrer brouillon
+        </button>
+        <button
+          type="button"
+          onClick={() => void saveProject('PENDING')}
+          disabled={submitting || !depositTermsValid || !depositValid}
+          className="rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {submitting ? 'Enregistrement…' : 'Créer projet'}
+        </button>
+      </div>
     </form>
   );
 }

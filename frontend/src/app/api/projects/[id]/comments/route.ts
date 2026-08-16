@@ -17,7 +17,7 @@ const Body = z
   .object({
     body: z.string().max(2000).default(''),
     attachmentUrl: z.string().url().optional(),
-    attachmentType: z.enum(['IMAGE', 'AUDIO']).optional(),
+    attachmentType: z.enum(['IMAGE', 'AUDIO', 'FILE']).optional(),
   })
   .refine((d) => d.body.trim().length > 0 || d.attachmentUrl, {
     message: 'body or attachment is required',

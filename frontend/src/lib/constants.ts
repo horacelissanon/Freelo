@@ -260,14 +260,17 @@ export function resolveFreelanceSector(
   return { code: 'OTHER', other: '' };
 }
 
-// Fully derived from step completion (see lib/server/projects/progress.ts's
-// computeProjectStatus) — never a freelance-chosen value at any point in the
-// lifecycle. PENDING before the first step is validated, IN_PROGRESS between
-// the first and second-to-last, IN_REVIEW at the second-to-last, DELIVERED
-// once every step is done — recomputed in both directions.
-export type ProjectStatus = 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DELIVERED';
+// DRAFT is the only freelance-chosen value (creation-time: "Enregistrer
+// brouillon" vs "Créer projet"). Once PENDING+, status is fully derived from
+// step completion (see lib/server/projects/progress.ts's computeProjectStatus)
+// — never freelance-chosen again. PENDING before the first step is
+// validated, IN_PROGRESS between the first and second-to-last, IN_REVIEW at
+// the second-to-last, DELIVERED once every step is done — recomputed in both
+// directions.
+export type ProjectStatus = 'DRAFT' | 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DELIVERED';
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  DRAFT: 'Brouillon',
   PENDING: 'En attente',
   IN_PROGRESS: 'En cours',
   IN_REVIEW: 'En révision',
@@ -275,6 +278,7 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, { bg: string; fg: string }> = {
+  DRAFT: { bg: 'bg-secondary', fg: 'text-muted-foreground' },
   PENDING: { bg: 'bg-muted', fg: 'text-muted-foreground' },
   IN_PROGRESS: { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg' },
   IN_REVIEW: { bg: 'bg-tag-purple', fg: 'text-tag-purple-fg' },

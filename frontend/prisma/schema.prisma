@@ -44,6 +44,14 @@ model User {
   // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to
   // COMPANY (matches the pre-existing studioName-first fallback behavior).
   documentIdentity  String    @default("COMPANY") // PERSONAL | COMPANY
+  // Client-facing branding (Paramètres → Compte → Entreprise) — used on the
+  // PDF footer band, the on-screen invoice footer, and the /suivi/[token]
+  // tracking page footer. Independent from the dashboard-only accent color
+  // (EspaceTab/AccentColorContext), which never leaves the browser.
+  brandColor          String?   @default("#059669")
+  // Pre-fills Invoice.footerNote on every new facture — stays freely
+  // editable per invoice afterward.
+  defaultLegalMention String?
   defaultCurrency   String    @default("XOF")
   language          String    @default("fr")
   // showPaidInvoicesDefault: when false, /invoices pre-filters PAID docs out
@@ -456,9 +464,11 @@ model Project {
   sector      String    @default("OTHER") // Secteur freelance — DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER; scopes which `type` values the UI offers (see SECTOR_PROJECT_TYPES in lib/constants.ts)
   type        String    @default("OTHER") // scoped to `sector` — see PROJECT_TYPE_LABELS in lib/constants.ts
   description String? // short brief, freeform (v1)
-  // Fully derived from step completion (see lib/server/projects/progress.ts)
-  // — never a freelance-chosen value at any point in the lifecycle.
-  status      String    @default("PENDING") // PENDING | IN_PROGRESS | IN_REVIEW | DELIVERED
+  // DRAFT is the only freelance-chosen value (creation-time: "Enregistrer
+  // brouillon" vs "Créer projet"). Once PENDING+, status is fully derived
+  // from step completion (see lib/server/projects/progress.ts) and never
+  // freelance-chosen again.
+  status      String    @default("PENDING") // DRAFT | PENDING | IN_PROGRESS | IN_REVIEW | DELIVERED
   progress    Int       @default(0) // 0-100
   amount      Int // smallest currency unit, matches Order convention
   currency    String    @default("XOF")
@@ -534,6 +544,12 @@ model Invoice {
   status      String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE | ACCEPTED | CANCELED
   issueDate   DateTime  @default(now())
   dueDate     DateTime?
+  // Facture-only ("Jours avant retard"): dueDate is computed server-side as
+  // issueDate + overdueAfterDays whenever the invoice moves to SENT — the
+  // freelance sets a day count (default 5), never an absolute due date.
+  // Ignored for QUOTE, which still uses a freely-picked absolute dueDate
+  // (Échéance) feeding the EXPIRED sweep.
+  overdueAfterDays Int @default(5)
   orderId     String?   @unique // set once a payment Order is created (Phase C)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

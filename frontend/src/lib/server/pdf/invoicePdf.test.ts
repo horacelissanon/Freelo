@@ -17,6 +17,7 @@ const baseData: InvoicePdfData = {
   },
   provider: {
     name: 'Atelier X',
+    email: 'atelier@x.sn',
     bio: null,
     phone: null,
     address: 'Dakar, Sénégal',

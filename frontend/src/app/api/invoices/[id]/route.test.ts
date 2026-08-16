@@ -73,6 +73,7 @@ function invoice(
     status: string;
     amount: number;
     depositAmount: number;
+    overdueAfterDays: number;
   }> = {},
 ) {
   return {
@@ -88,6 +89,7 @@ function invoice(
     currency: 'XOF',
     status: overrides.status ?? 'DRAFT',
     issueDate: new Date('2026-05-01T00:00:00Z'),
+    overdueAfterDays: overrides.overdueAfterDays ?? 5,
     dueDate: null,
     orderId: null,
     relatedInvoiceId: null,
@@ -282,11 +284,20 @@ describe('PATCH /api/invoices/[id]', () => {
     expect(updateArg?.data).toEqual({ currency: 'EUR' });
   });
 
-  it('dueDate: null clears the date on a DRAFT invoice', async () => {
+  it('dueDate is rejected for an invoice — use issueDate/overdueAfterDays instead', async () => {
+    const res = await PATCH(makePatch({ dueDate: null }), ctxWith('i-1'));
+    expect(res.status).toBe(400);
+    expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+  });
+
+  it('overdueAfterDays recomputes dueDate from the existing issueDate', async () => {
     prismaMock.invoice.update.mockResolvedValue(invoice() as never);
-    await PATCH(makePatch({ dueDate: null }), ctxWith('i-1'));
+    await PATCH(makePatch({ overdueAfterDays: 10 }), ctxWith('i-1'));
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
-    expect(updateArg?.data).toEqual({ dueDate: null });
+    expect(updateArg?.data).toEqual({
+      overdueAfterDays: 10,
+      dueDate: new Date('2026-05-11T00:00:00Z'),
+    });
   });
 
   describe('line items bulk-replace (INVOICE only)', () => {

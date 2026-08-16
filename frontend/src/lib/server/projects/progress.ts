@@ -33,7 +33,19 @@ type Db = Pick<Prisma.TransactionClient, 'projectStep' | 'project'>;
 // Called after any mutation that changes a project's step count or
 // completion (add, delete, or toggle a step's status) — never after a pure
 // reorder or title/description edit, which affect neither.
+//
+// DRAFT is the one status this function must never touch — it's the
+// freelance's own choice (see PATCH /api/projects/[id]'s status field),
+// not derived from steps. A DRAFT project's steps are edited as local form
+// state inside ProjectForm, not through these live per-step routes, but the
+// guard stays defensive in case that ever changes.
 export async function recomputeProjectStepsState(db: Db, projectId: string): Promise<void> {
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { status: true },
+  });
+  if (project?.status === 'DRAFT') return;
+
   const steps = await db.projectStep.findMany({
     where: { projectId },
     select: { status: true },

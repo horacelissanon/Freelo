@@ -32,8 +32,6 @@ import {
 
 const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
-const OTHER_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'OVERDUE', 'ACCEPTED'];
-
 interface InvoiceRelation {
   id: string;
   number: string;
@@ -85,6 +83,7 @@ interface InvoiceDetail {
   currency: string;
   issueDate: string;
   dueDate: string | null;
+  overdueAfterDays: number;
   client: InvoiceClient;
   project: { id: string; name: string } | null;
   relatedInvoice: InvoiceRelation | null;
@@ -290,12 +289,12 @@ export default function InvoiceDetailPage() {
                 <p className="mt-1 font-body text-sm font-medium text-foreground">
                   {providerIdentity.name}
                 </p>
-                <p className="font-body text-xs text-muted-foreground">{user.email}</p>
                 {providerIdentity.phone && (
                   <p className="font-body text-xs text-muted-foreground">
                     {providerIdentity.phone}
                   </p>
                 )}
+                <p className="font-body text-xs text-muted-foreground">{user.email}</p>
                 {(providerIdentity.taxId || providerIdentity.commerceRegistry) && (
                   <p className="font-body text-xs text-muted-foreground">
                     {[
@@ -578,9 +577,12 @@ export default function InvoiceDetailPage() {
                 </div>
               )}
               {invoice.footerNote && (
-                <p className="mt-4 border-t border-border pt-4 font-body text-xs text-muted-foreground italic">
-                  {invoice.footerNote}
-                </p>
+                <div
+                  className="mt-4 rounded-md px-4 py-3"
+                  style={{ backgroundColor: user.brandColor }}
+                >
+                  <p className="font-body text-xs text-white/90 italic">{invoice.footerNote}</p>
+                </div>
               )}
 
               {invoice.docType === 'CREDIT_NOTE' && invoice.relatedInvoice && (
@@ -736,25 +738,6 @@ export default function InvoiceDetailPage() {
                   </div>
                 )}
 
-                {invoice.docType !== 'QUOTE' && (
-                  <div className="mb-4">
-                    <p className="mb-1.5 font-body text-xs text-muted-foreground">Autre statut</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {OTHER_STATUSES.filter((s) => s !== invoice.status).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          disabled={changingStatus !== null}
-                          onClick={() => void changeStatus(s)}
-                          className="rounded-full border border-border bg-canvas px-2.5 py-1 font-body text-xs font-medium text-foreground disabled:opacity-50"
-                        >
-                          {changingStatus === s ? '…' : INVOICE_STATUS_LABELS[s]}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex flex-col gap-2 border-t border-border pt-4">
                   <div className="flex items-center gap-1.5">
                     <button
@@ -830,7 +813,8 @@ export default function InvoiceDetailPage() {
               description: invoice.description,
               amount: invoice.amount,
               currency: invoice.currency,
-              dueDate: invoice.dueDate,
+              issueDate: invoice.issueDate,
+              overdueAfterDays: invoice.overdueAfterDays,
               lineItems: invoice.lineItems.map((it) => ({
                 designation: it.designation,
                 quantity: it.quantity,
