@@ -23,6 +23,7 @@ import {
   type FreelanceSector,
   type ProjectType,
 } from '@/lib/constants';
+import { PROJECT_TYPE_DEFAULT_STEPS, PROJECT_TYPE_DEFAULT_CONDITIONS } from '@/lib/projectDefaults';
 
 const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
 
@@ -127,6 +128,22 @@ function blocksOfKind(
   return contentBlocks
     .filter((b) => b.kind === kind)
     .map((b) => ({ primaryText: b.primaryText, secondaryText: b.secondaryText ?? '' }));
+}
+
+function stepsTemplateFor(type: ProjectType): ContentBlockDraft[] {
+  return (PROJECT_TYPE_DEFAULT_STEPS[type] ?? PROJECT_TYPE_DEFAULT_STEPS.OTHER).map((s) => ({
+    primaryText: s.title,
+    secondaryText: s.description,
+  }));
+}
+
+function conditionsTemplateFor(type: ProjectType): ContentBlockDraft[] {
+  return (PROJECT_TYPE_DEFAULT_CONDITIONS[type] ?? PROJECT_TYPE_DEFAULT_CONDITIONS.OTHER).map(
+    (c) => ({
+      primaryText: c.primaryText,
+      secondaryText: c.secondaryText,
+    }),
+  );
 }
 
 // Shared editor for the 4 additional devis sections — same repeatable
@@ -255,6 +272,26 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const [conditionBlocks, setConditionBlocks] = useState<ContentBlockDraft[]>(() =>
     blocksOfKind(quote?.contentBlocks ?? [], 'CONDITIONS'),
   );
+  // Guards the secteur/type-driven auto-fill below from ever overwriting
+  // real content: true from the start when editing a quote that already has
+  // that section filled in, and flipped true the moment the user actually
+  // types into either section via ContentBlockList's onChange. Sector/type
+  // auto-fill itself never sets these, so switching secteur/type keeps
+  // refreshing the template right up until the user edits something.
+  const [processTouched, setProcessTouched] = useState(
+    () => !!quote && blocksOfKind(quote.contentBlocks, 'PROCESS').length > 0,
+  );
+  const [conditionTouched, setConditionTouched] = useState(
+    () => !!quote && blocksOfKind(quote.contentBlocks, 'CONDITIONS').length > 0,
+  );
+  function onProcessBlocksChange(blocks: ContentBlockDraft[]) {
+    setProcessTouched(true);
+    setProcessBlocks(blocks);
+  }
+  function onConditionBlocksChange(blocks: ContentBlockDraft[]) {
+    setConditionTouched(true);
+    setConditionBlocks(blocks);
+  }
   const [paymentBlocks, setPaymentBlocks] = useState<ContentBlockDraft[]>(() =>
     blocksOfKind(quote?.contentBlocks ?? [], 'PAYMENT_METHOD'),
   );
@@ -637,9 +674,11 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
                 type="button"
                 onClick={() => {
                   setSector(value);
-                  setProjectType(
-                    value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER'),
-                  );
+                  const newType =
+                    value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER');
+                  setProjectType(newType);
+                  if (!processTouched) setProcessBlocks(stepsTemplateFor(newType));
+                  if (!conditionTouched) setConditionBlocks(conditionsTemplateFor(newType));
                 }}
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                   sector === value
@@ -671,7 +710,11 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setProjectType(value)}
+                  onClick={() => {
+                    setProjectType(value);
+                    if (!processTouched) setProcessBlocks(stepsTemplateFor(value));
+                    if (!conditionTouched) setConditionBlocks(conditionsTemplateFor(value));
+                  }}
                   className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                     projectType === value
                       ? 'border-primary bg-primary text-primary-foreground'
@@ -946,7 +989,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           secondaryPlaceholder="Description (optionnel)"
           addLabel="Ajouter une étape"
           blocks={processBlocks}
-          onChange={setProcessBlocks}
+          onChange={onProcessBlocksChange}
         />
 
         <ContentBlockList
@@ -956,7 +999,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           secondaryPlaceholder="Détail (optionnel)"
           addLabel="Ajouter une condition"
           blocks={conditionBlocks}
-          onChange={setConditionBlocks}
+          onChange={onConditionBlocksChange}
         />
 
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">

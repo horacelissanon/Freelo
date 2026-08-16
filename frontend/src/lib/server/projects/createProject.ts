@@ -7,6 +7,7 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
 import type { ProjectType } from '@/lib/constants';
+import { PROJECT_TYPE_DEFAULT_STEPS } from '@/lib/projectDefaults';
 
 // Structurally satisfied by both the plain `prisma` client and a `tx`
 // passed into `prisma.$transaction(async (tx) => ...)` — only the one
@@ -29,22 +30,14 @@ export interface CreateProjectInput {
   steps?: { title: string; description?: string | undefined }[];
 }
 
-// Generic lifecycle seeded when the caller doesn't supply a custom `steps`
-// list — keeps the Client Link Portal demoable out of the box. Mirrors
-// ProjectForm.tsx's client-side DEFAULT_STEPS so a user who touches
-// nothing gets identical behavior whichever creation path they used.
-const DEFAULT_STEPS: { order: number; title: string; description: string }[] = [
-  {
-    order: 1,
-    title: 'Brief & découverte',
-    description: 'Collecte de vos informations et objectifs',
-  },
-  { order: 2, title: 'Premiers concepts', description: 'Premières propositions à valider' },
-  { order: 3, title: 'Révisions', description: 'Ajustements selon vos retours' },
-  { order: 4, title: 'Livraison finale', description: 'Remise des fichiers finaux' },
-];
-
 export function createProject(db: Db, input: CreateProjectInput) {
+  // Falls back to the type's professional-practice step template when the
+  // caller doesn't supply a custom `steps` list — keeps the Client Link
+  // Portal demoable out of the box, and matches what ProjectForm.tsx/
+  // QuoteBuilderForm.tsx already pre-fill client-side for the same type so
+  // a user who touches nothing gets identical behavior whichever creation
+  // path they used.
+  const fallbackSteps = PROJECT_TYPE_DEFAULT_STEPS[input.type] ?? PROJECT_TYPE_DEFAULT_STEPS.OTHER;
   return db.project.create({
     data: {
       userId: input.userId,
@@ -66,7 +59,11 @@ export function createProject(db: Db, input: CreateProjectInput) {
               title: s.title,
               ...(s.description ? { description: s.description } : {}),
             }))
-          : DEFAULT_STEPS,
+          : fallbackSteps.map((s, index) => ({
+              order: index + 1,
+              title: s.title,
+              description: s.description,
+            })),
       },
     },
   });

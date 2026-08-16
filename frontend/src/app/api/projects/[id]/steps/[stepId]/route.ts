@@ -25,6 +25,11 @@ const Body = z.discriminatedUnion('action', [
     action: z.literal('move'),
     direction: z.enum(['up', 'down']),
   }),
+  z.object({
+    action: z.literal('edit'),
+    title: z.string().min(1).max(200),
+    description: z.string().max(500).nullable().optional(),
+  }),
 ]);
 
 export async function PATCH(
@@ -77,6 +82,14 @@ export async function PATCH(
         data: {
           status: parsed.data.status,
           completedAt: parsed.data.status === 'COMPLETED' ? new Date() : null,
+        },
+      });
+    } else if (parsed.data.action === 'edit') {
+      await prisma.projectStep.update({
+        where: { id: step.id },
+        data: {
+          title: parsed.data.title,
+          description: parsed.data.description || null,
         },
       });
     } else {

@@ -107,6 +107,75 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+const stepEditorInputClass =
+  'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
+
+// Same title+description block layout as ProjectForm/QuoteBuilderForm's
+// creation-time step editor, so an already-existing project's steps are
+// editable the same way — title and description both, not title-only.
+// Local draft state (seeded from `step`, saved on blur) keeps every
+// keystroke from round-tripping to the API.
+function StepEditorRow({
+  step,
+  onSave,
+  onRemove,
+  removing,
+  disableRemove,
+}: {
+  step: { id: string; title: string; description: string | null };
+  onSave: (title: string, description: string) => void;
+  onRemove: () => void;
+  removing: boolean;
+  disableRemove: boolean;
+}) {
+  const [title, setTitle] = useState(step.title);
+  const [description, setDescription] = useState(step.description ?? '');
+
+  function saveIfChanged() {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setTitle(step.title);
+      return;
+    }
+    if (trimmedTitle !== step.title || description.trim() !== (step.description ?? '')) {
+      onSave(trimmedTitle, description.trim());
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={saveIfChanged}
+          maxLength={200}
+          className={stepEditorInputClass}
+        />
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={saveIfChanged}
+          placeholder="Description (optionnel)"
+          maxLength={500}
+          rows={2}
+          className={stepEditorInputClass}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={removing || disableRemove}
+        aria-label="Supprimer l'étape"
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-30"
+      >
+        <Icon i="trash" size={14} />
+      </button>
+    </div>
+  );
+}
+
 export default function ProjectDetailPage() {
   const user = useUser();
   const { id } = useParams<{ id: string }>();
@@ -168,6 +237,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newStepTitle, setNewStepTitle] = useState('');
+  const [newStepDescription, setNewStepDescription] = useState('');
   const [addingStep, setAddingStep] = useState(false);
   const [removingStepId, setRemovingStepId] = useState<string | null>(null);
   const [stepEditorError, setStepEditorError] = useState<string | null>(null);
@@ -217,15 +287,21 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
     }
   }
 
-  async function onAddStep(e: FormEvent) {
-    e.preventDefault();
+  async function onAddStep() {
     const title = newStepTitle.trim();
     if (!title) return;
     setAddingStep(true);
     setStepEditorError(null);
     try {
-      await api(`/api/projects/${project.id}/steps`, { method: 'POST', body: { title } });
+      await api(`/api/projects/${project.id}/steps`, {
+        method: 'POST',
+        body: {
+          title,
+          ...(newStepDescription.trim() ? { description: newStepDescription.trim() } : {}),
+        },
+      });
       setNewStepTitle('');
+      setNewStepDescription('');
       invalidateCache(`/api/projects/${project.id}`);
     } catch (err) {
       setStepEditorError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
@@ -244,6 +320,19 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
       setStepEditorError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     } finally {
       setRemovingStepId(null);
+    }
+  }
+
+  async function editStep(stepId: string, title: string, description: string) {
+    setStepEditorError(null);
+    try {
+      await api(`/api/projects/${project.id}/steps/${stepId}`, {
+        method: 'PATCH',
+        body: { action: 'edit', title, description: description || null },
+      });
+      invalidateCache(`/api/projects/${project.id}`);
+    } catch (err) {
+      setStepEditorError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     }
   }
 
@@ -824,43 +913,43 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
             </p>
             <div className="flex flex-col gap-2">
               {steps.map((step) => (
-                <div
+                <StepEditorRow
                   key={step.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-border p-3"
-                >
-                  <span className="min-w-0 flex-1 truncate font-body text-sm text-foreground">
-                    {step.title}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void removeStep(step.id)}
-                    disabled={removingStepId === step.id || steps.length <= 1}
-                    aria-label="Supprimer l'étape"
-                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary disabled:opacity-30"
-                  >
-                    <Icon i="trash" size={14} />
-                  </button>
-                </div>
+                  step={step}
+                  onSave={(title, description) => void editStep(step.id, title, description)}
+                  onRemove={() => void removeStep(step.id)}
+                  removing={removingStepId === step.id}
+                  disableRemove={steps.length <= 1}
+                />
               ))}
             </div>
-            <form onSubmit={onAddStep} className="mt-3 flex items-center gap-2">
+            <div className="mt-3 flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
               <input
                 type="text"
-                placeholder="Nouvelle étape…"
+                placeholder="Titre de la nouvelle étape…"
                 value={newStepTitle}
                 onChange={(e) => setNewStepTitle(e.target.value)}
                 maxLength={200}
-                className="min-w-0 flex-1 rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                className={stepEditorInputClass}
+              />
+              <textarea
+                placeholder="Description (optionnel)"
+                value={newStepDescription}
+                onChange={(e) => setNewStepDescription(e.target.value)}
+                maxLength={500}
+                rows={2}
+                className={stepEditorInputClass}
               />
               <button
-                type="submit"
+                type="button"
+                onClick={() => void onAddStep()}
                 disabled={addingStep || !newStepTitle.trim()}
-                className="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+                className="flex w-fit flex-shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
                 <Icon i="plus" size={14} />
-                Ajouter
+                Ajouter une étape
               </button>
-            </form>
+            </div>
             {stepEditorError && (
               <p role="alert" className="mt-2 font-body text-sm text-tag-red-fg">
                 {stepEditorError}

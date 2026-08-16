@@ -20,6 +20,7 @@ import {
   type ProjectType,
   type FreelanceSector,
 } from '@/lib/constants';
+import { PROJECT_TYPE_DEFAULT_STEPS } from '@/lib/projectDefaults';
 
 const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
 
@@ -28,15 +29,12 @@ interface StepDraft {
   description: string;
 }
 
-// Pre-filled with the same titles/descriptions as the server's DEFAULT_STEPS
-// fallback (see /api/projects) so a user who touches nothing gets identical
-// behavior — but every line is editable/removable and more can be added.
-const DEFAULT_STEPS: StepDraft[] = [
-  { title: 'Brief & découverte', description: 'Collecte de vos informations et objectifs' },
-  { title: 'Premiers concepts', description: 'Premières propositions à valider' },
-  { title: 'Révisions', description: 'Ajustements selon vos retours' },
-  { title: 'Livraison finale', description: 'Remise des fichiers finaux' },
-];
+function stepsTemplateFor(type: ProjectType): StepDraft[] {
+  return (PROJECT_TYPE_DEFAULT_STEPS[type] ?? PROJECT_TYPE_DEFAULT_STEPS.OTHER).map((s) => ({
+    title: s.title,
+    description: s.description,
+  }));
+}
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -98,7 +96,8 @@ export function ProjectForm({
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [dueDate, setDueDate] = useState('');
-  const [steps, setSteps] = useState<StepDraft[]>(DEFAULT_STEPS);
+  const [steps, setSteps] = useState<StepDraft[]>(() => stepsTemplateFor(initial?.type ?? 'OTHER'));
+  const [stepsTouched, setStepsTouched] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -126,12 +125,15 @@ export function ProjectForm({
   }
 
   function updateStep(index: number, field: keyof StepDraft, value: string) {
+    setStepsTouched(true);
     setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
   function addStep() {
+    setStepsTouched(true);
     setSteps((prev) => [...prev, { title: '', description: '' }]);
   }
   function removeStep(index: number) {
+    setStepsTouched(true);
     setSteps((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -270,7 +272,10 @@ export function ProjectForm({
               type="button"
               onClick={() => {
                 setSector(value);
-                setType(value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER'));
+                const newType =
+                  value === 'OTHER' ? 'OTHER' : (SECTOR_PROJECT_TYPES[value][0] ?? 'OTHER');
+                setType(newType);
+                if (!stepsTouched) setSteps(stepsTemplateFor(newType));
               }}
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                 sector === value
@@ -302,7 +307,10 @@ export function ProjectForm({
               <button
                 key={value}
                 type="button"
-                onClick={() => setType(value)}
+                onClick={() => {
+                  setType(value);
+                  if (!stepsTouched) setSteps(stepsTemplateFor(value));
+                }}
                 className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
                   type === value
                     ? 'border-primary bg-primary text-primary-foreground'

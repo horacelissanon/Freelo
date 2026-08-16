@@ -133,6 +133,34 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     expect(calls[0]?.[0]).toMatchObject({ where: { id: 's-2' }, data: { order: 1 } });
     expect(calls[1]?.[0]).toMatchObject({ where: { id: 's-1' }, data: { order: 2 } });
   });
+
+  it('action=edit updates title and description', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    const res = await PATCH(
+      makePatch({ action: 'edit', title: 'Maquettes', description: 'Wireframes validés' }),
+      ctxWith('p-1', 's-2'),
+    );
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.projectStep.update.mock.calls[0]?.[0];
+    expect(updateArg?.where).toEqual({ id: 's-2' });
+    expect(updateArg?.data).toEqual({ title: 'Maquettes', description: 'Wireframes validés' });
+  });
+
+  it('action=edit with empty description clears it to null', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    await PATCH(
+      makePatch({ action: 'edit', title: 'Maquettes', description: '' }),
+      ctxWith('p-1', 's-2'),
+    );
+    const updateArg = prismaMock.projectStep.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ title: 'Maquettes', description: null });
+  });
+
+  it('action=edit with blank title -> 400 VALIDATION_FAILED', async () => {
+    const res = await PATCH(makePatch({ action: 'edit', title: '' }), ctxWith('p-1', 's-2'));
+    expect(res.status).toBe(400);
+    expect(prismaMock.projectStep.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('DELETE /api/projects/[id]/steps/[stepId]', () => {
