@@ -70,6 +70,12 @@ beforeEach(() => {
     createdAt: new Date('2026-05-01T00:00:00Z'),
     updatedAt: new Date('2026-05-01T00:00:00Z'),
   } as never);
+  prismaMock.$transaction.mockImplementation((cb: unknown) => {
+    if (typeof cb === 'function') {
+      return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
+    }
+    return Promise.resolve(cb);
+  });
 });
 
 describe('GET /api/projects', () => {
@@ -167,6 +173,126 @@ describe('POST /api/projects', () => {
       { order: 1, title: 'Brief' },
       { order: 2, title: 'Maquette', description: 'Premiers jets' },
     ]);
+  });
+
+  it('depositReceived without paymentMethod -> 400 VALIDATION_FAILED, no create', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 100000,
+        depositReceived: true,
+        depositAmount: 30000,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('depositAmount above the project amount -> 400 VALIDATION_FAILED, no create', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 100000,
+        depositReceived: true,
+        paymentMethod: 'WAVE',
+        depositAmount: 150000,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('paymentMethod OTHER without paymentMethodLabel -> 400 VALIDATION_FAILED, no create', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 100000,
+        depositReceived: true,
+        depositAmount: 30000,
+        paymentMethod: 'OTHER',
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('depositReceived + paymentMethod -> records a PAID DEPOSIT Order for the real amount received, inside the same transaction', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.project.create.mockResolvedValue({
+      id: 'p-new',
+      clientId: 'c-1',
+      amount: 100000,
+      currency: 'XOF',
+      depositType: 'PERCENT',
+      depositValue: 30,
+    } as never);
+
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 100000,
+        depositReceived: true,
+        paymentMethod: 'WAVE',
+        depositAmount: 20000,
+      }),
+    );
+    expect(res.status).toBe(201);
+
+    const orderArg = prismaMock.order.create.mock.calls[0]?.[0];
+    // The freelance only received 20 000, not the full 30% (30 000) estimate.
+    expect(orderArg?.data?.amount).toBe(20000);
+    expect(orderArg?.data?.status).toBe('PAID');
+    expect(orderArg?.data?.paymentMethod).toBe('WAVE');
+    expect(orderArg?.data?.metadata).toEqual({ projectId: 'p-new', docType: 'DEPOSIT' });
+  });
+
+  it('paymentMethod OTHER + paymentMethodLabel -> label stored in the Order metadata', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.project.create.mockResolvedValue({
+      id: 'p-new',
+      clientId: 'c-1',
+      amount: 100000,
+      currency: 'XOF',
+      depositType: 'PERCENT',
+      depositValue: 30,
+    } as never);
+
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 100000,
+        depositReceived: true,
+        depositAmount: 30000,
+        paymentMethod: 'OTHER',
+        paymentMethodLabel: 'PayPal',
+      }),
+    );
+    expect(res.status).toBe(201);
+
+    const orderArg = prismaMock.order.create.mock.calls[0]?.[0];
+    expect(orderArg?.data?.metadata).toEqual({
+      projectId: 'p-new',
+      docType: 'DEPOSIT',
+      paymentMethodLabel: 'PayPal',
+    });
+  });
+
+  it('no depositReceived -> no Order created, no transaction needed', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.project.create.mockResolvedValue(project() as never);
+    await POST(makePost({ clientId: 'c-1', name: 'X', amount: 100000 }));
+    expect(prismaMock.order.create).not.toHaveBeenCalled();
   });
 });
 

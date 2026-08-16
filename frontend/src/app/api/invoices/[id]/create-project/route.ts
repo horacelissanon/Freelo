@@ -17,6 +17,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { createProject } from '@/lib/server/projects/createProject';
+import { theoreticalDepositAmount } from '@/lib/server/projects/depositBalance';
 import {
   getOrCreateSubscription,
   isProActive,
@@ -46,6 +47,11 @@ const Body = z
       .min(1)
       .max(20)
       .optional(),
+    // Deposit terms for the resulting project — what's expected going
+    // forward. Mirrors InvoicePack's depositType/depositValue; omitted ->
+    // schema default (PERCENT, 50).
+    depositType: z.enum(['NONE', 'FIXED', 'PERCENT']).optional(),
+    depositValue: z.number().int().nonnegative().optional(),
     // Confirms the devis's acompte was actually received before the project
     // is created — when true, a PAID Order row is recorded alongside the
     // project so the existing deposit/balance derivation (GET
@@ -55,7 +61,7 @@ const Body = z
     depositReceived: z.boolean().optional(),
     // The amount actually received — freelance-editable so a partial acompte
     // (client only paid part of the estimated deposit) is recorded
-    // accurately instead of always assuming the full depositPercent share.
+    // accurately instead of always assuming the full theoretical share.
     depositAmount: z.number().int().positive().optional(),
     paymentMethod: z.enum(PAYMENT_METHOD_VALUES).optional(),
     // Free-text detail — required when paymentMethod is the 'OTHER' catch-all
@@ -63,6 +69,24 @@ const Body = z
     // this lets them note what the client actually used instead).
     paymentMethodLabel: z.string().min(1).max(100).optional(),
   })
+  .refine(
+    (data) =>
+      data.depositType !== 'PERCENT' ||
+      data.depositValue == null ||
+      (data.depositValue >= 0 && data.depositValue <= 100),
+    {
+      message: 'depositValue must be between 0 and 100 for a PERCENT deposit.',
+      path: ['depositValue'],
+    },
+  )
+  .refine(
+    (data) =>
+      data.depositType !== 'FIXED' || data.depositValue == null || data.depositValue <= data.amount,
+    {
+      message: "L'acompte fixe ne peut pas dépasser le montant du projet.",
+      path: ['depositValue'],
+    },
+  )
   .refine((data) => !data.depositReceived || !!data.paymentMethod, {
     message: 'paymentMethod is required when depositReceived is true',
     path: ['paymentMethod'],
@@ -177,11 +201,12 @@ export async function POST(
         ...(parsed.data.description ? { description: parsed.data.description } : {}),
         ...(parsed.data.dueDate ? { dueDate: parsed.data.dueDate } : {}),
         ...(parsed.data.steps ? { steps: parsed.data.steps } : {}),
+        ...(parsed.data.depositType ? { depositType: parsed.data.depositType } : {}),
+        ...(parsed.data.depositValue != null ? { depositValue: parsed.data.depositValue } : {}),
       });
       await tx.invoice.update({ where: { id: invoice.id }, data: { projectId: created.id } });
       if (parsed.data.depositReceived && parsed.data.paymentMethod) {
-        const depositAmount =
-          parsed.data.depositAmount ?? Math.round((created.amount * created.depositPercent) / 100);
+        const depositAmount = parsed.data.depositAmount ?? theoreticalDepositAmount(created);
         await tx.order.create({
           data: {
             userId: auth.user.sub,

@@ -224,7 +224,8 @@ describe('POST /api/invoices/[id]/create-project', () => {
       clientId: 'c-1',
       amount: 100000,
       currency: 'XOF',
-      depositPercent: 30,
+      depositType: 'PERCENT',
+      depositValue: 30,
     } as never);
     prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
 
@@ -266,7 +267,8 @@ describe('POST /api/invoices/[id]/create-project', () => {
       clientId: 'c-1',
       amount: 100000,
       currency: 'XOF',
-      depositPercent: 30,
+      depositType: 'PERCENT',
+      depositValue: 30,
     } as never);
     prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
 
@@ -299,7 +301,8 @@ describe('POST /api/invoices/[id]/create-project', () => {
       clientId: 'c-1',
       amount: 100000,
       currency: 'XOF',
-      depositPercent: 30,
+      depositType: 'PERCENT',
+      depositValue: 30,
     } as never);
     prismaMock.invoice.update.mockResolvedValue({ id: 'i-1', projectId: 'p-new' } as never);
 

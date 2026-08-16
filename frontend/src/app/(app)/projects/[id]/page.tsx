@@ -88,7 +88,8 @@ interface ProjectDetail {
     dueDate: string | null;
     step: string | null;
     publicToken: string;
-    depositPercent: number;
+    depositType: string;
+    depositValue: number;
     createdAt: string;
     client: { id: string; name: string };
   };
@@ -657,21 +658,24 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
           <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5">
             <h2 className="mb-4 font-headings text-sm font-bold text-foreground">Paiements</h2>
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-4 rounded-md border border-border p-4">
-                <div>
-                  <p className="font-body text-sm font-medium text-foreground">
-                    Acompte ({project.depositPercent}%)
-                  </p>
-                  <p className="font-body text-xs text-muted-foreground">
-                    {formatPrice(deposit.amount)} {project.currency}
-                  </p>
+              {project.depositType !== 'NONE' && (
+                <div className="flex items-center justify-between gap-4 rounded-md border border-border p-4">
+                  <div>
+                    <p className="font-body text-sm font-medium text-foreground">
+                      Acompte
+                      {project.depositType === 'PERCENT' ? ` (${project.depositValue}%)` : ''}
+                    </p>
+                    <p className="font-body text-xs text-muted-foreground">
+                      {formatPrice(deposit.amount)} {project.currency}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${deposit.paid ? 'bg-tag-green text-tag-green-fg' : 'bg-muted text-muted-foreground'}`}
+                  >
+                    {deposit.paid ? 'Payé' : 'En attente'}
+                  </span>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-1.5 font-body text-xs font-medium ${deposit.paid ? 'bg-tag-green text-tag-green-fg' : 'bg-muted text-muted-foreground'}`}
-                >
-                  {deposit.paid ? 'Payé' : 'En attente'}
-                </span>
-              </div>
+              )}
               <div className="flex items-center justify-between gap-4 rounded-md border border-border p-4">
                 <div>
                   <p className="font-body text-sm font-medium text-foreground">Solde</p>

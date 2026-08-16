@@ -1,6 +1,6 @@
 // Public guest-checkout payment on the Client Link Portal. The critical
 // invariant under test: the charged amount is ALWAYS computed server-side
-// from project.amount + project.depositPercent — never trusted from the
+// from project.amount + project.depositType/depositValue — never trusted from the
 // request body (there is no `amount` field in the body at all).
 import { prismaMock } from '@/test-utils/prisma-mock';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -51,7 +51,8 @@ const projectFixture = {
   id: 'p-1',
   amount: 500000,
   currency: 'XOF',
-  depositPercent: 30,
+  depositType: 'PERCENT',
+  depositValue: 30,
   client: { name: 'Tekki Foods', email: 'contact@tekkifoods.sn', phone: null },
   user: {
     publicPortalEnabled: true,

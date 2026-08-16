@@ -33,7 +33,7 @@ export function Modal({
         type="button"
         aria-label="Fermer"
         onClick={onClose}
-        className="animate-fade-in absolute inset-0 bg-black/40"
+        className="animate-fade-in absolute inset-0 bg-black/40 backdrop-blur-md"
       />
       <div
         className={`animate-scale-in relative flex max-h-[90vh] w-full flex-col overflow-y-auto rounded-t-lg border border-border bg-canvas p-6 shadow-xl sm:rounded-lg ${MAX_WIDTH[size]}`}

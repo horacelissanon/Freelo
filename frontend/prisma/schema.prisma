@@ -462,7 +462,13 @@ model Project {
   dueDate     DateTime?
   step        String? // current milestone label, freeform (v1)
   publicToken String    @unique @default(cuid()) // Client Link Portal (Phase C)
-  depositPercent Int    @default(30) // % of amount due as deposit before delivery
+  // Deposit terms for this project. NONE: no deposit expected, the whole
+  // amount is due as balance. FIXED: depositValue is an amount in the
+  // project's smallest currency unit. PERCENT (system default): depositValue
+  // is a 0-100 rate applied to `amount`. Mirrors InvoicePack's depositType/
+  // depositValue pattern below.
+  depositType  String @default("PERCENT") // NONE | FIXED | PERCENT
+  depositValue Int    @default(50)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

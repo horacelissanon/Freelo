@@ -108,6 +108,7 @@ export default function InvoiceDetailPage() {
   const { toast } = useToast();
   const { data: invoice, loading, error, refresh } = useApi<InvoiceDetail>(`/api/invoices/${id}`);
   const [changingStatus, setChangingStatus] = useState<InvoiceStatus | null>(null);
+  const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmingCreditNote, setConfirmingCreditNote] = useState(false);
   const [issuingCreditNote, setIssuingCreditNote] = useState(false);
@@ -212,6 +213,20 @@ export default function InvoiceDetailPage() {
   }
 
   const selectedPack = invoice?.packs.find((p) => p.id === invoice.selectedPackId) ?? null;
+  // Inherits the offer's own deposit terms when the pack declared one;
+  // otherwise falls back to the system default (PERCENT, 50%) rather than a
+  // hardcoded 30% estimate that no longer matches Project.depositType's
+  // actual default.
+  const packDepositType: 'FIXED' | 'PERCENT' =
+    selectedPack?.depositType === 'FIXED' || selectedPack?.depositType === 'PERCENT'
+      ? selectedPack.depositType
+      : 'PERCENT';
+  const packDepositValue =
+    selectedPack?.depositType != null ? (selectedPack.depositValue ?? 0) : 50;
+  const estimatedDeposit =
+    packDepositType === 'FIXED'
+      ? packDepositValue
+      : Math.round((invoice?.amount ?? 0) * (packDepositValue / 100));
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -695,13 +710,28 @@ export default function InvoiceDetailPage() {
                     <button
                       type="button"
                       disabled={changingStatus !== null}
-                      onClick={() => void changeStatus('PAID')}
+                      onClick={() => setConfirmingPaid(true)}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-tag-green px-4 py-2.5 font-body text-sm font-medium text-tag-green-fg disabled:opacity-50"
                     >
                       <Icon i={changingStatus === 'PAID' ? 'loader' : 'check-circle'} size={15} />
                       {changingStatus === 'PAID' ? 'Enregistrement…' : 'Marquer comme payée'}
                     </button>
                     <InfoTooltip text="Enregistre cette facture comme payée (ex : espèces, virement ou Mobile Money reçu hors plateforme). Ne vérifie pas automatiquement le paiement." />
+                  </div>
+                )}
+
+                {invoice.docType !== 'QUOTE' && invoice.status === 'PAID' && (
+                  <div className="mb-3 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={changingStatus !== null}
+                      onClick={() => void changeStatus('SENT')}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
+                    >
+                      <Icon i={changingStatus === 'SENT' ? 'loader' : 'x-circle'} size={15} />
+                      {changingStatus === 'SENT' ? 'Enregistrement…' : 'Marquer comme non payée'}
+                    </button>
+                    <InfoTooltip text="Annule le paiement enregistré et repasse la facture à l'état envoyée — si elle est liée à un projet, l'acompte et le solde redeviennent à régler sur le suivi client." />
                   </div>
                 )}
 
@@ -811,15 +841,15 @@ export default function InvoiceDetailPage() {
                 L&apos;acompte de ce devis a-t-il déjà été reçu ?
               </p>
               <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5 font-body text-sm text-foreground">
-                Acompte estimé (30%) :{' '}
-                {formatPrice(Math.round(invoice.amount * 0.3), invoice.currency)}
+                Acompte estimé{packDepositType === 'PERCENT' ? ` (${packDepositValue}%)` : ''} :{' '}
+                {formatPrice(estimatedDeposit, invoice.currency)}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   onClick={() => {
                     setDepositChoice('RECEIVED');
-                    setDepositAmount(String(Math.round(invoice.amount * 0.3)));
+                    setDepositAmount(String(estimatedDeposit));
                   }}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
                 >
@@ -943,6 +973,8 @@ export default function InvoiceDetailPage() {
                 ...(invoice.type ? { type: invoice.type as ProjectType } : {}),
                 amount: invoice.amount,
                 currency: invoice.currency,
+                depositType: packDepositType,
+                depositValue: packDepositValue,
               }}
               submitPath={`/api/invoices/${invoice.id}/create-project`}
               extraBody={
@@ -965,6 +997,43 @@ export default function InvoiceDetailPage() {
               onNeedClient={() => {}}
             />
           )}
+        </Modal>
+      )}
+
+      {invoice && confirmingPaid && (
+        <Modal title="Marquer comme payée ?" onClose={() => setConfirmingPaid(false)}>
+          <p className="font-body text-sm text-muted-foreground">
+            Cette action enregistre {formatPrice(invoice.amount, invoice.currency)} comme
+            intégralement réglés.
+            {invoice.project && (
+              <>
+                {' '}
+                Sur la page de suivi du projet « {invoice.project.name} », l&apos;acompte{' '}
+                <strong>et</strong> le solde seront marqués comme payés.
+              </>
+            )}{' '}
+            Vous pourrez annuler cette action à tout moment.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingPaid(false)}
+              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void changeStatus('PAID');
+                setConfirmingPaid(false);
+              }}
+              disabled={changingStatus !== null}
+              className="rounded-md bg-tag-green px-4 py-2 font-body text-sm font-medium text-tag-green-fg disabled:opacity-50"
+            >
+              Confirmer
+            </button>
+          </div>
         </Modal>
       )}
 

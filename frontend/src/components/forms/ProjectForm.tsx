@@ -17,13 +17,16 @@ import {
   SECTOR_PROJECT_TYPES,
   resolveFreelanceSector,
   CURRENCIES,
+  PAYMENT_METHOD_LABELS,
   type ProjectStatus,
   type ProjectType,
   type FreelanceSector,
+  type PaymentMethod,
 } from '@/lib/constants';
 import { PROJECT_TYPE_DEFAULT_STEPS } from '@/lib/projectDefaults';
 
 const FREELANCE_SECTORS = Object.keys(FREELANCE_SECTOR_LABELS) as FreelanceSector[];
+const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
 interface StepDraft {
   title: string;
@@ -53,6 +56,15 @@ interface UnlinkedQuoteRow {
   projectId: string | null;
 }
 
+type DepositType = 'NONE' | 'FIXED' | 'PERCENT';
+
+const DEPOSIT_TYPE_LABELS: Record<DepositType, string> = {
+  NONE: 'Aucun',
+  FIXED: 'Montant fixe',
+  PERCENT: 'Taux (%)',
+};
+const DEPOSIT_TYPES: DepositType[] = ['NONE', 'FIXED', 'PERCENT'];
+
 export interface ProjectFormInitial {
   name?: string;
   sector?: string;
@@ -60,6 +72,8 @@ export interface ProjectFormInitial {
   description?: string;
   amount?: number;
   currency?: string;
+  depositType?: DepositType;
+  depositValue?: number;
 }
 
 export function ProjectForm({
@@ -106,6 +120,22 @@ export function ProjectForm({
   const [dueDate, setDueDate] = useState('');
   const [steps, setSteps] = useState<StepDraft[]>(() => stepsTemplateFor(initial?.type ?? 'OTHER'));
   const [stepsTouched, setStepsTouched] = useState(false);
+  // Deposit terms expected for this project going forward — what's owed, not
+  // what's already been paid (see depositReceived below). System default
+  // mirrors the schema: PERCENT at 50%.
+  const [depositType, setDepositType] = useState<DepositType>(initial?.depositType ?? 'PERCENT');
+  const [depositTypeValue, setDepositTypeValue] = useState(
+    initial?.depositValue != null ? String(initial.depositValue) : '50',
+  );
+  // Only relevant for the standalone creation path — the devis->projet flow
+  // (lockedClient set) already asks this question, up front, as its own
+  // wizard step before this form is even shown (see invoices/[id]/page.tsx).
+  // Left unchecked by default: "leave it blank" is a valid, common answer,
+  // not the same as declaring "no deposit was received".
+  const [depositReceived, setDepositReceived] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositPaymentMethod, setDepositPaymentMethod] = useState<PaymentMethod | ''>('');
+  const [depositPaymentMethodOther, setDepositPaymentMethodOther] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -150,7 +180,13 @@ export function ProjectForm({
         amount: number;
         currency: string;
         selectedPackId: string | null;
-        packs: { id: string; title: string; description: string | null }[];
+        packs: {
+          id: string;
+          title: string;
+          description: string | null;
+          depositType: string | null;
+          depositValue: number | null;
+        }[];
       }>(`/api/invoices/${highlightedQuote.id}`);
       const selectedPack = data.packs.find((p) => p.id === data.selectedPackId) ?? null;
       const newType = (data.type as ProjectType | null) ?? 'OTHER';
@@ -164,6 +200,10 @@ export function ProjectForm({
       setType(newType);
       setAmount(String(data.amount));
       setCurrency(data.currency);
+      if (selectedPack?.depositType === 'FIXED' || selectedPack?.depositType === 'PERCENT') {
+        setDepositType(selectedPack.depositType);
+        setDepositTypeValue(String(selectedPack.depositValue ?? 0));
+      }
       if (!stepsTouched) setSteps(stepsTemplateFor(newType));
       setImportedQuoteId(highlightedQuote.id);
       toast('Données du devis importées.', 'success');
@@ -225,6 +265,18 @@ export function ProjectForm({
           ...(description.trim() ? { description: description.trim() } : {}),
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
           ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
+          depositType,
+          depositValue: Number(depositTypeValue || 0),
+          ...(!lockedClient && depositReceived
+            ? {
+                depositReceived: true,
+                depositAmount: Number(depositAmount),
+                paymentMethod: depositPaymentMethod,
+                ...(depositPaymentMethod === 'OTHER'
+                  ? { paymentMethodLabel: depositPaymentMethodOther.trim() }
+                  : {}),
+              }
+            : {}),
           ...extraBody,
         },
       });
@@ -243,6 +295,19 @@ export function ProjectForm({
       setSubmitting(false);
     }
   }
+
+  const depositTermsValid =
+    depositType === 'NONE' ||
+    (Number(depositTypeValue) > 0 &&
+      (depositType !== 'PERCENT' || Number(depositTypeValue) <= 100) &&
+      (depositType !== 'FIXED' || Number(depositTypeValue) <= Number(amount || 0)));
+
+  const depositValid =
+    !depositReceived ||
+    (Number(depositAmount) > 0 &&
+      Number(depositAmount) <= Number(amount || 0) &&
+      !!depositPaymentMethod &&
+      (depositPaymentMethod !== 'OTHER' || depositPaymentMethodOther.trim().length > 0));
 
   if (!lockedClient && !loading && clients.length === 0) {
     return (
@@ -475,22 +540,132 @@ export function ProjectForm({
           </span>
         )}
       </label>
-      <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+      <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+        Acompte pour cette offre
+        <div className="flex flex-wrap gap-2">
+          {DEPOSIT_TYPES.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setDepositType(value)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                depositType === value
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-canvas text-foreground'
+              }`}
+            >
+              {DEPOSIT_TYPE_LABELS[value]}
+            </button>
+          ))}
+        </div>
+        {depositType !== 'NONE' && (
+          <input
+            type="number"
+            min={1}
+            step={1}
+            max={depositType === 'PERCENT' ? 100 : undefined}
+            value={depositTypeValue}
+            onChange={(e) => setDepositTypeValue(e.target.value)}
+            placeholder={depositType === 'PERCENT' ? 'Taux en %' : `Montant en ${currency}`}
+            className={`${inputClass} mt-1 max-w-[160px]`}
+          />
+        )}
+      </div>
+      {!lockedClient && (
+        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+          <label className="flex items-center gap-2 font-body text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={depositReceived}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setDepositReceived(checked);
+                if (checked && !depositAmount) {
+                  const total = Number(amount || 0);
+                  const estimate =
+                    depositType === 'NONE'
+                      ? 0
+                      : depositType === 'FIXED'
+                        ? Number(depositTypeValue || 0)
+                        : Math.round((total * Number(depositTypeValue || 0)) / 100);
+                  setDepositAmount(estimate > 0 ? String(estimate) : '');
+                }
+              }}
+            />
+            Un acompte a déjà été reçu
+          </label>
+          <p className="font-body text-xs text-muted-foreground">
+            Laisse cette case décochée si aucun acompte n&apos;a encore été versé, ou si tu préfères
+            l&apos;enregistrer plus tard.
+          </p>
+          {depositReceived && (
+            <div className="mt-1 flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Montant reçu ({currency})
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className={inputClass}
+                />
+              </label>
+              <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+                Moyen de paiement utilisé
+                <div className="flex flex-wrap gap-2">
+                  {PAYMENT_METHODS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDepositPaymentMethod(value)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                        depositPaymentMethod === value
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border bg-canvas text-foreground'
+                      }`}
+                    >
+                      {PAYMENT_METHOD_LABELS[value]}
+                    </button>
+                  ))}
+                </div>
+                {depositPaymentMethod === 'OTHER' && (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={depositPaymentMethodOther}
+                    onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
+                    placeholder="Précisez le moyen utilisé…"
+                    maxLength={100}
+                    className={`${inputClass} mt-1`}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Statut
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-          className={inputClass}
-        >
+        <div className="flex flex-wrap gap-2">
           {(Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]).map(
             ([value, label]) => (
-              <option key={value} value={value}>
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatus(value)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                  status === value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-canvas text-foreground'
+                }`}
+              >
                 {label}
-              </option>
+              </button>
             ),
           )}
-        </select>
-      </label>
+        </div>
+      </div>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Échéance
         <DatePicker value={dueDate} onChange={setDueDate} />
@@ -550,7 +725,7 @@ export function ProjectForm({
       )}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !depositTermsValid || !depositValid}
         className="mt-2 rounded-md bg-primary px-5 py-2.5 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
       >
         {submitting ? 'Création…' : 'Créer le projet'}

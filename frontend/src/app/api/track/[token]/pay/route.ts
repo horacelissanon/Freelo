@@ -3,7 +3,7 @@
 // checkout" rule that POST /api/orders enforces (D-PAY-03 there): the
 // project's `publicToken` IS the authorization, and — critically — the
 // amount charged is ALWAYS computed server-side from `project.amount` +
-// `project.depositPercent`. The client can choose WHICH bucket to pay
+// `project.depositType`/`depositValue`. The client can choose WHICH bucket to pay
 // (DEPOSIT or BALANCE) but never HOW MUCH. Reuses the same lazy provider
 // singleton + CircuitBreaker + Idempotency-Key replay semantics as
 // /api/orders so it inherits the same safety properties.
@@ -86,7 +86,8 @@ export async function POST(
         id: true,
         amount: true,
         currency: true,
-        depositPercent: true,
+        depositType: true,
+        depositValue: true,
         client: { select: { name: true, email: true, phone: true } },
         user: {
           select: {
@@ -118,7 +119,7 @@ export async function POST(
 
     // Reads the real, possibly-partial acompte already recorded (e.g. via
     // the devis->projet flow) so the balance charged here is the true
-    // remaining amount, not a fixed depositPercent split that could over-
+    // remaining amount, not a fixed theoretical split that could over-
     // or under-charge the client if a manual entry already diverged from it.
     const { deposit, balance } = await computeDepositBalance(prisma, project);
     const amount = kind === 'DEPOSIT' ? deposit.amount : balance.amount;

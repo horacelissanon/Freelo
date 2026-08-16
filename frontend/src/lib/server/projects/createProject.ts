@@ -28,6 +28,10 @@ export interface CreateProjectInput {
   dueDate?: string;
   step?: string;
   steps?: { title: string; description?: string | undefined }[];
+  // Deposit terms for this project (NONE | FIXED | PERCENT + depositValue).
+  // Omitted -> the schema default (PERCENT, 50) applies.
+  depositType?: 'NONE' | 'FIXED' | 'PERCENT';
+  depositValue?: number;
 }
 
 export function createProject(db: Db, input: CreateProjectInput) {
@@ -52,6 +56,8 @@ export function createProject(db: Db, input: CreateProjectInput) {
       ...(input.description ? { description: input.description } : {}),
       ...(input.dueDate ? { dueDate: new Date(input.dueDate) } : {}),
       ...(input.step ? { step: input.step } : {}),
+      ...(input.depositType ? { depositType: input.depositType } : {}),
+      ...(input.depositValue != null ? { depositValue: input.depositValue } : {}),
       steps: {
         create: input.steps
           ? input.steps.map((s, index) => ({

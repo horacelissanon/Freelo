@@ -232,7 +232,8 @@ describe('GET /api/track/[token] — project token', () => {
       currency: 'XOF',
       dueDate: null,
       step: null,
-      depositPercent: 30,
+      depositType: 'PERCENT',
+      depositValue: 30,
       createdAt: new Date('2026-05-01T00:00:00Z'),
       client: { name: 'Tekki Foods' },
       user: { publicPortalEnabled: true },
@@ -269,7 +270,8 @@ describe('GET /api/track/[token] — project token', () => {
       currency: 'XOF',
       dueDate: null,
       step: null,
-      depositPercent: 30,
+      depositType: 'PERCENT',
+      depositValue: 30,
       createdAt: new Date('2026-05-01T00:00:00Z'),
       client: { name: 'Tekki Foods' },
       user: { publicPortalEnabled: true },
@@ -284,6 +286,78 @@ describe('GET /api/track/[token] — project token', () => {
     const body = await res.json();
     expect(body.deposit).toEqual({ amount: 75000, paid: true });
     expect(body.balance).toEqual({ amount: 425000, paid: false });
+  });
+
+  it('exposes providerPhone and the originating devis payment info for the informational Payments block', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositType: 'PERCENT',
+      depositValue: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: { publicPortalEnabled: true, phone: '+221700000000' },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([]);
+    // Two distinct invoice.findFirst calls happen: computeDepositBalance's own
+    // paid-facture reconciliation check first (resolved to null — not relevant
+    // here), then this route's originating-devis payment-info lookup second.
+    prismaMock.invoice.findFirst.mockResolvedValueOnce(null as never).mockResolvedValueOnce({
+      paymentTermsNote: 'Acompte de 30% à la signature.',
+      contentBlocks: [
+        { id: 'cb-1', kind: 'PAYMENT_METHOD', primaryText: 'Orange Money', secondaryText: null },
+      ],
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.providerPhone).toBe('+221700000000');
+    expect(body.paymentInfo).toEqual({
+      note: 'Acompte de 30% à la signature.',
+      blocks: [
+        { id: 'cb-1', kind: 'PAYMENT_METHOD', primaryText: 'Orange Money', secondaryText: null },
+      ],
+    });
+
+    const invoiceArgs = prismaMock.invoice.findFirst.mock.calls[1]?.[0];
+    expect(invoiceArgs?.where).toEqual({ projectId: 'p-1', docType: 'QUOTE' });
+  });
+
+  it('no originating devis -> paymentInfo is null', async () => {
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositType: 'PERCENT',
+      depositValue: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: { publicPortalEnabled: true, phone: null },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.paymentInfo).toBeNull();
+    expect(body.providerPhone).toBeNull();
   });
 
   it('unknown token (neither client, project, nor invoice) -> 404 NOT_FOUND', async () => {

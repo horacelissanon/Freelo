@@ -92,10 +92,11 @@ export async function GET(
         currency: true,
         dueDate: true,
         step: true,
-        depositPercent: true,
+        depositType: true,
+        depositValue: true,
         createdAt: true,
         client: { select: { name: true } },
-        user: { select: { publicPortalEnabled: true } },
+        user: { select: { publicPortalEnabled: true, phone: true } },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
         review: { select: { rating: true, comment: true } },
@@ -112,8 +113,20 @@ export async function GET(
       // authenticated dashboard and this public portal never disagree.
       const { deposit, balance } = await computeDepositBalance(prisma, project);
 
+      // The Payments block on the tracking page is informational only (no
+      // online charge from here — see /api/track/[token]/pay's comment for
+      // why that path stays unlinked from the UI): it reuses whatever
+      // payment info the originating devis carried, falling back to a plain
+      // WhatsApp prompt when the project wasn't created from one.
+      const originQuote = await prisma.invoice.findFirst({
+        where: { projectId: project.id, docType: 'QUOTE' },
+        select: {
+          paymentTermsNote: true,
+          contentBlocks: { where: { kind: 'PAYMENT_METHOD' }, orderBy: { order: 'asc' } },
+        },
+      });
+
       const { steps, comments, review, client: projectClient, user, ...projectFields } = project;
-      void user; // consumed above for the publicPortalEnabled gate; excluded from the response
       return NextResponse.json(
         {
           kind: 'project',
@@ -123,6 +136,10 @@ export async function GET(
           review: review ?? null,
           deposit,
           balance,
+          providerPhone: user.phone,
+          paymentInfo: originQuote
+            ? { note: originQuote.paymentTermsNote, blocks: originQuote.contentBlocks }
+            : null,
         },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );

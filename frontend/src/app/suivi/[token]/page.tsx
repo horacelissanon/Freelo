@@ -142,7 +142,8 @@ interface ProjectView {
     currency: string;
     dueDate: string | null;
     step: string | null;
-    depositPercent: number;
+    depositType: string;
+    depositValue: number;
     createdAt: string;
     client: { name: string };
   };
@@ -151,6 +152,8 @@ interface ProjectView {
   review: { rating: number; comment: string | null } | null;
   deposit: { amount: number; paid: boolean };
   balance: { amount: number; paid: boolean };
+  providerPhone: string | null;
+  paymentInfo: { note: string | null; blocks: TrackedContentBlock[] } | null;
 }
 
 type TrackView = ClientView | ProjectView | QuoteOrInvoiceView;
@@ -308,10 +311,9 @@ function ProjectDetail({
   token: string;
   onRefresh: () => void;
 }) {
-  const { project, steps, comments, review, deposit, balance } = view;
+  const { project, steps, comments, review, deposit, balance, providerPhone, paymentInfo } = view;
 
-  const [payingKind, setPayingKind] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
-  const [payError, setPayError] = useState<string | null>(null);
+  const [paymentModalKind, setPaymentModalKind] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
 
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
@@ -321,30 +323,6 @@ function ProjectDetail({
   const [reviewComment, setReviewComment] = useState(review?.comment ?? '');
   const [reviewPosting, setReviewPosting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-
-  async function pay(kind: 'DEPOSIT' | 'BALANCE') {
-    setPayingKind(kind);
-    setPayError(null);
-    try {
-      const res = await fetch(`/api/track/${token}/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'idempotency-key': crypto.randomUUID() },
-        body: JSON.stringify({ kind }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setPayError(data.message ?? 'Paiement indisponible pour le moment.');
-        return;
-      }
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      }
-    } catch {
-      setPayError('Erreur réseau. Réessayez.');
-    } finally {
-      setPayingKind(null);
-    }
-  }
 
   async function onSubmitComment(e: FormEvent) {
     e.preventDefault();
@@ -478,34 +456,35 @@ function ProjectDetail({
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
         <h2 className="mb-4 font-headings text-base font-bold text-foreground">Paiements</h2>
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4">
-            <div>
-              <p className="font-body text-sm font-medium text-foreground">
-                Acompte ({project.depositPercent}%)
-              </p>
-              <p className="font-body text-xs text-muted-foreground">À la signature du projet</p>
+          {project.depositType !== 'NONE' && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4">
+              <div>
+                <p className="font-body text-sm font-medium text-foreground">
+                  Acompte{project.depositType === 'PERCENT' ? ` (${project.depositValue}%)` : ''}
+                </p>
+                <p className="font-body text-xs text-muted-foreground">À la signature du projet</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <p className="font-headings text-lg font-bold text-foreground">
+                  {formatPrice(deposit.amount)}
+                </p>
+                {deposit.paid ? (
+                  <span className="rounded-md bg-tag-green px-2.5 py-1.5 font-body text-xs font-medium text-tag-green-fg">
+                    Payé
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentModalKind('DEPOSIT')}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40"
+                  >
+                    <Icon i="credit-card" size={14} />
+                    Comment payer ?
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <p className="font-headings text-lg font-bold text-foreground">
-                {formatPrice(deposit.amount)}
-              </p>
-              {deposit.paid ? (
-                <span className="rounded-md bg-tag-green px-2.5 py-1.5 font-body text-xs font-medium text-tag-green-fg">
-                  Payé
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => pay('DEPOSIT')}
-                  disabled={payingKind !== null}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-body text-xs font-medium text-primary-foreground disabled:opacity-50"
-                >
-                  <Icon i="smartphone" size={14} />
-                  {payingKind === 'DEPOSIT' ? '…' : 'Payer via Mobile'}
-                </button>
-              )}
-            </div>
-          </div>
+          )}
 
           <div
             className={`flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4 ${!deposit.paid ? 'opacity-50' : ''}`}
@@ -525,23 +504,30 @@ function ProjectDetail({
               ) : (
                 <button
                   type="button"
-                  onClick={() => pay('BALANCE')}
-                  disabled={payingKind !== null || !deposit.paid}
-                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 font-body text-xs font-medium text-primary-foreground disabled:opacity-50"
+                  onClick={() => setPaymentModalKind('BALANCE')}
+                  disabled={!deposit.paid}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40 disabled:opacity-50"
                 >
-                  <Icon i="smartphone" size={14} />
-                  {payingKind === 'BALANCE' ? '…' : 'Payer via Mobile'}
+                  <Icon i="credit-card" size={14} />
+                  Comment payer ?
                 </button>
               )}
             </div>
           </div>
-          {payError && (
-            <p role="alert" className="font-body text-sm text-tag-red-fg">
-              {payError}
-            </p>
-          )}
         </div>
       </div>
+
+      {paymentModalKind && (
+        <ProjectPaymentModal
+          label={paymentModalKind === 'DEPOSIT' ? 'Acompte' : 'Solde'}
+          amount={paymentModalKind === 'DEPOSIT' ? deposit.amount : balance.amount}
+          currency={project.currency}
+          projectName={project.name}
+          paymentInfo={paymentInfo}
+          providerPhone={providerPhone}
+          onClose={() => setPaymentModalKind(null)}
+        />
+      )}
 
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
         <h2 className="mb-4 font-headings text-base font-bold text-foreground">Commentaires</h2>
@@ -797,7 +783,7 @@ function PaymentInfoModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
       <div className="w-full max-w-md rounded-lg bg-canvas p-6 shadow-xl">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -890,6 +876,129 @@ function PaymentInfoModal({
           className="mt-3 w-full rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
         >
           Plus tard
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Informational only, same reasoning as PaymentInfoModal above: no online
+// charge happens from the tracking page (Bictorys availability can't be
+// relied on for every freelance), so this just surfaces whatever payment
+// info the originating devis carried and lets the client notify the
+// freelance over WhatsApp once they've paid off-platform.
+function ProjectPaymentModal({
+  label,
+  amount,
+  currency,
+  projectName,
+  paymentInfo,
+  providerPhone,
+  onClose,
+}: {
+  label: 'Acompte' | 'Solde';
+  amount: number;
+  currency: string;
+  projectName: string;
+  paymentInfo: { note: string | null; blocks: TrackedContentBlock[] } | null;
+  providerPhone: string | null;
+  onClose: () => void;
+}) {
+  const actionLabel = label === 'Acompte' ? "l'acompte" : 'le solde';
+  const providerPhoneDigits = providerPhone?.replace(/[^0-9]/g, '');
+  const whatsappUrl = providerPhoneDigits
+    ? `https://wa.me/${providerPhoneDigits}?text=${encodeURIComponent(
+        `Bonjour, j'ai envoyé ${actionLabel} de ${formatPrice(amount, currency)} pour le projet ${projectName}.`,
+      )}`
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+      <div className="w-full max-w-md rounded-lg bg-canvas p-6 shadow-xl">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+              <Icon i="credit-card" size={18} className="text-primary" />
+            </div>
+            <div>
+              <h2 className="font-headings text-base font-bold text-foreground">
+                Comment régler {actionLabel} ?
+              </h2>
+              <p className="font-body text-xs text-muted-foreground">{projectName}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary"
+          >
+            <Icon i="x" size={16} />
+          </button>
+        </div>
+
+        <div className="mb-4 rounded-md border border-border bg-secondary/30 p-4 text-center">
+          <p className="font-body text-xs text-muted-foreground uppercase">{label} à régler</p>
+          <p className="mt-1 font-headings text-2xl font-bold text-foreground">
+            {formatPrice(amount, currency)}
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <p className="mb-2 font-body text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Moyens de paiement
+          </p>
+          {paymentInfo?.note && (
+            <p className="mb-2 font-body text-sm text-foreground">{paymentInfo.note}</p>
+          )}
+          {paymentInfo && paymentInfo.blocks.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {paymentInfo.blocks.map((b) => (
+                <div
+                  key={b.id}
+                  className="flex items-center gap-2.5 rounded-md border border-border px-3 py-2.5"
+                >
+                  <Icon i="credit-card" size={15} className="flex-shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="truncate font-body text-sm font-medium text-foreground">
+                      {b.primaryText}
+                    </p>
+                    {b.secondaryText && (
+                      <p className="truncate font-body text-xs text-muted-foreground">
+                        {b.secondaryText}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            !paymentInfo?.note && (
+              <p className="font-body text-sm text-muted-foreground">
+                Contactez votre prestataire pour connaître les moyens de paiement disponibles.
+              </p>
+            )
+          )}
+        </div>
+
+        {whatsappUrl && (
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-tag-green px-4 py-3 font-body text-sm font-semibold text-tag-green-fg hover:opacity-90"
+          >
+            <Icon i="message-circle" size={16} />
+            J&apos;ai envoyé {actionLabel}
+          </a>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-3 w-full rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground"
+        >
+          Fermer
         </button>
       </div>
     </div>
