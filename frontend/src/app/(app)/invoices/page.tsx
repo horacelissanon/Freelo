@@ -452,7 +452,7 @@ function InvoicesPageInner() {
             className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground sm:w-auto"
           >
             <Icon i="plus" size={16} />
-            {activeTab === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
+            {activeTab === 'devis' ? 'Nouveau devis' : 'Créer facture'}
           </button>
         </div>
       )}

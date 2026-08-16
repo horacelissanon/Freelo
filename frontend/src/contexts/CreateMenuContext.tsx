@@ -29,7 +29,7 @@ export function useCreateMenu(): CreateMenuContextValue {
 const TITLES: Record<ModalEntity, string> = {
   client: 'Nouveau client',
   project: 'Nouveau projet',
-  invoice: 'Nouvelle facture',
+  invoice: 'Créer facture',
 };
 
 export function CreateMenuProvider({ children }: { children: ReactNode }) {

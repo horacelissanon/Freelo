@@ -141,10 +141,10 @@ export function InvoiceForm({
     .reduce((sum, inv) => sum + inv.amount, 0);
 
   // Heads-up only, never a blocker: catches the case where the freelance
-  // uses the standalone "Nouvelle facture" form for a client that already
+  // uses the standalone "Créer facture" form for a client that already
   // has a project with no facture yet, forgetting the dedicated "Créer
-  // facture depuis projet" flow on that project's own page. Skipped
-  // entirely when lockedProject is set — that IS the dedicated flow.
+  // facture" button on that project's own page. Skipped entirely when
+  // lockedProject is set — that IS the dedicated flow.
   const billedProjectIds = new Set(
     (clientDetail?.invoices ?? [])
       .filter((inv) => inv.docType === 'INVOICE' && inv.projectId)
@@ -177,8 +177,8 @@ export function InvoiceForm({
   const [importingProject, setImportingProject] = useState(false);
   const [importedProjectId, setImportedProjectId] = useState<string | null>(null);
 
-  // Same field-seeding as the dedicated "Créer facture depuis projet" flow,
-  // but inline: fetches the project and fills the already-open form instead
+  // Same field-seeding as the dedicated "Créer facture" flow on a project's
+  // own page, but inline: fetches the project and fills the already-open form instead
   // of navigating away. Also links projectId — unlike the ProjectForm side
   // of this pattern, InvoiceForm's own submit path natively supports it.
   async function importFromProject() {
@@ -414,7 +414,7 @@ export function InvoiceForm({
             <Icon i="alert-circle" size={16} className="mt-0.5 flex-shrink-0 text-tag-orange-fg" />
             <div className="flex flex-col gap-1">
               <p className="font-body text-sm text-tag-orange-fg">
-                {`Ce client a un projet (${unbilledProject.name}) sans facture. Utilise « Créer facture depuis projet » pour la générer avec le bon montant.`}
+                {`Ce client a un projet (${unbilledProject.name}) sans facture. Utilise le bouton « Créer facture » de ce projet pour la générer avec le bon montant.`}
               </p>
               <div className="flex items-center gap-3">
                 <Link

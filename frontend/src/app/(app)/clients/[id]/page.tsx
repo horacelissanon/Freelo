@@ -325,7 +325,7 @@ export default function ClientDetailPage() {
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
-                Créer facture depuis projet
+                Créer facture
               </button>
             </div>
             <div className="p-5">

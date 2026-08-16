@@ -268,40 +268,63 @@ function ClientProjectsList({ view }: { view: ClientView }) {
         )}
       </div>
 
-      {view.invoices.length > 0 && (
-        <>
-          <p className="mt-8 font-body text-xs tracking-widest text-muted-foreground uppercase">
-            Devis &amp; factures
-          </p>
-          <div className="mt-3 flex flex-col gap-3">
-            {view.invoices.map((inv) => {
-              const colors = INVOICE_STATUS_COLORS[inv.status];
-              return (
-                <Link
-                  key={inv.id}
-                  href={`/suivi/${inv.trackingToken}`}
-                  className="flex items-center justify-between gap-4 rounded-md border border-border p-4 font-body hover:border-primary/40"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {DOC_TYPE_LABELS[inv.docType].long} {inv.number}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatPrice(inv.amount)} {inv.currency}
-                    </p>
-                  </div>
-                  <div
-                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${colors.bg} ${colors.fg}`}
-                  >
-                    {INVOICE_STATUS_LABELS[inv.status]}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </>
-      )}
+      {(() => {
+        const devisRows = view.invoices.filter((inv) => inv.docType === 'QUOTE');
+        const factureRows = view.invoices.filter((inv) => inv.docType !== 'QUOTE');
+        return (
+          <>
+            {devisRows.length > 0 && (
+              <>
+                <p className="mt-8 font-body text-xs tracking-widest text-muted-foreground uppercase">
+                  Devis
+                </p>
+                <div className="mt-3 flex flex-col gap-3">
+                  {devisRows.map((inv) => (
+                    <ClientInvoiceLinkRow key={inv.id} invoice={inv} />
+                  ))}
+                </div>
+              </>
+            )}
+            {factureRows.length > 0 && (
+              <>
+                <p className="mt-8 font-body text-xs tracking-widest text-muted-foreground uppercase">
+                  Factures
+                </p>
+                <div className="mt-3 flex flex-col gap-3">
+                  {factureRows.map((inv) => (
+                    <ClientInvoiceLinkRow key={inv.id} invoice={inv} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
     </div>
+  );
+}
+
+function ClientInvoiceLinkRow({ invoice: inv }: { invoice: ClientInvoiceRow }) {
+  const colors = INVOICE_STATUS_COLORS[inv.status];
+  return (
+    <Link
+      href={`/suivi/${inv.trackingToken}`}
+      className="flex items-center justify-between gap-4 rounded-md border border-border p-4 font-body hover:border-primary/40"
+    >
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-foreground">
+          {DOC_TYPE_LABELS[inv.docType].long} {inv.number}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {formatPrice(inv.amount)} {inv.currency}
+        </p>
+      </div>
+      <div
+        className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${colors.bg} ${colors.fg}`}
+      >
+        {INVOICE_STATUS_LABELS[inv.status]}
+      </div>
+    </Link>
   );
 }
 

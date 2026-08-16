@@ -210,6 +210,8 @@ export default function ProjectDetailPage() {
 
 function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLink: () => void }) {
   const { project, steps, comments, review, invoices, files, deposit, balance } = data;
+  const projectDevis = invoices.filter((inv) => inv.docType === 'QUOTE');
+  const projectFactures = invoices.filter((inv) => inv.docType !== 'QUOTE');
   const { toast } = useToast();
   const user = useUser();
   const [creatingInvoiceOpen, setCreatingInvoiceOpen] = useState(false);
@@ -922,7 +924,42 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
           <div className="rounded-lg border border-border bg-canvas shadow-card">
             <div className="flex items-center justify-between px-5 pt-5">
               <h2 className="font-headings text-sm font-bold text-foreground">
-                Factures &amp; devis ({invoices.length})
+                Devis ({projectDevis.length})
+              </h2>
+            </div>
+            <div className="p-5">
+              {projectDevis.length === 0 ? (
+                <EmptyState
+                  icon="file-text"
+                  title="Aucun devis"
+                  description="Les devis liés à ce projet apparaîtront ici."
+                />
+              ) : (
+                <div>
+                  {projectDevis.map((inv) => (
+                    <InvoiceRow
+                      key={inv.id}
+                      invoice={{
+                        id: inv.id,
+                        number: inv.number,
+                        docType: inv.docType,
+                        status: inv.status,
+                        clientName: project.client.name,
+                        amount: inv.amount,
+                        currency: inv.currency,
+                        dueDateLabel: inv.dueDate ? formatDate(inv.dueDate) : null,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-lg border border-border bg-canvas shadow-card">
+            <div className="flex items-center justify-between px-5 pt-5">
+              <h2 className="font-headings text-sm font-bold text-foreground">
+                Factures ({projectFactures.length})
               </h2>
               <button
                 type="button"
@@ -930,19 +967,19 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
-                Nouvelle facture
+                Créer facture
               </button>
             </div>
             <div className="p-5">
-              {invoices.length === 0 ? (
+              {projectFactures.length === 0 ? (
                 <EmptyState
                   icon="file-text"
                   title="Aucune facture"
-                  description="Les factures et devis liés à ce projet apparaîtront ici."
+                  description="Les factures liées à ce projet apparaîtront ici."
                 />
               ) : (
                 <div>
-                  {invoices.map((inv) => (
+                  {projectFactures.map((inv) => (
                     <InvoiceRow
                       key={inv.id}
                       invoice={{
@@ -1054,7 +1091,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
 
       {creatingInvoiceOpen && (
         <Modal
-          title="Nouvelle facture pour ce projet"
+          title="Créer facture pour ce projet"
           onClose={() => setCreatingInvoiceOpen(false)}
           size="lg"
         >
