@@ -15,6 +15,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { computeProjectProgress } from '@/lib/server/projects/progress';
 
 const Body = z.discriminatedUnion('action', [
   z.object({
@@ -83,6 +84,20 @@ export async function PATCH(
           status: parsed.data.status,
           completedAt: parsed.data.status === 'COMPLETED' ? new Date() : null,
         },
+      });
+      // Avancement dérivé du ratio d'étapes validées ; le statut ne bascule
+      // automatiquement QUE vers Livré (atteindre 100%) — jamais en arrière
+      // si une étape est décochée après coup. Repasser le statut en arrière
+      // (rouvrir un projet livré) est un choix manuel explicite, fait
+      // depuis la fiche projet (PATCH /api/projects/[id]).
+      const allSteps = await prisma.projectStep.findMany({
+        where: { projectId },
+        select: { status: true },
+      });
+      const progress = computeProjectProgress(allSteps);
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { progress, ...(progress === 100 ? { status: 'DELIVERED' } : {}) },
       });
     } else if (parsed.data.action === 'edit') {
       await prisma.projectStep.update({

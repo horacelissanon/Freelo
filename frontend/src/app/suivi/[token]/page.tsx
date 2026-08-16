@@ -313,7 +313,9 @@ function ProjectDetail({
 }) {
   const { project, steps, comments, review, deposit, balance, providerPhone, paymentInfo } = view;
 
-  const [paymentModalKind, setPaymentModalKind] = useState<'DEPOSIT' | 'BALANCE' | null>(null);
+  const [paymentModalKind, setPaymentModalKind] = useState<'DEPOSIT' | 'BALANCE' | 'FULL' | null>(
+    null,
+  );
 
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
@@ -454,7 +456,10 @@ function ProjectDetail({
       </div>
 
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <h2 className="mb-4 font-headings text-base font-bold text-foreground">Paiements</h2>
+        <h2 className="font-headings text-base font-bold text-foreground">Paiements</h2>
+        <p className="mb-4 font-body text-xs text-muted-foreground">
+          Réglez dans l&apos;ordre qui vous convient — acompte, solde, ou la totalité en une fois.
+        </p>
         <div className="flex flex-col gap-3">
           {project.depositType !== 'NONE' && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4">
@@ -486,9 +491,7 @@ function ProjectDetail({
             </div>
           )}
 
-          <div
-            className={`flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4 ${!deposit.paid ? 'opacity-50' : ''}`}
-          >
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-4">
             <div>
               <p className="font-body text-sm font-medium text-foreground">Solde</p>
               <p className="font-body text-xs text-muted-foreground">À la livraison finale</p>
@@ -505,8 +508,7 @@ function ProjectDetail({
                 <button
                   type="button"
                   onClick={() => setPaymentModalKind('BALANCE')}
-                  disabled={!deposit.paid}
-                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40"
                 >
                   <Icon i="credit-card" size={14} />
                   Comment payer ?
@@ -514,13 +516,49 @@ function ProjectDetail({
               )}
             </div>
           </div>
+
+          {project.depositType !== 'NONE' && !deposit.paid && !balance.paid && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-dashed border-border p-4">
+              <div>
+                <p className="font-body text-sm font-medium text-foreground">
+                  Payer la totalité en une fois
+                </p>
+                <p className="font-body text-xs text-muted-foreground">Acompte + solde</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <p className="font-headings text-lg font-bold text-foreground">
+                  {formatPrice(deposit.amount + balance.amount)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalKind('FULL')}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-xs font-medium text-foreground hover:border-primary/40"
+                >
+                  <Icon i="credit-card" size={14} />
+                  Comment payer ?
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {paymentModalKind && (
         <ProjectPaymentModal
-          label={paymentModalKind === 'DEPOSIT' ? 'Acompte' : 'Solde'}
-          amount={paymentModalKind === 'DEPOSIT' ? deposit.amount : balance.amount}
+          label={
+            paymentModalKind === 'DEPOSIT'
+              ? 'Acompte'
+              : paymentModalKind === 'BALANCE'
+                ? 'Solde'
+                : 'Totalité'
+          }
+          amount={
+            paymentModalKind === 'DEPOSIT'
+              ? deposit.amount
+              : paymentModalKind === 'BALANCE'
+                ? balance.amount
+                : deposit.amount + balance.amount
+          }
           currency={project.currency}
           projectName={project.name}
           paymentInfo={paymentInfo}
@@ -896,7 +934,7 @@ function ProjectPaymentModal({
   providerPhone,
   onClose,
 }: {
-  label: 'Acompte' | 'Solde';
+  label: 'Acompte' | 'Solde' | 'Totalité';
   amount: number;
   currency: string;
   projectName: string;
@@ -904,7 +942,8 @@ function ProjectPaymentModal({
   providerPhone: string | null;
   onClose: () => void;
 }) {
-  const actionLabel = label === 'Acompte' ? "l'acompte" : 'le solde';
+  const actionLabel =
+    label === 'Acompte' ? "l'acompte" : label === 'Solde' ? 'le solde' : 'la totalité';
   const providerPhoneDigits = providerPhone?.replace(/[^0-9]/g, '');
   const whatsappUrl = providerPhoneDigits
     ? `https://wa.me/${providerPhoneDigits}?text=${encodeURIComponent(

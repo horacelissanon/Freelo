@@ -54,6 +54,9 @@ beforeEach(() => {
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
+  // Default: a single still-pending step, so action=status tests that don't
+  // care about the resulting progress% don't need to stub this themselves.
+  prismaMock.projectStep.findMany.mockResolvedValue([{ status: 'PENDING' }] as never);
 });
 
 describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
@@ -111,6 +114,53 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     await PATCH(makePatch({ action: 'status', status: 'PENDING' }), ctxWith('p-1', 's-2'));
     const updateArg = prismaMock.projectStep.update.mock.calls[0]?.[0];
     expect(updateArg?.data?.completedAt).toBeNull();
+  });
+
+  it('action=status recomputes the project progress from all steps', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany.mockResolvedValue([
+      { status: 'COMPLETED' },
+      { status: 'COMPLETED' },
+      { status: 'PENDING' },
+      { status: 'PENDING' },
+    ] as never);
+    await PATCH(makePatch({ action: 'status', status: 'COMPLETED' }), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.where).toEqual({ id: 'p-1' });
+    expect(projectUpdateArg?.data?.progress).toBe(50);
+    expect(projectUpdateArg?.data?.status).toBeUndefined();
+  });
+
+  it('action=status reaching 100% -> project status auto-flips to DELIVERED', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany.mockResolvedValue([
+      { status: 'COMPLETED' },
+      { status: 'COMPLETED' },
+    ] as never);
+    await PATCH(makePatch({ action: 'status', status: 'COMPLETED' }), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.data?.progress).toBe(100);
+    expect(projectUpdateArg?.data?.status).toBe('DELIVERED');
+  });
+
+  it('action=status un-completing a step after 100% does not auto-revert the project status', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany.mockResolvedValue([
+      { status: 'PENDING' },
+      { status: 'COMPLETED' },
+    ] as never);
+    await PATCH(makePatch({ action: 'status', status: 'PENDING' }), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.data?.progress).toBe(50);
+    expect(projectUpdateArg?.data?.status).toBeUndefined();
+  });
+
+  it('action=move does not touch project progress/status', async () => {
+    prismaMock.projectStep.findFirst
+      .mockResolvedValueOnce({ id: 's-1', order: 1 } as never)
+      .mockResolvedValueOnce(null as never);
+    await PATCH(makePatch({ action: 'move', direction: 'up' }), ctxWith('p-1', 's-1'));
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
 
   it('action=move at a boundary (no neighbor) -> 200 ok, no update', async () => {
