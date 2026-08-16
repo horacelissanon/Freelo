@@ -12,7 +12,7 @@ import {
   NotificationBell,
   type NotificationBellItem,
 } from '@/components/dashboard/NotificationBell';
-import { useUser } from '@/contexts/AuthContext';
+import { useUser, useAuth } from '@/contexts/AuthContext';
 import { useSidebarShape } from '@/contexts/SidebarShapeContext';
 import { useMobileNavStyle } from '@/contexts/MobileNavStyleContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
@@ -24,6 +24,7 @@ const COLLAPSE_STORAGE_KEY = 'merrudit-sidebar-collapsed';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser();
+  const { logout, loggingOut } = useAuth();
   const { shape } = useSidebarShape();
   const { navStyle } = useMobileNavStyle();
   const floating = shape === 'capsule' || shape === 'dock';
@@ -127,6 +128,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <span className="font-body text-xs font-medium">Mon compte</span>
                 <Avatar name={user.name || user.email} className="h-8 w-8 flex-shrink-0 text-xs" />
               </Link>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                disabled={loggingOut}
+                aria-label="Déconnexion"
+                title="Déconnexion"
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-red-500 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400"
+              >
+                <Icon i="log-out" size={17} />
+              </button>
             </div>
           </div>
         </div>

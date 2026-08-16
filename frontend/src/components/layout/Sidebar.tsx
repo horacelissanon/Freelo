@@ -53,7 +53,7 @@ export function Sidebar({
   shape = 'classic',
 }: SidebarProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, logout, loggingOut } = useAuth();
   const { glass } = useBottomNavStyle();
   const floating = shape === 'capsule' || shape === 'dock';
   const itemShape = floating ? 'rounded-full' : 'rounded-lg';
@@ -195,6 +195,18 @@ export function Sidebar({
             )}
           </Link>
         )}
+        <button
+          type="button"
+          onClick={() => void logout()}
+          disabled={loggingOut}
+          title={collapsed ? 'Déconnexion' : undefined}
+          className={`flex items-center gap-3 ${itemShape} font-body text-sm text-red-500 hover:bg-red-500/10 disabled:opacity-50 dark:text-red-400 ${
+            collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
+          }`}
+        >
+          <Icon i="log-out" size={16} />
+          {!collapsed && (loggingOut ? 'Déconnexion…' : 'Déconnexion')}
+        </button>
       </div>
     </div>
   );

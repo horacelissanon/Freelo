@@ -76,6 +76,7 @@ import {
   EyeOff,
   Star,
   BarChart3,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -153,6 +154,7 @@ const ICONS: Record<string, LucideIcon> = {
   'eye-off': EyeOff,
   star: Star,
   'bar-chart': BarChart3,
+  'log-out': LogOut,
 };
 
 export interface IconProps {
