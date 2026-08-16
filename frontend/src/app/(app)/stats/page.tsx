@@ -170,6 +170,8 @@ export default function StatsPage() {
         />
       ) : (
         <div className="flex flex-col gap-6">
+          <SuggestionsCard items={data.suggestions} />
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
               label="Revenu du mois"
@@ -210,8 +212,6 @@ export default function StatsPage() {
             <ProjectTypeBreakdownCard items={data.revenueByProjectType} />
             <TopClientsCard items={data.topClients} />
           </div>
-
-          <SuggestionsCard items={data.suggestions} />
         </div>
       )}
     </div>
