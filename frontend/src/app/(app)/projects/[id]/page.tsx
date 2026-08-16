@@ -232,8 +232,6 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
 
   const [editOpen, setEditOpen] = useState(false);
   const [savingType, setSavingType] = useState(false);
-  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
-  const [savingStatus, setSavingStatus] = useState(false);
 
   const [uploadingFile, setUploadingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -246,6 +244,11 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const [stepEditorError, setStepEditorError] = useState<string | null>(null);
 
   const firstOpenStep = steps.find((s) => s.status !== 'COMPLETED');
+  // Steps are always completed front-to-back (only the current/first-open
+  // step exposes a "valider" action), so the last COMPLETED step by order is
+  // always the most recently validated one — the only one it makes sense to
+  // undo if the freelance made a mistake.
+  const lastCompletedStep = [...steps].reverse().find((s) => s.status === 'COMPLETED');
 
   async function patchProject(partial: {
     name?: string;
@@ -254,7 +257,6 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
     description?: string | null;
     amount?: number;
     dueDate?: string | null;
-    status?: ProjectStatus;
   }) {
     await api(`/api/projects/${project.id}`, { method: 'PATCH', body: partial });
     invalidateCache(`/api/projects/${project.id}`);
@@ -270,22 +272,6 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
       toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
     } finally {
       setSavingType(false);
-    }
-  }
-
-  // Manual override — the only way to move a project's status other than the
-  // automatic "last step completed -> Livré" transition. Mainly used to
-  // reopen a delivered project (or correct a status set at creation).
-  async function onQuickStatusChange(status: ProjectStatus) {
-    setStatusMenuOpen(false);
-    if (status === project.status) return;
-    setSavingStatus(true);
-    try {
-      await patchProject({ status });
-    } catch (err) {
-      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
-    } finally {
-      setSavingStatus(false);
     }
   }
 
@@ -452,45 +438,11 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                 <h1 className="font-headings text-xl font-bold text-foreground sm:text-2xl">
                   {project.name}
                 </h1>
-                <div className="relative">
-                  <button
-                    type="button"
-                    disabled={savingStatus}
-                    onClick={() => setStatusMenuOpen((v) => !v)}
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${statusColors.bg} ${statusColors.fg}`}
-                  >
-                    {PROJECT_STATUS_LABELS[project.status]}
-                    <Icon i="chevron-down" size={12} />
-                  </button>
-                  {statusMenuOpen && (
-                    <>
-                      <button
-                        type="button"
-                        aria-label="Fermer"
-                        onClick={() => setStatusMenuOpen(false)}
-                        className="fixed inset-0 z-10 cursor-default"
-                      />
-                      <div className="absolute top-full left-0 z-20 mt-1.5 flex flex-col gap-1 rounded-md border border-border bg-canvas p-1.5 shadow-xl">
-                        {(Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]).map(
-                          ([value, label]) => (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => void onQuickStatusChange(value)}
-                              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-left font-body text-xs font-medium whitespace-nowrap ${
-                                project.status === value
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'text-foreground hover:bg-secondary'
-                              }`}
-                            >
-                              {label}
-                            </button>
-                          ),
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors.bg} ${statusColors.fg}`}
+                >
+                  {PROJECT_STATUS_LABELS[project.status]}
+                </span>
               </div>
               <Link
                 href={`/clients/${project.client.id}`}
@@ -669,6 +621,19 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                       >
                         <Icon i="check-circle" size={13} />
                         Valider cette étape
+                      </button>
+                    )}
+                    {isCompleted && lastCompletedStep?.id === step.id && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void patchStep(step.id, { action: 'status', status: 'PENDING' })
+                        }
+                        className="mt-2 flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-muted-foreground hover:bg-secondary disabled:opacity-50"
+                      >
+                        <Icon i="rotate-ccw" size={13} />
+                        Annuler la validation
                       </button>
                     )}
                   </div>

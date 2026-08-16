@@ -116,7 +116,7 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     expect(updateArg?.data?.completedAt).toBeNull();
   });
 
-  it('action=status recomputes the project progress from all steps', async () => {
+  it('action=status recomputes both project progress and status from all steps (4 steps, 2 done -> En cours)', async () => {
     prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
     prismaMock.projectStep.findMany.mockResolvedValue([
       { status: 'COMPLETED' },
@@ -128,10 +128,23 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
     expect(projectUpdateArg?.where).toEqual({ id: 'p-1' });
     expect(projectUpdateArg?.data?.progress).toBe(50);
-    expect(projectUpdateArg?.data?.status).toBeUndefined();
+    expect(projectUpdateArg?.data?.status).toBe('IN_PROGRESS');
   });
 
-  it('action=status reaching 100% -> project status auto-flips to DELIVERED', async () => {
+  it('action=status: second-to-last step completed -> En révision', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany.mockResolvedValue([
+      { status: 'COMPLETED' },
+      { status: 'COMPLETED' },
+      { status: 'PENDING' },
+    ] as never);
+    await PATCH(makePatch({ action: 'status', status: 'COMPLETED' }), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.data?.progress).toBe(67);
+    expect(projectUpdateArg?.data?.status).toBe('IN_REVIEW');
+  });
+
+  it('action=status reaching 100% -> project status auto-flips to Livré', async () => {
     prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
     prismaMock.projectStep.findMany.mockResolvedValue([
       { status: 'COMPLETED' },
@@ -143,7 +156,7 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     expect(projectUpdateArg?.data?.status).toBe('DELIVERED');
   });
 
-  it('action=status un-completing a step after 100% does not auto-revert the project status', async () => {
+  it('action=status un-completing a step recomputes backwards too — no manual override needed', async () => {
     prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
     prismaMock.projectStep.findMany.mockResolvedValue([
       { status: 'PENDING' },
@@ -152,7 +165,19 @@ describe('PATCH /api/projects/[id]/steps/[stepId]', () => {
     await PATCH(makePatch({ action: 'status', status: 'PENDING' }), ctxWith('p-1', 's-2'));
     const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
     expect(projectUpdateArg?.data?.progress).toBe(50);
-    expect(projectUpdateArg?.data?.status).toBeUndefined();
+    // 2-step project, 1 done: that 1 IS the second-to-last step -> En révision,
+    // never En cours (no intermediate step exists between 1st and 2nd-to-last
+    // when there are only 2 steps).
+    expect(projectUpdateArg?.data?.status).toBe('IN_REVIEW');
+  });
+
+  it('action=status un-completing the only remaining step -> back to En attente', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany.mockResolvedValue([{ status: 'PENDING' }] as never);
+    await PATCH(makePatch({ action: 'status', status: 'PENDING' }), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.data?.progress).toBe(0);
+    expect(projectUpdateArg?.data?.status).toBe('PENDING');
   });
 
   it('action=move does not touch project progress/status', async () => {
@@ -236,11 +261,13 @@ describe('DELETE /api/projects/[id]/steps/[stepId]', () => {
 
   it('deletes the step and renormalizes remaining order to 1..N', async () => {
     prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
-    prismaMock.projectStep.findMany.mockResolvedValue([
-      { id: 's-1' },
-      { id: 's-3' },
-      { id: 's-4' },
-    ] as never);
+    prismaMock.projectStep.findMany
+      .mockResolvedValueOnce([{ id: 's-1' }, { id: 's-3' }, { id: 's-4' }] as never) // "remaining" (renormalize)
+      .mockResolvedValueOnce([
+        { status: 'COMPLETED' },
+        { status: 'PENDING' },
+        { status: 'PENDING' },
+      ] as never); // recomputeProjectStepsState's own reload
     const res = await DELETE(makeDelete(), ctxWith('p-1', 's-2'));
     expect(res.status).toBe(200);
     expect(prismaMock.projectStep.delete).toHaveBeenCalledWith({ where: { id: 's-2' } });
@@ -249,6 +276,17 @@ describe('DELETE /api/projects/[id]/steps/[stepId]', () => {
     expect(calls[0]?.[0]).toMatchObject({ where: { id: 's-1' }, data: { order: 1 } });
     expect(calls[1]?.[0]).toMatchObject({ where: { id: 's-3' }, data: { order: 2 } });
     expect(calls[2]?.[0]).toMatchObject({ where: { id: 's-4' }, data: { order: 3 } });
+  });
+
+  it('removing a step shifts the total and recomputes progress/status accordingly', async () => {
+    prismaMock.projectStep.findFirst.mockResolvedValue({ id: 's-2', order: 2 } as never);
+    prismaMock.projectStep.findMany
+      .mockResolvedValueOnce([{ id: 's-1' }] as never) // "remaining"
+      .mockResolvedValueOnce([{ status: 'COMPLETED' }] as never); // recompute reload: 1/1 done
+    await DELETE(makeDelete(), ctxWith('p-1', 's-2'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.where).toEqual({ id: 'p-1' });
+    expect(projectUpdateArg?.data).toEqual({ progress: 100, status: 'DELIVERED' });
   });
 });
 

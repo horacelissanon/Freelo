@@ -44,6 +44,26 @@ export function invoiceOverdue(
 }
 
 /**
+ * Dispatched by the deadline-alerts cron the moment a QUOTE crosses its
+ * dueDate still unaccepted (status flips SENT → EXPIRED in the same sweep).
+ * Mirrors invoiceOverdue above — deduped per quote, fires once.
+ */
+export function quoteExpired(
+  userId: string,
+  invoiceId: string,
+  number: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'quote-expired',
+    title: `Devis ${number} expiré`,
+    body: `Le devis ${number} a dépassé sa date d'échéance sans être accepté.`,
+    data: { invoiceId },
+    dedupeKey: `quote-expired:${invoiceId}`,
+  };
+}
+
+/**
  * Dispatched by the deadline-alerts cron for a PROJECT whose dueDate falls
  * within the reminder window and isn't DELIVERED yet. Deduped per
  * (project, dueDate) so it fires once per due date — changing the due date

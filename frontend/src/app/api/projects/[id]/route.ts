@@ -22,11 +22,8 @@ const PatchBody = z.object({
   description: z.string().max(2000).nullable().optional(),
   amount: z.number().int().positive().optional(),
   dueDate: z.string().datetime().nullable().optional(),
-  // Manual override — the only way to move a project's status other than
-  // the automatic "last step completed -> DELIVERED" transition (see
-  // steps/[stepId]/route.ts). Lets a freelancer reopen a delivered project
-  // (or otherwise correct the status) without touching its steps.
-  status: z.enum(['IN_PROGRESS', 'PENDING', 'DELIVERED']).optional(),
+  // No `status` field — it's fully derived from step completion (see
+  // lib/server/projects/progress.ts), never independently writable.
 });
 
 export async function GET(
@@ -135,7 +132,7 @@ export async function PATCH(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
-    const { name, sector, type, description, amount, dueDate, status } = parsed.data;
+    const { name, sector, type, description, amount, dueDate } = parsed.data;
 
     const project = await prisma.project.update({
       where: { id },
@@ -146,7 +143,6 @@ export async function PATCH(
         ...(description !== undefined ? { description } : {}),
         ...(amount !== undefined ? { amount } : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-        ...(status !== undefined ? { status } : {}),
       },
     });
 

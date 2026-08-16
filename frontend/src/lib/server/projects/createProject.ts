@@ -21,7 +21,11 @@ export interface CreateProjectInput {
   sector: string;
   type: ProjectType;
   description?: string;
-  status: 'IN_PROGRESS' | 'PENDING' | 'DELIVERED';
+  // Callers always pass 'PENDING' — status is fully derived from step
+  // completion from creation onward (see lib/server/projects/progress.ts),
+  // never a freelance-chosen value. Typed against the full set for
+  // completeness, not because other values are ever actually passed here.
+  status: 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DELIVERED';
   progress: number;
   amount: number;
   currency: string;

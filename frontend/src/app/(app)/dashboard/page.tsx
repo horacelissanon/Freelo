@@ -64,7 +64,7 @@ export default function DashboardPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
   const stats = useApi<DashboardStats>('/api/dashboard/stats');
-  const projects = useApi<{ items: ProjectApiRow[] }>('/api/projects?status=IN_PROGRESS&limit=5');
+  const projects = useApi<{ items: ProjectApiRow[] }>('/api/projects?status=ACTIVE&limit=5');
   const notifications = useApi<{ items: NotificationApiRow[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
   const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');

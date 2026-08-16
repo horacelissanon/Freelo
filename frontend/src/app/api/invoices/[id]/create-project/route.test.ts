@@ -155,7 +155,7 @@ describe('POST /api/invoices/[id]/create-project', () => {
     expect(createArg?.data?.clientId).toBe('c-1');
     expect(createArg?.data?.name).toBe('Site vitrine');
     expect(createArg?.data?.amount).toBe(120000);
-    expect(createArg?.data?.status).toBe('IN_PROGRESS');
+    expect(createArg?.data?.status).toBe('PENDING');
     expect(createArg?.data?.progress).toBe(0);
 
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];

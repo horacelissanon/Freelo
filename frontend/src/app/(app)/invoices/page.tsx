@@ -34,7 +34,7 @@ const SORT_LABELS: Record<SortKey, string> = {
 // states) — each tab only offers the statuses that can actually occur on
 // its own documents, per "un onglet bien séparé et adapté à chacun".
 const FACTURE_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'PAID', 'OVERDUE', 'CANCELED'];
-const DEVIS_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'ACCEPTED'];
+const DEVIS_STATUSES: InvoiceStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'EXPIRED'];
 
 interface InvoicePackRow extends PackDepositSource {
   id: string;

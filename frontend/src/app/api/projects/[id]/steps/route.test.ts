@@ -40,6 +40,9 @@ beforeEach(() => {
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
+  // Default for recomputeProjectStepsState's own reload after the create —
+  // most tests here don't care about the resulting progress/status.
+  prismaMock.projectStep.findMany.mockResolvedValue([{ status: 'PENDING' }] as never);
 });
 
 describe('POST /api/projects/[id]/steps', () => {
@@ -87,6 +90,21 @@ describe('POST /api/projects/[id]/steps', () => {
     await POST(makePost({ title: 'Brief', description: 'Collecte des besoins' }), ctxWith('p-1'));
     const createArg = prismaMock.projectStep.create.mock.calls[0]?.[0];
     expect(createArg?.data?.description).toBe('Collecte des besoins');
+  });
+
+  it('adding a step shifts the total and recomputes progress/status accordingly', async () => {
+    prismaMock.projectStep.count.mockResolvedValue(1 as never);
+    prismaMock.projectStep.create.mockResolvedValue({ id: 's-2' } as never);
+    // A previously-DELIVERED 1-step project gains a 2nd, still-pending step:
+    // 1/2 done -> back to En révision (2-step projects skip En cours).
+    prismaMock.projectStep.findMany.mockResolvedValue([
+      { status: 'COMPLETED' },
+      { status: 'PENDING' },
+    ] as never);
+    await POST(makePost({ title: 'Révisions' }), ctxWith('p-1'));
+    const projectUpdateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(projectUpdateArg?.where).toEqual({ id: 'p-1' });
+    expect(projectUpdateArg?.data).toEqual({ progress: 50, status: 'IN_REVIEW' });
   });
 });
 

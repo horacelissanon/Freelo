@@ -33,6 +33,8 @@ describe('sweepDeadlineAlerts', () => {
     expect(result).toEqual({
       invoicesFlaggedOverdue: 1,
       invoiceNotifications: 1,
+      quotesFlaggedExpired: 0,
+      quoteNotifications: 0,
       projectNotifications: 0,
     });
   });
@@ -48,6 +50,45 @@ describe('sweepDeadlineAlerts', () => {
     expect(prismaMock.notification.create).not.toHaveBeenCalled();
     expect(result.invoicesFlaggedOverdue).toBe(0);
     expect(result.invoiceNotifications).toBe(0);
+  });
+
+  it('flips a SENT quote past dueDate to EXPIRED and notifies once', async () => {
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([]) // overdueCandidates (INVOICE)
+      .mockResolvedValueOnce([{ id: 'q_1', userId: 'u_1', number: 'QT-2026-001' }] as never); // expiredCandidates (QUOTE)
+    prismaMock.invoice.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.notification.create.mockResolvedValueOnce({ id: 'n_3' } as never);
+
+    const result = await sweepDeadlineAlerts(prismaMock);
+
+    expect(prismaMock.invoice.findMany).toHaveBeenNthCalledWith(2, {
+      where: { docType: 'QUOTE', status: 'SENT', dueDate: { lt: expect.any(Date) } },
+      select: { id: true, userId: true, number: true },
+    });
+    expect(prismaMock.invoice.updateMany).toHaveBeenCalledWith({
+      where: { id: 'q_1', status: 'SENT' },
+      data: { status: 'EXPIRED' },
+    });
+    expect(prismaMock.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ dedupeKey: 'quote-expired:q_1' }),
+      }),
+    );
+    expect(result.quotesFlaggedExpired).toBe(1);
+    expect(result.quoteNotifications).toBe(1);
+  });
+
+  it('skips the quote-expired notification when the row already flipped away from SENT (race)', async () => {
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([]) // overdueCandidates
+      .mockResolvedValueOnce([{ id: 'q_2', userId: 'u_1', number: 'QT-2026-002' }] as never);
+    prismaMock.invoice.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await sweepDeadlineAlerts(prismaMock);
+
+    expect(prismaMock.notification.create).not.toHaveBeenCalled();
+    expect(result.quotesFlaggedExpired).toBe(0);
+    expect(result.quoteNotifications).toBe(0);
   });
 
   it('notifies for a non-DELIVERED project whose dueDate falls in the reminder window', async () => {

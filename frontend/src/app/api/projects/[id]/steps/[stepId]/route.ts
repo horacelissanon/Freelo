@@ -15,7 +15,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { computeProjectProgress } from '@/lib/server/projects/progress';
+import { recomputeProjectStepsState } from '@/lib/server/projects/progress';
 
 const Body = z.discriminatedUnion('action', [
   z.object({
@@ -85,20 +85,10 @@ export async function PATCH(
           completedAt: parsed.data.status === 'COMPLETED' ? new Date() : null,
         },
       });
-      // Avancement dérivé du ratio d'étapes validées ; le statut ne bascule
-      // automatiquement QUE vers Livré (atteindre 100%) — jamais en arrière
-      // si une étape est décochée après coup. Repasser le statut en arrière
-      // (rouvrir un projet livré) est un choix manuel explicite, fait
-      // depuis la fiche projet (PATCH /api/projects/[id]).
-      const allSteps = await prisma.projectStep.findMany({
-        where: { projectId },
-        select: { status: true },
-      });
-      const progress = computeProjectProgress(allSteps);
-      await prisma.project.update({
-        where: { id: projectId },
-        data: { progress, ...(progress === 100 ? { status: 'DELIVERED' } : {}) },
-      });
+      // Avancement + statut entièrement dérivés de la position dans les
+      // étapes, dans les deux sens — dévalider une étape recalcule tout
+      // aussi bien que la valider, sans action manuelle distincte.
+      await recomputeProjectStepsState(prisma, projectId);
     } else if (parsed.data.action === 'edit') {
       await prisma.projectStep.update({
         where: { id: step.id },
@@ -173,6 +163,9 @@ export async function DELETE(
         prisma.projectStep.update({ where: { id: s.id }, data: { order: index + 1 } }),
       ),
     ]);
+    // Removing a step changes the total, which shifts where "second-to-last"
+    // falls — recompute progress/status against what's left.
+    await recomputeProjectStepsState(prisma, projectId);
 
     return NextResponse.json({ ok: true }, { headers: { 'x-request-id': reqCtx.requestId } });
   });

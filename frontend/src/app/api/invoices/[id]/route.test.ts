@@ -211,6 +211,44 @@ describe('PATCH /api/invoices/[id]', () => {
     expect(res.status).toBe(200);
   });
 
+  describe('devis: wider editability than a facture (DRAFT/SENT/ACCEPTED/EXPIRED editable, only CANCELED frozen)', () => {
+    it.each(['SENT', 'ACCEPTED', 'EXPIRED'])(
+      'content edit on a %s quote -> 200, allowed (unlike a facture)',
+      async (status) => {
+        prismaMock.invoice.findFirst.mockResolvedValue(
+          invoice({ docType: 'QUOTE', status }) as never,
+        );
+        prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+        const res = await PATCH(makePatch({ description: 'Révisé' }), ctxWith('i-1'));
+        expect(res.status).toBe(200);
+        expect(prismaMock.invoice.update).toHaveBeenCalled();
+      },
+    );
+
+    it('content edit on a CANCELED quote -> still 409 (blocked before the editable check)', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(
+        invoice({ docType: 'QUOTE', status: 'CANCELED' }) as never,
+      );
+      const res = await PATCH(makePatch({ description: 'Révisé' }), ctxWith('i-1'));
+      expect(res.status).toBe(409);
+      expect(prismaMock.invoice.update).not.toHaveBeenCalled();
+    });
+
+    it('saving an edited ACCEPTED quote as "Prêt à envoyer" reverts it to SENT (awaiting acceptance again)', async () => {
+      prismaMock.invoice.findFirst.mockResolvedValue(
+        invoice({ docType: 'QUOTE', status: 'ACCEPTED' }) as never,
+      );
+      prismaMock.invoice.update.mockResolvedValue(invoice({ docType: 'QUOTE' }) as never);
+      const res = await PATCH(
+        makePatch({ status: 'SENT', description: 'Ajustement suite retour client' }),
+        ctxWith('i-1'),
+      );
+      expect(res.status).toBe(200);
+      const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
+      expect(updateArg?.data?.status).toBe('SENT');
+    });
+  });
+
   it('clientId not owned -> 404 CLIENT_NOT_FOUND, no update', async () => {
     prismaMock.client.findFirst.mockResolvedValue(null as never);
     const res = await PATCH(makePatch({ clientId: 'someone-elses' }), ctxWith('i-1'));
@@ -404,8 +442,9 @@ describe('PATCH /api/invoices/[id]', () => {
       const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
       // computeQuoteTotal across both packs (50000) + (50000+30000), not
       // just the first pack — guards against a regression that only totals
-      // pack[0].
-      expect(updateArg?.data).toEqual({ amount: 130000 });
+      // pack[0]. selectedPackId always resets to null when packs are
+      // replaced — the old selection would otherwise dangle.
+      expect(updateArg?.data).toEqual({ amount: 130000, selectedPackId: null });
     });
 
     it('packs against an INVOICE -> 400 VALIDATION_FAILED, no transaction', async () => {

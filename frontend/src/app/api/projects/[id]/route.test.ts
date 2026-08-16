@@ -159,17 +159,11 @@ describe('PATCH /api/projects/[id]', () => {
     });
   });
 
-  it('accepts a manual status override', async () => {
+  it('status is not a recognized field — silently stripped, never reaches the update', async () => {
     prismaMock.project.update.mockResolvedValue(baseProject as never);
     await PATCH(makePatch({ status: 'DELIVERED' }), ctxWith('p-1'));
     const updateArg = prismaMock.project.update.mock.calls[0]?.[0];
-    expect(updateArg?.data).toEqual({ status: 'DELIVERED' });
-  });
-
-  it('rejects an unknown status value', async () => {
-    const res = await PATCH(makePatch({ status: 'BOGUS' }), ctxWith('p-1'));
-    expect(res.status).toBe(400);
-    expect(prismaMock.project.update).not.toHaveBeenCalled();
+    expect(updateArg?.data).toEqual({});
   });
 });
 

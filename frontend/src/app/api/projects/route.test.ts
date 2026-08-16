@@ -109,6 +109,13 @@ describe('GET /api/projects', () => {
     expect(args?.where?.clientId).toBe('c-9');
   });
 
+  it('?status=ACTIVE is a pseudo-filter for "not delivered yet", not an exact match', async () => {
+    prismaMock.project.findMany.mockResolvedValue([] as never);
+    await GET(makeGet('http://test/api/projects?status=ACTIVE'));
+    const args = prismaMock.project.findMany.mock.calls[0]?.[0];
+    expect(args?.where?.status).toEqual({ not: 'DELIVERED' });
+  });
+
   it('includes client name/id and returns rows', async () => {
     prismaMock.project.findMany.mockResolvedValue([project()] as never);
     const res = await GET(makeGet('http://test/api/projects'));
@@ -168,7 +175,7 @@ describe('POST /api/projects', () => {
     expect(res.status).toBe(201);
     const createArg = prismaMock.project.create.mock.calls[0]?.[0];
     expect(createArg?.data?.userId).toBe('user-1');
-    expect(createArg?.data?.status).toBe('IN_PROGRESS');
+    expect(createArg?.data?.status).toBe('PENDING');
     expect(createArg?.data?.progress).toBe(0);
     expect(createArg?.data?.currency).toBe('XOF');
   });

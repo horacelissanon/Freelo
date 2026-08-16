@@ -456,7 +456,9 @@ model Project {
   sector      String    @default("OTHER") // Secteur freelance — DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER; scopes which `type` values the UI offers (see SECTOR_PROJECT_TYPES in lib/constants.ts)
   type        String    @default("OTHER") // scoped to `sector` — see PROJECT_TYPE_LABELS in lib/constants.ts
   description String? // short brief, freeform (v1)
-  status      String    @default("IN_PROGRESS") // IN_PROGRESS | PENDING | DELIVERED
+  // Fully derived from step completion (see lib/server/projects/progress.ts)
+  // — never a freelance-chosen value at any point in the lifecycle.
+  status      String    @default("PENDING") // PENDING | IN_PROGRESS | IN_REVIEW | DELIVERED
   progress    Int       @default(0) // 0-100
   amount      Int // smallest currency unit, matches Order convention
   currency    String    @default("XOF")

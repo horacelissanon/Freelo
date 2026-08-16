@@ -33,7 +33,10 @@ export default function EditQuotePage() {
   const { id } = useParams<{ id: string }>();
   const { data: quote, loading, error, refresh } = useApi<QuoteDetail>(`/api/invoices/${id}`);
 
-  const notEditable = quote && (quote.docType !== 'QUOTE' || quote.status !== 'DRAFT');
+  // Brouillon/En attente/Expiré stay freely editable; Accepté is also
+  // editable (gated by a confirmation modal on the devis detail page before
+  // navigating here — see invoices/[id]/page.tsx). Only Annulé is frozen.
+  const notEditable = quote && (quote.docType !== 'QUOTE' || quote.status === 'CANCELED');
 
   return (
     <div className="pt-6 lg:pt-8">
@@ -54,7 +57,7 @@ export default function EditQuotePage() {
       ) : notEditable ? (
         <div className="px-4 sm:px-6 lg:px-8">
           <ErrorState
-            message="Seul un devis à l'état Brouillon peut être modifié ici."
+            message="Ce devis est annulé et ne peut plus être modifié."
             onRetry={refresh}
           />
         </div>

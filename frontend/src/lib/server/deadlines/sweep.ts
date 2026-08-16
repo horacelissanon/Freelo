@@ -12,13 +12,15 @@
 import 'server-only';
 import type { PrismaClient } from '@prisma/client';
 import { createNotification } from '../notifications/index';
-import { invoiceOverdue, projectDeadlineSoon } from '../notifications/templates';
+import { invoiceOverdue, projectDeadlineSoon, quoteExpired } from '../notifications/templates';
 
 const PROJECT_REMINDER_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface SweepDeadlineAlertsResult {
   invoicesFlaggedOverdue: number;
   invoiceNotifications: number;
+  quotesFlaggedExpired: number;
+  quoteNotifications: number;
   projectNotifications: number;
 }
 
@@ -49,6 +51,27 @@ export async function sweepDeadlineAlerts(
     if (created) invoiceNotifications++;
   }
 
+  // Same pattern as the OVERDUE flip above, mirrored for devis: a SENT quote
+  // whose dueDate has passed without being accepted expires. `dueDate: null`
+  // (no échéance set) is naturally excluded by the `lt: now` filter.
+  let quotesFlaggedExpired = 0;
+  let quoteNotifications = 0;
+
+  const expiredCandidates = await prisma.invoice.findMany({
+    where: { docType: 'QUOTE', status: 'SENT', dueDate: { lt: now } },
+    select: { id: true, userId: true, number: true },
+  });
+  for (const q of expiredCandidates) {
+    const updated = await prisma.invoice.updateMany({
+      where: { id: q.id, status: 'SENT' },
+      data: { status: 'EXPIRED' },
+    });
+    if (updated.count === 0) continue;
+    quotesFlaggedExpired++;
+    const created = await createNotification(prisma, quoteExpired(q.userId, q.id, q.number));
+    if (created) quoteNotifications++;
+  }
+
   let projectNotifications = 0;
   const reminderCutoff = new Date(now.getTime() + PROJECT_REMINDER_WINDOW_MS);
   const upcomingProjects = await prisma.project.findMany({
@@ -67,5 +90,11 @@ export async function sweepDeadlineAlerts(
     if (created) projectNotifications++;
   }
 
-  return { invoicesFlaggedOverdue, invoiceNotifications, projectNotifications };
+  return {
+    invoicesFlaggedOverdue,
+    invoiceNotifications,
+    quotesFlaggedExpired,
+    quoteNotifications,
+    projectNotifications,
+  };
 }

@@ -9,7 +9,6 @@ import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import {
-  PROJECT_STATUS_LABELS,
   PROJECT_TYPE_LABELS,
   PROJECT_TYPE_ICONS,
   FREELANCE_SECTOR_LABELS,
@@ -18,7 +17,6 @@ import {
   resolveFreelanceSector,
   CURRENCIES,
   PAYMENT_METHOD_LABELS,
-  type ProjectStatus,
   type ProjectType,
   type FreelanceSector,
   type PaymentMethod,
@@ -116,7 +114,6 @@ export function ProjectForm({
   const [description, setDescription] = useState(initial?.description ?? '');
   const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
-  const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [dueDate, setDueDate] = useState('');
   const [steps, setSteps] = useState<StepDraft[]>(() => stepsTemplateFor(initial?.type ?? 'OTHER'));
   const [stepsTouched, setStepsTouched] = useState(false);
@@ -261,7 +258,6 @@ export function ProjectForm({
           type,
           amount: Number(amount),
           currency,
-          status,
           ...(description.trim() ? { description: description.trim() } : {}),
           ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
           ...(builtSteps.length > 0 ? { steps: builtSteps } : {}),
@@ -645,27 +641,6 @@ export function ProjectForm({
           )}
         </div>
       )}
-      <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-        Statut
-        <div className="flex flex-wrap gap-2">
-          {(Object.entries(PROJECT_STATUS_LABELS) as [ProjectStatus, string][]).map(
-            ([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setStatus(value)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                  status === value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-canvas text-foreground'
-                }`}
-              >
-                {label}
-              </button>
-            ),
-          )}
-        </div>
-      </div>
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Échéance
         <DatePicker value={dueDate} onChange={setDueDate} />

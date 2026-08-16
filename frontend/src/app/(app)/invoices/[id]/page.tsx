@@ -112,6 +112,7 @@ export default function InvoiceDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmingCreditNote, setConfirmingCreditNote] = useState(false);
   const [issuingCreditNote, setIssuingCreditNote] = useState(false);
+  const [confirmingEditAccepted, setConfirmingEditAccepted] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [creatingProjectOpen, setCreatingProjectOpen] = useState(false);
@@ -735,39 +736,55 @@ export default function InvoiceDetailPage() {
                   </div>
                 )}
 
-                <div className="mb-4">
-                  <p className="mb-1.5 font-body text-xs text-muted-foreground">Autre statut</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {OTHER_STATUSES.filter((s) => s !== invoice.status).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        disabled={changingStatus !== null}
-                        onClick={() => void changeStatus(s)}
-                        className="rounded-full border border-border bg-canvas px-2.5 py-1 font-body text-xs font-medium text-foreground disabled:opacity-50"
-                      >
-                        {changingStatus === s ? '…' : INVOICE_STATUS_LABELS[s]}
-                      </button>
-                    ))}
+                {invoice.docType !== 'QUOTE' && (
+                  <div className="mb-4">
+                    <p className="mb-1.5 font-body text-xs text-muted-foreground">Autre statut</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {OTHER_STATUSES.filter((s) => s !== invoice.status).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={changingStatus !== null}
+                          onClick={() => void changeStatus(s)}
+                          className="rounded-full border border-border bg-canvas px-2.5 py-1 font-body text-xs font-medium text-foreground disabled:opacity-50"
+                        >
+                          {changingStatus === s ? '…' : INVOICE_STATUS_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex flex-col gap-2 border-t border-border pt-4">
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
-                      disabled={invoice.status !== 'DRAFT'}
-                      onClick={() =>
-                        invoice.docType === 'QUOTE'
-                          ? router.push(`/invoices/${invoice.id}/edit-quote`)
-                          : setEditOpen(true)
-                      }
+                      // The enclosing card is already hidden entirely once
+                      // status === 'CANCELED' (see the wrapping condition
+                      // above), so a devis reaching this point is always
+                      // editable — only a facture stays DRAFT-gated.
+                      disabled={invoice.docType !== 'QUOTE' && invoice.status !== 'DRAFT'}
+                      onClick={() => {
+                        if (invoice.docType !== 'QUOTE') {
+                          setEditOpen(true);
+                        } else if (invoice.status === 'ACCEPTED') {
+                          setConfirmingEditAccepted(true);
+                        } else {
+                          router.push(`/invoices/${invoice.id}/edit-quote`);
+                        }
+                      }}
                       className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-40"
                     >
                       <Icon i="pen-line" size={14} />
                       {invoice.docType === 'QUOTE' ? 'Modifier le devis' : 'Modifier la facture'}
                     </button>
-                    <InfoTooltip text="Modification possible uniquement au statut Brouillon, pour ne jamais changer une facture déjà envoyée au client." />
+                    <InfoTooltip
+                      text={
+                        invoice.docType === 'QUOTE'
+                          ? "Modifiable à tout moment sauf une fois annulé. Modifier un devis déjà accepté le repasse en attente d'acceptation."
+                          : 'Modification possible uniquement au statut Brouillon, pour ne jamais changer une facture déjà envoyée au client.'
+                      }
+                    />
                   </div>
 
                   {invoice.docType === 'INVOICE' && !invoice.creditNote && (
@@ -1058,6 +1075,38 @@ export default function InvoiceDetailPage() {
               className="rounded-md bg-tag-red-fg px-4 py-2 font-body text-sm font-medium text-white disabled:opacity-50"
             >
               {issuingCreditNote ? 'Émission…' : "Émettre l'avoir"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {invoice && confirmingEditAccepted && (
+        <Modal
+          title="Modifier un devis déjà accepté ?"
+          onClose={() => setConfirmingEditAccepted(false)}
+        >
+          <p className="font-body text-sm text-muted-foreground">
+            Le client a déjà accepté ce devis. Le modifier le fera repasser en attente
+            d&apos;acceptation — il devra l&apos;accepter à nouveau avant que le projet puisse
+            continuer sur cette base.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingEditAccepted(false)}
+              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingEditAccepted(false);
+                router.push(`/invoices/${invoice.id}/edit-quote`);
+              }}
+              className="rounded-md bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground"
+            >
+              Continuer
             </button>
           </div>
         </Modal>

@@ -10,6 +10,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { recomputeProjectStepsState } from '@/lib/server/projects/progress';
 
 const Body = z.object({
   title: z.string().min(1).max(200),
@@ -58,6 +59,9 @@ export async function POST(
         ...(parsed.data.description ? { description: parsed.data.description } : {}),
       },
     });
+    // Adding a step changes the total, which shifts where "second-to-last"
+    // falls — recompute progress/status against the new count.
+    await recomputeProjectStepsState(prisma, projectId);
 
     return NextResponse.json(step, { status: 201, headers: { 'x-request-id': reqCtx.requestId } });
   });

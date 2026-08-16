@@ -260,17 +260,24 @@ export function resolveFreelanceSector(
   return { code: 'OTHER', other: '' };
 }
 
-export type ProjectStatus = 'IN_PROGRESS' | 'PENDING' | 'DELIVERED';
+// Fully derived from step completion (see lib/server/projects/progress.ts's
+// computeProjectStatus) — never a freelance-chosen value at any point in the
+// lifecycle. PENDING before the first step is validated, IN_PROGRESS between
+// the first and second-to-last, IN_REVIEW at the second-to-last, DELIVERED
+// once every step is done — recomputed in both directions.
+export type ProjectStatus = 'PENDING' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DELIVERED';
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  IN_PROGRESS: 'En cours',
   PENDING: 'En attente',
+  IN_PROGRESS: 'En cours',
+  IN_REVIEW: 'En révision',
   DELIVERED: 'Livré',
 };
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, { bg: string; fg: string }> = {
+  PENDING: { bg: 'bg-muted', fg: 'text-muted-foreground' },
   IN_PROGRESS: { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg' },
-  PENDING: { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg' },
+  IN_REVIEW: { bg: 'bg-tag-purple', fg: 'text-tag-purple-fg' },
   DELIVERED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg' },
 };
 
@@ -288,7 +295,18 @@ export const CLIENT_STATUS_COLORS: Record<ClientStatus, { bg: string; fg: string
   archived: { bg: 'bg-muted', fg: 'text-muted-foreground' },
 };
 
-export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'ACCEPTED' | 'CANCELED';
+// OVERDUE is facture-only (dueDate passed, still unpaid). EXPIRED is
+// devis-only (dueDate passed, never accepted) — mirrors OVERDUE's automatic
+// cron-driven flip (see lib/server/deadlines/sweep.ts) but the two never
+// apply to the same docType.
+export type InvoiceStatus =
+  | 'DRAFT'
+  | 'SENT'
+  | 'PAID'
+  | 'OVERDUE'
+  | 'ACCEPTED'
+  | 'CANCELED'
+  | 'EXPIRED';
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   DRAFT: 'Brouillon',
@@ -297,6 +315,7 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   OVERDUE: 'En retard',
   ACCEPTED: 'Acceptée',
   CANCELED: 'Annulée',
+  EXPIRED: 'Expiré',
 };
 
 export const INVOICE_STATUS_COLORS: Record<
@@ -309,6 +328,7 @@ export const INVOICE_STATUS_COLORS: Record<
   OVERDUE: { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   ACCEPTED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'check-circle' },
   CANCELED: { bg: 'bg-muted', fg: 'text-muted-foreground', icon: 'x-circle' },
+  EXPIRED: { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
 };
 
 export type InvoiceDocType = 'INVOICE' | 'QUOTE' | 'CREDIT_NOTE';

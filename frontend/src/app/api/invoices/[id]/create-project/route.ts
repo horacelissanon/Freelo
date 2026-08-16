@@ -174,7 +174,7 @@ export async function POST(
         );
       }
       const activeProjectCount = await prisma.project.count({
-        where: { userId: auth.user.sub, status: 'IN_PROGRESS' },
+        where: { userId: auth.user.sub, status: { not: 'DELIVERED' } },
       });
       if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
         return NextResponse.json(
@@ -194,7 +194,8 @@ export async function POST(
         name: parsed.data.name,
         sector: parsed.data.sector,
         type: parsed.data.type,
-        status: 'IN_PROGRESS',
+        // Always PENDING — status is fully derived from step completion.
+        status: 'PENDING',
         progress: 0,
         amount: parsed.data.amount,
         currency: parsed.data.currency,

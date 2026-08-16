@@ -94,14 +94,14 @@ describe('GET /api/dashboard/stats', () => {
     expect(body.revenue.trendPercent).toBe(18);
   });
 
-  it('activeProjects reflects Project.count scoped by userId + IN_PROGRESS', async () => {
+  it('activeProjects reflects Project.count scoped by userId + not delivered', async () => {
     prismaMock.project.count.mockResolvedValue(4 as never);
     const res = await GET(makeGet());
     const body = await res.json();
     expect(body.activeProjects).toEqual({ count: 4 });
     const arg = prismaMock.project.count.mock.calls[0]?.[0];
     expect(arg?.where?.userId).toBe('user-1');
-    expect(arg?.where?.status).toBe('IN_PROGRESS');
+    expect(arg?.where?.status).toEqual({ not: 'DELIVERED' });
   });
 
   it('pendingInvoices sums SENT+OVERDUE amount and counts OVERDUE separately', async () => {

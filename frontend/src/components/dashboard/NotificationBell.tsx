@@ -21,6 +21,7 @@ const TYPE_STYLE: Record<string, { bg: string; fg: string; icon: string }> = {
   signature: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'pen-line' },
   invoice: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'file-check' },
   'invoice-overdue': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
+  'quote-expired': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   'project-deadline': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
 };
 const DEFAULT_STYLE = { bg: 'bg-secondary', fg: 'text-muted-foreground', icon: 'bell' };

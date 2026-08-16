@@ -80,6 +80,7 @@ import {
   Wrench,
   Film,
   Megaphone,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -161,6 +162,7 @@ const ICONS: Record<string, LucideIcon> = {
   wrench: Wrench,
   film: Film,
   megaphone: Megaphone,
+  'rotate-ccw': RotateCcw,
 };
 
 export interface IconProps {

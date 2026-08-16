@@ -231,7 +231,13 @@ export async function PATCH(
       paymentMethodNote !== undefined ||
       footerNote !== undefined;
 
-    if (editingContent && existing.status !== 'DRAFT') {
+    // Frozen once non-draft — but ONLY for a facture (INVOICE). A devis
+    // (QUOTE) stays editable through SENT/ACCEPTED/EXPIRED (CANCELED is
+    // already rejected above, before reaching this check) — saving via
+    // QuoteBuilderForm always re-sends `status: 'DRAFT' | 'SENT'`, so
+    // editing an ACCEPTED devis naturally reverts it to awaiting acceptance
+    // again, exactly as intended.
+    if (editingContent && existing.docType === 'INVOICE' && existing.status !== 'DRAFT') {
       return NextResponse.json(
         {
           error: 'INVOICE_NOT_EDITABLE',
@@ -373,6 +379,12 @@ export async function PATCH(
       ...(paymentTermsNote !== undefined ? { paymentTermsNote } : {}),
       ...(sector !== undefined ? { sector } : {}),
       ...(type !== undefined ? { type } : {}),
+      // Packs are replaced wholesale (delete+recreate with new ids, below)
+      // — any prior client pack selection is now a dangling reference and
+      // must be cleared. Was previously unreachable (packs could only be
+      // edited on a DRAFT, which never has a selection yet) — now exposed
+      // once an ACCEPTED devis becomes editable again.
+      ...(packs !== undefined ? { selectedPackId: null } : {}),
     };
 
     let invoice;

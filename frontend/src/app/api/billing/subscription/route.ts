@@ -24,7 +24,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const [clientCount, activeProjectCount] = await Promise.all([
       prisma.client.count({ where: { userId: auth.user.sub } }),
-      prisma.project.count({ where: { userId: auth.user.sub, status: 'IN_PROGRESS' } }),
+      prisma.project.count({ where: { userId: auth.user.sub, status: { not: 'DELIVERED' } } }),
     ]);
 
     const transactions = await prisma.subscriptionTransaction.findMany({

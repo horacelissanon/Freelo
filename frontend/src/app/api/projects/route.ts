@@ -32,7 +32,6 @@ const Body = z
     sector: z.string().min(1).max(100).default('OTHER'),
     type: z.enum(PROJECT_TYPE_VALUES).default('OTHER'),
     description: z.string().max(2000).optional(),
-    status: z.enum(['IN_PROGRESS', 'PENDING', 'DELIVERED']).default('IN_PROGRESS'),
     progress: z.number().int().min(0).max(100).default(0),
     amount: z.number().int().positive(),
     currency: z.string().length(3).default('XOF'),
@@ -110,9 +109,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const status = url.searchParams.get('status');
     const clientId = url.searchParams.get('clientId');
 
+    // `?status=ACTIVE` is a pseudo-filter ("not delivered yet") rather than
+    // an exact status match — used by widgets that want "still actionable"
+    // regardless of which of the 3 non-final statuses a project is in.
+    const statusFilter =
+      status === 'ACTIVE' ? { status: { not: 'DELIVERED' } } : status ? { status } : {};
+
     const where: Prisma.ProjectWhereInput = {
       userId: auth.user.sub,
-      ...(status ? { status } : {}),
+      ...statusFilter,
       ...(clientId ? { clientId } : {}),
       ...cursorWhere(cursor),
     };
@@ -189,7 +194,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
       }
       const activeProjectCount = await prisma.project.count({
-        where: { userId: auth.user.sub, status: 'IN_PROGRESS' },
+        where: { userId: auth.user.sub, status: { not: 'DELIVERED' } },
       });
       if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
         return NextResponse.json(
@@ -208,7 +213,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       name: parsed.data.name,
       sector: parsed.data.sector,
       type: parsed.data.type,
-      status: parsed.data.status,
+      // Always PENDING at creation — status is fully derived from step
+      // completion from this point on, never a freelance-chosen value.
+      status: 'PENDING' as const,
       progress: parsed.data.progress,
       amount: parsed.data.amount,
       currency: parsed.data.currency,
