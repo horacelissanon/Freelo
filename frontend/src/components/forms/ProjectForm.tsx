@@ -263,21 +263,17 @@ export function ProjectForm({
         </label>
       )}
       {highlightedQuote && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/40">
-          <Icon
-            i="alert-circle"
-            size={16}
-            className="mt-0.5 flex-shrink-0 text-amber-600 dark:text-amber-400"
-          />
+        <div className="flex items-start gap-2 rounded-lg bg-tag-orange p-3">
+          <Icon i="alert-circle" size={16} className="mt-0.5 flex-shrink-0 text-tag-orange-fg" />
           <div className="flex flex-col gap-1">
-            <p className="font-body text-sm text-foreground">
+            <p className="font-body text-sm text-tag-orange-fg">
               {highlightedQuote.status === 'ACCEPTED'
                 ? `Ce client a un devis accepté (${highlightedQuote.number}) non encore transformé en projet. Utilise « Créer un projet depuis ce devis » pour reprendre le montant et l'acompte.`
                 : `Ce client a un devis en cours (${highlightedQuote.number}) qui ne sera pas lié à ce projet.`}
             </p>
             <Link
               href={`/invoices/${highlightedQuote.id}`}
-              className="self-start font-body text-xs font-medium text-amber-700 underline dark:text-amber-400"
+              className="self-start font-body text-xs font-semibold text-tag-orange-fg underline"
             >
               Voir le devis
             </Link>
