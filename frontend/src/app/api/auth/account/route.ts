@@ -3,8 +3,13 @@
 // Pre-flight blocks on the schema's 3 `onDelete: Restrict` relations to
 // User (Withdrawal.userId, AdminAction.actorId, Organization.ownerId) so
 // the FK violation surfaces as a clean 4xx instead of an unhandled 500.
+// Also blocks on any non-DRAFT Invoice: Invoice.user cascades from User,
+// and the schema's own "no hard delete of invoices exists anywhere in this
+// app by design" invariant (see schema.prisma, Invoice model) would
+// otherwise be silently violated by deleting the account that owns them —
+// a credit note is supposed to be the only way to void a sent invoice.
 // Everything else cascades or SetNulls automatically (Client → Project →
-// ProjectStep/ProjectComment, Invoice, OAuthAccount, VerificationCode,
+// ProjectStep/ProjectComment, DRAFT Invoices, OAuthAccount, VerificationCode,
 // Notification, NotificationPreferences, Subscription → SubscriptionTransaction).
 //
 // Deliberately does NOT go through logAdminAction: an AdminAction row has
@@ -33,11 +38,13 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
     const userId = auth.user.sub;
 
-    const [withdrawalCount, adminActionCount, ownedOrgCount] = await Promise.all([
-      prisma.withdrawal.count({ where: { userId } }),
-      prisma.adminAction.count({ where: { actorId: userId } }),
-      prisma.organization.count({ where: { ownerId: userId } }),
-    ]);
+    const [withdrawalCount, adminActionCount, ownedOrgCount, nonDraftInvoiceCount] =
+      await Promise.all([
+        prisma.withdrawal.count({ where: { userId } }),
+        prisma.adminAction.count({ where: { actorId: userId } }),
+        prisma.organization.count({ where: { ownerId: userId } }),
+        prisma.invoice.count({ where: { userId, status: { not: 'DRAFT' } } }),
+      ]);
 
     if (withdrawalCount > 0) {
       return NextResponse.json(
@@ -65,6 +72,16 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
           error: 'ACCOUNT_OWNS_ORGANIZATION',
           message:
             "Impossible de supprimer ce compte : il possède une organisation. Transfère-la d'abord.",
+        },
+        { status: 409, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    if (nonDraftInvoiceCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'ACCOUNT_HAS_INVOICES',
+          message:
+            'Impossible de supprimer ce compte : des devis ou factures envoyés existent. Exporte tes données puis contacte le support.',
         },
         { status: 409, headers: { 'x-request-id': ctx.requestId } },
       );

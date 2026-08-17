@@ -9,6 +9,10 @@
 // An invoice/quote is only served once it has left DRAFT (never share a
 // link to something that hasn't been sent yet) — same anti-leak shape as
 // everywhere else here: 404, not a distinct "not ready" error.
+//
+// Rate-limited per token like every sibling track/[token]/* route — this is
+// a read (page load + the tracking page's manual "Actualiser" button), so
+// the ceiling is deliberately higher than the mutating siblings' 10/10min.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -17,6 +21,11 @@ import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
+import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
+
+const RATE_LIMIT_PREFIX = 'rl:track:get:';
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_HITS = 60;
 
 interface TrackedContentBlockShape {
   id: string;
@@ -49,6 +58,12 @@ export async function GET(
   const reqCtx = makeRequestContext(req.headers);
   return withRequestContext(reqCtx, async () => {
     const { token } = await ctx.params;
+
+    const limited = await enforceTokenRateLimit(RATE_LIMIT_PREFIX, token, {
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      maxHits: RATE_LIMIT_MAX_HITS,
+    });
+    if (limited) return limited;
 
     function notFound(): NextResponse {
       return NextResponse.json(

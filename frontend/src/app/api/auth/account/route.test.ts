@@ -35,6 +35,7 @@ beforeEach(() => {
   prismaMock.withdrawal.count.mockResolvedValue(0 as never);
   prismaMock.adminAction.count.mockResolvedValue(0 as never);
   prismaMock.organization.count.mockResolvedValue(0 as never);
+  prismaMock.invoice.count.mockResolvedValue(0 as never);
 });
 
 describe('DELETE /api/auth/account', () => {
@@ -75,6 +76,25 @@ describe('DELETE /api/auth/account', () => {
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe('ACCOUNT_OWNS_ORGANIZATION');
     expect(prismaMock.user.delete).not.toHaveBeenCalled();
+  });
+
+  it('has a non-DRAFT invoice -> 409 ACCOUNT_HAS_INVOICES, no delete (never let cascade hard-delete a sent/paid invoice)', async () => {
+    prismaMock.invoice.count.mockResolvedValue(1 as never);
+    const res = await DELETE(makeReq());
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('ACCOUNT_HAS_INVOICES');
+    expect(prismaMock.user.delete).not.toHaveBeenCalled();
+
+    const countArg = prismaMock.invoice.count.mock.calls[0]?.[0];
+    expect(countArg?.where).toEqual({ userId: 'user-1', status: { not: 'DRAFT' } });
+  });
+
+  it('only DRAFT invoices exist -> deletion proceeds (drafts are freely disposable)', async () => {
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.user.delete.mockResolvedValue({ id: 'user-1' } as never);
+    const res = await DELETE(makeReq());
+    expect(res.status).toBe(200);
+    expect(prismaMock.user.delete).toHaveBeenCalled();
   });
 
   it('happy path -> 200, deletes user, clears cookies', async () => {

@@ -3,7 +3,8 @@
 // GET /api/track/[token] (kind: 'quote' | 'invoice'). Same anti-leak shape:
 // a DRAFT, a disabled public portal, or an unknown token all resolve as a
 // plain 404. The token IS the authorization — no login/CSRF involved, same
-// as every other /api/track/[token]/* route.
+// as every other /api/track/[token]/* route. Rate-limited per token since
+// PDF rendering is the most CPU-costly read this route family exposes.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -12,6 +13,11 @@ import { prisma } from '@/lib/server/prisma';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { renderInvoicePdf, type InvoicePdfData } from '@/lib/server/pdf/invoicePdf';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
+
+const RATE_LIMIT_PREFIX = 'rl:track:pdf:';
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_HITS = 20;
 
 export async function GET(
   req: NextRequest,
@@ -20,6 +26,12 @@ export async function GET(
   const reqCtx = makeRequestContext(req.headers);
   return withRequestContext(reqCtx, async () => {
     const { token } = await ctx.params;
+
+    const limited = await enforceTokenRateLimit(RATE_LIMIT_PREFIX, token, {
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      maxHits: RATE_LIMIT_MAX_HITS,
+    });
+    if (limited) return limited;
 
     function notFound(): NextResponse {
       return NextResponse.json(
