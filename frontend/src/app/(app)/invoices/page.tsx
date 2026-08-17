@@ -305,7 +305,7 @@ function FacturesTab({
       {rows.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard
-            label="Encaissé"
+            label="Chiffre d'affaires total"
             value={formatPrice(totalPaid)}
             unit="XOF"
             icon="check-circle"

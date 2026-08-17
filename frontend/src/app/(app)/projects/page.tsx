@@ -160,7 +160,7 @@ export default function ProjectsPage() {
             icon="banknote"
           />
           <StatCard
-            label="Solde encaissé"
+            label="Chiffre d'affaires total"
             value={formatPrice(collectedAmount)}
             unit="XOF"
             icon="wallet"

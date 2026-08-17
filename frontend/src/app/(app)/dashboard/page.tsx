@@ -215,7 +215,7 @@ export default function DashboardPage() {
       ) : stats.data ? (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <StatCard
-            label="Revenus ce mois-ci"
+            label="Chiffre d'affaires ce mois-ci"
             value={formatPrice(stats.data.revenue.amount)}
             unit={stats.data.revenue.currency}
             icon="banknote"
@@ -284,32 +284,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-lg border border-border bg-canvas shadow-card p-5 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-headings text-base font-semibold text-foreground">
-              Projets en cours
-            </h2>
-            <Link href="/projects" className="font-body text-xs font-medium text-primary">
-              Voir tous
-            </Link>
-          </div>
-          {projects.loading ? (
-            <LoadingState />
-          ) : projects.error ? (
-            <ErrorState message={projects.error} onRetry={projects.refresh} />
-          ) : projectRows.length === 0 ? (
-            <EmptyState
-              icon="folder-open"
-              title="Aucun projet en cours"
-              description="Vos projets actifs apparaîtront ici."
-            />
-          ) : (
-            <div>
-              {projectRows.map((p) => (
-                <ProjectRow key={p.id} project={p} masked={moneyMasked} />
-              ))}
-            </div>
-          )}
+        <div className="lg:col-span-2">
+          {stats.data && <RevenueTrendCard data={stats.data.revenueTrend} masked={moneyMasked} />}
         </div>
 
         <div className="flex flex-col gap-6">
@@ -325,11 +301,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {stats.data && (
-        <div className="mt-6">
-          <RevenueTrendCard data={stats.data.revenueTrend} masked={moneyMasked} />
+      <div className="mt-6 rounded-lg border border-border bg-canvas shadow-card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-headings text-base font-semibold text-foreground">
+            Projets en cours
+          </h2>
+          <Link href="/projects" className="font-body text-xs font-medium text-primary">
+            Voir tous
+          </Link>
         </div>
-      )}
+        {projects.loading ? (
+          <LoadingState />
+        ) : projects.error ? (
+          <ErrorState message={projects.error} onRetry={projects.refresh} />
+        ) : projectRows.length === 0 ? (
+          <EmptyState
+            icon="folder-open"
+            title="Aucun projet en cours"
+            description="Vos projets actifs apparaîtront ici."
+          />
+        ) : (
+          <div>
+            {projectRows.map((p) => (
+              <ProjectRow key={p.id} project={p} masked={moneyMasked} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
