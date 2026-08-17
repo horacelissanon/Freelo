@@ -169,7 +169,16 @@ function conditionsTemplateFor(type: ProjectType): ContentBlockDraft[] {
   );
 }
 
-export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
+export function QuoteBuilderForm({
+  quote,
+  lockedClient,
+}: {
+  quote?: QuoteBuilderExisting;
+  /** When set (e.g. "Nouveau devis" from a client's own page), the client
+   *  picker is replaced by a read-only label — same pattern as ProjectForm/
+   *  InvoiceForm's `lockedClient`. */
+  lockedClient?: { id: string; label: string };
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const { openCreate } = useCreateMenu();
@@ -179,7 +188,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   );
   const clients = clientsData?.items ?? [];
 
-  const [clientId, setClientId] = useState(quote?.clientId ?? '');
+  const [clientId, setClientId] = useState(lockedClient?.id ?? quote?.clientId ?? '');
   const { data: projectsData } = useApi<{ items: ProjectOption[] }>(
     `/api/projects?clientId=${clientId}&limit=50`,
     { skip: !clientId },
@@ -606,36 +615,47 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
         <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
           Destinataire
         </p>
-        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-          Client *
-          <select
-            ref={clientRef}
-            value={clientId}
-            onChange={(e) => {
-              setClientId(e.target.value);
-              setProjectId('');
-              if (clientError) setClientError(null);
-            }}
-            aria-invalid={!!clientError}
-            className={
-              clientError ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40` : inputClass
-            }
-          >
-            <option value="" disabled>
-              Sélectionner un client
-            </option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} — {c.name}
+        {lockedClient ? (
+          <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Client
+            <p className={`${inputClass} bg-secondary/50 text-muted-foreground`}>
+              {lockedClient.label}
+            </p>
+          </div>
+        ) : (
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Client *
+            <select
+              ref={clientRef}
+              value={clientId}
+              onChange={(e) => {
+                setClientId(e.target.value);
+                setProjectId('');
+                if (clientError) setClientError(null);
+              }}
+              aria-invalid={!!clientError}
+              className={
+                clientError
+                  ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                  : inputClass
+              }
+            >
+              <option value="" disabled>
+                Sélectionner un client
               </option>
-            ))}
-          </select>
-          {clientError && (
-            <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
-              {clientError}
-            </span>
-          )}
-        </label>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+            {clientError && (
+              <span role="alert" className="font-body text-xs font-normal text-tag-red-fg">
+                {clientError}
+              </span>
+            )}
+          </label>
+        )}
         {clientId && projects.length > 0 && (
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Projet lié (optionnel)

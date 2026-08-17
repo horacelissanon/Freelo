@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -16,6 +15,8 @@ import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { ProjectRow } from '@/components/dashboard/ProjectRow';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { ClientForm } from '@/components/forms/ClientForm';
+import { ProjectForm } from '@/components/forms/ProjectForm';
+import { InvoiceForm } from '@/components/forms/InvoiceForm';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import {
   CLIENT_STATUS_LABELS,
@@ -71,12 +72,13 @@ export default function ClientDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
-  const { openCreate } = useCreateMenu();
   const { data: client, loading, error, refresh } = useApi<ClientDetail>(`/api/clients/${id}`);
   const [editOpen, setEditOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [creatingProjectOpen, setCreatingProjectOpen] = useState(false);
+  const [creatingInvoiceOpen, setCreatingInvoiceOpen] = useState(false);
 
   if (!user) return null;
 
@@ -274,7 +276,7 @@ export default function ClientDetailPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => openCreate('project')}
+                onClick={() => setCreatingProjectOpen(true)}
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
@@ -318,7 +320,7 @@ export default function ClientDetailPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => openCreate('quote')}
+                onClick={() => router.push(`/invoices/new-quote?clientId=${client.id}`)}
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
@@ -361,7 +363,7 @@ export default function ClientDetailPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => openCreate('invoice')}
+                onClick={() => setCreatingInvoiceOpen(true)}
                 className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
               >
                 <Icon i="plus" size={14} />
@@ -396,6 +398,36 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
+
+          {creatingProjectOpen && (
+            <Modal title="Nouveau projet" onClose={() => setCreatingProjectOpen(false)}>
+              <ProjectForm
+                lockedClient={{ id: client.id, label: client.name }}
+                extraBody={{ clientId: client.id }}
+                onDone={() => {
+                  setCreatingProjectOpen(false);
+                  invalidateCachePrefix('/api/clients');
+                  void refresh();
+                }}
+                onNeedClient={() => {}}
+              />
+            </Modal>
+          )}
+
+          {creatingInvoiceOpen && (
+            <Modal title="Créer facture" onClose={() => setCreatingInvoiceOpen(false)} size="lg">
+              <InvoiceForm
+                lockedClient={{ id: client.id, label: client.name }}
+                extraBody={{ clientId: client.id }}
+                onDone={() => {
+                  setCreatingInvoiceOpen(false);
+                  invalidateCachePrefix('/api/clients');
+                  void refresh();
+                }}
+                onNeedClient={() => {}}
+              />
+            </Modal>
+          )}
 
           {confirmingDelete && (
             <Modal title="Supprimer le client" onClose={() => setConfirmingDelete(false)}>

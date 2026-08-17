@@ -100,6 +100,7 @@ export function InvoiceForm({
   lockedClient,
   lockedProject,
   submitPath = '/api/invoices',
+  extraBody,
 }: {
   invoice?: InvoiceFormExisting;
   onDone: () => void;
@@ -119,6 +120,11 @@ export function InvoiceForm({
   /** Defaults to the standalone creation endpoint; pass a different path to
    *  reuse this exact form for a specialized creation flow. */
   submitPath?: string;
+  /** Extra fixed fields merged into the submitted body — e.g. `clientId`
+   *  when `lockedClient` is used against the generic `submitPath` (which,
+   *  unlike a dedicated derive-from-URL route, still requires it). Mirrors
+   *  ProjectForm's `extraBody`. */
+  extraBody?: Record<string, unknown>;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -304,6 +310,7 @@ export function InvoiceForm({
         paymentMethodNote: paymentMethodNote || null,
         footerNote: footerNote || null,
         status: targetStatus,
+        ...extraBody,
       };
       if (invoice) {
         await api(`/api/invoices/${invoice.id}`, { method: 'PATCH', body: shared });
