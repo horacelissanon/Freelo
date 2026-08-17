@@ -579,8 +579,17 @@ export function QuoteBuilderForm({
     void saveQuote('DRAFT');
   }
 
+  // router.back() when real history exists — router.push() here would stack
+  // a *second* /invoices/[id] entry on top of the /edit-quote one instead of
+  // returning to it, so the page's own "Retour" button (which does use
+  // router.back(), see BackButton.tsx) would then land back on /edit-quote
+  // instead of wherever the freelance actually came from.
   function cancel() {
-    router.push(quote ? `/invoices/${quote.id}` : '/invoices');
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(quote ? `/invoices/${quote.id}` : '/invoices');
+    }
   }
 
   if (!clientsLoading && clients.length === 0) {
