@@ -45,6 +45,7 @@ export async function POST(
       where: { trackingToken: token },
       select: {
         id: true,
+        clientId: true,
         docType: true,
         status: true,
         user: { select: { publicPortalEnabled: true } },
@@ -90,6 +91,14 @@ export async function POST(
       where: { id: invoice.id },
       data: { status: 'ACCEPTED', selectedPackId: selectedPack.id, amount: selectedAmount },
       select: { id: true, status: true, selectedPackId: true, amount: true },
+    });
+
+    // An accepted devis (with no project yet) promotes a brand-new client
+    // relationship to "En attente" — never downgrades a client already
+    // 'active' (has a real project) or 'archived' (manual decision).
+    await prisma.client.updateMany({
+      where: { id: invoice.clientId, status: 'new' },
+      data: { status: 'pending' },
     });
 
     return NextResponse.json(updated, { headers: { 'x-request-id': reqCtx.requestId } });

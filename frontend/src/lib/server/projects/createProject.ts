@@ -10,9 +10,9 @@ import type { ProjectType } from '@/lib/constants';
 import { PROJECT_TYPE_DEFAULT_STEPS } from '@/lib/projectDefaults';
 
 // Structurally satisfied by both the plain `prisma` client and a `tx`
-// passed into `prisma.$transaction(async (tx) => ...)` — only the one
-// delegate this needs.
-type Db = Pick<Prisma.TransactionClient, 'project'>;
+// passed into `prisma.$transaction(async (tx) => ...)` — only the two
+// delegates this needs.
+type Db = Pick<Prisma.TransactionClient, 'project' | 'client'>;
 
 export interface CreateProjectInput {
   userId: string;
@@ -37,7 +37,7 @@ export interface CreateProjectInput {
   depositValue?: number;
 }
 
-export function createProject(db: Db, input: CreateProjectInput) {
+export async function createProject(db: Db, input: CreateProjectInput) {
   // Falls back to the type's professional-practice step template when the
   // caller doesn't supply a custom `steps` list — keeps the Client Link
   // Portal demoable out of the box, and matches what ProjectForm.tsx/
@@ -45,7 +45,7 @@ export function createProject(db: Db, input: CreateProjectInput) {
   // a user who touches nothing gets identical behavior whichever creation
   // path they used.
   const fallbackSteps = PROJECT_TYPE_DEFAULT_STEPS[input.type] ?? PROJECT_TYPE_DEFAULT_STEPS.OTHER;
-  return db.project.create({
+  const project = await db.project.create({
     data: {
       userId: input.userId,
       clientId: input.clientId,
@@ -76,4 +76,19 @@ export function createProject(db: Db, input: CreateProjectInput) {
       },
     },
   });
+
+  // A DRAFT project is just a saved placeholder, not a real commitment —
+  // only a real (non-DRAFT) project promotes the client relationship.
+  // `updateMany` + a `status: { in: [...] }` guard only ever moves 'new' or
+  // 'pending' forward to 'active', so it can never clobber a freelance's
+  // manual 'archived' decision or redundantly touch an already-'active'
+  // client (see lib/server/clients/status.ts for the full state machine).
+  if (input.status !== 'DRAFT') {
+    await db.client.updateMany({
+      where: { id: input.clientId, status: { in: ['new', 'pending'] } },
+      data: { status: 'active' },
+    });
+  }
+
+  return project;
 }

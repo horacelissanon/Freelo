@@ -24,6 +24,7 @@ function invoice(
 ) {
   return {
     id: 'i-1',
+    clientId: 'c-1',
     docType: overrides.docType ?? 'QUOTE',
     status: overrides.status ?? 'SENT',
     user: { publicPortalEnabled: overrides.publicPortalEnabled ?? true },
@@ -62,6 +63,13 @@ describe('POST /api/track/[token]/validate', () => {
       selectedPackId: 'pack-2',
       amount: 120000,
     });
+
+    // A newly-accepted devis promotes a brand-new client relationship to
+    // "En attente" — only ever flips a 'new' client, never downgrades one
+    // that's already 'active' (has a real project) or 'archived'.
+    const clientUpdateArg = prismaMock.client.updateMany.mock.calls[0]?.[0];
+    expect(clientUpdateArg?.where).toEqual({ id: 'c-1', status: 'new' });
+    expect(clientUpdateArg?.data).toEqual({ status: 'pending' });
   });
 
   it('missing packId -> 400 VALIDATION_FAILED, no update', async () => {

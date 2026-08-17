@@ -83,6 +83,7 @@ import {
   RotateCcw,
   FileSpreadsheet,
   Wallet,
+  Archive,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -167,6 +168,7 @@ const ICONS: Record<string, LucideIcon> = {
   'rotate-ccw': RotateCcw,
   'file-spreadsheet': FileSpreadsheet,
   wallet: Wallet,
+  archive: Archive,
 };
 
 export interface IconProps {

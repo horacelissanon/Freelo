@@ -285,18 +285,27 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, { bg: string; fg: stri
   DELIVERED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg' },
 };
 
-export type ClientStatus = 'active' | 'pending' | 'archived';
+// Fully derived server-side (see lib/server/clients/status.ts) except
+// 'archived', which is the one freelance-chosen value — new -> pending ->
+// active is a one-way, automatic progression the freelance never sets
+// directly. 'new' = no project and no accepted devis yet, 'pending' = an
+// accepted devis but no project yet, 'active' = at least one (non-draft)
+// project has ever existed for this client.
+export type ClientStatus = 'new' | 'pending' | 'active' | 'archived';
 
-// "active" reads as "Confirmé" (not "Actif") to avoid the reader assuming
-// it means "has an active project" — a client relationship status and a
-// project's status are unrelated concepts that happened to share a word.
+// "active" reads as "Client" (not "Actif" or "Confirmé") to avoid the
+// reader assuming it means "has an active project" — a client relationship
+// status and a project's status are unrelated concepts that happened to
+// share a word.
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
-  active: 'Confirmé',
+  new: 'Nouveau',
+  active: 'Client',
   pending: 'En attente',
   archived: 'Archivé',
 };
 
 export const CLIENT_STATUS_COLORS: Record<ClientStatus, { bg: string; fg: string }> = {
+  new: { bg: 'bg-tag-purple', fg: 'text-tag-purple-fg' },
   active: { bg: 'bg-tag-green', fg: 'text-tag-green-fg' },
   pending: { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg' },
   archived: { bg: 'bg-muted', fg: 'text-muted-foreground' },

@@ -440,7 +440,7 @@ model Client {
   city        String?
   sector      String?
   notes       String?
-  status      String   @default("active") // active | pending | archived
+  status      String   @default("new") // new | pending | active | archived — see lib/server/clients/status.ts
   imageUrl    String?
   trackingToken String @unique @default(cuid()) // Client Link Portal (Phase C) — lists all of this client's projects
   createdAt   DateTime @default(now())

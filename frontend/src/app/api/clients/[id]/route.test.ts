@@ -13,7 +13,7 @@ vi.mock('@/lib/server/middleware', () => ({
 }));
 
 import { requireAuth } from '@/lib/server/middleware';
-import { GET, PATCH } from './route';
+import { GET, PATCH, DELETE } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
@@ -38,6 +38,16 @@ function makePatch(body: unknown, opts: { csrf?: 'match' | 'missing' } = {}): Ne
     headers,
     body: JSON.stringify(body),
   });
+}
+
+function makeDelete(opts: { csrf?: 'match' | 'missing' } = {}): NextRequest {
+  const csrf = opts.csrf ?? 'match';
+  const headers: Record<string, string> = {};
+  if (csrf === 'match') {
+    headers['x-csrf-token'] = 'csrf-tok';
+    headers['cookie'] = 'app-csrf=csrf-tok';
+  }
+  return new NextRequest('http://test/api/clients/c-1', { method: 'DELETE', headers });
 }
 
 const baseClient = {
@@ -128,6 +138,53 @@ describe('PATCH /api/clients/[id]', () => {
     const updateArg = prismaMock.client.update.mock.calls[0]?.[0];
     expect(updateArg?.data).toEqual({ status: 'archived' });
     expect((await res.json()).status).toBe('archived');
+  });
+
+  it('un-archiving (any non-archived status sent) recomputes the real status live instead of trusting the literal value', async () => {
+    prismaMock.project.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.count.mockResolvedValue(1 as never);
+    prismaMock.client.update.mockResolvedValue({ ...baseClient, status: 'pending' } as never);
+    const res = await PATCH(makePatch({ status: 'active' }), ctxWith('c-1'));
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.client.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ status: 'pending' });
+  });
+});
+
+describe('DELETE /api/clients/[id]', () => {
+  it('missing x-csrf-token -> 403, no Prisma call', async () => {
+    const res = await DELETE(makeDelete({ csrf: 'missing' }), ctxWith('c-1'));
+    expect(res.status).toBe(403);
+    expect(prismaMock.client.delete).not.toHaveBeenCalled();
+  });
+
+  it('client not owned by caller -> 404 CLIENT_NOT_FOUND', async () => {
+    prismaMock.client.findFirst.mockResolvedValue(null as never);
+    const res = await DELETE(makeDelete(), ctxWith('someone-elses'));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('CLIENT_NOT_FOUND');
+  });
+
+  it('client has projects or invoices -> 409 CLIENT_HAS_LINKED_RECORDS, no delete', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({
+      id: 'c-1',
+      _count: { projects: 1, invoices: 0 },
+    } as never);
+    const res = await DELETE(makeDelete(), ctxWith('c-1'));
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe('CLIENT_HAS_LINKED_RECORDS');
+    expect(prismaMock.client.delete).not.toHaveBeenCalled();
+  });
+
+  it('client with zero linked records -> 200, deletes', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({
+      id: 'c-1',
+      _count: { projects: 0, invoices: 0 },
+    } as never);
+    prismaMock.client.delete.mockResolvedValue(baseClient as never);
+    const res = await DELETE(makeDelete(), ctxWith('c-1'));
+    expect(res.status).toBe(200);
+    expect(prismaMock.client.delete).toHaveBeenCalledWith({ where: { id: 'c-1' } });
   });
 });
 

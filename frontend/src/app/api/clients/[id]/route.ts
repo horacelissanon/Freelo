@@ -11,9 +11,10 @@ import { z } from 'zod';
 import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { deriveClientStatus } from '@/lib/server/clients/status';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const CLIENT_STATUSES = ['active', 'pending', 'archived'] as const;
+const CLIENT_STATUSES = ['new', 'pending', 'active', 'archived'] as const;
 
 const PatchBody = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -134,6 +135,19 @@ export async function PATCH(
       status,
     } = parsed.data;
 
+    // 'archived' is the one status a freelance actually chooses (the
+    // "Archiver" button); anything else in the request is really just an
+    // "un-archive" intent (the "Réactiver" button sends 'active' without
+    // knowing whether the client really has a project yet) — resolved to
+    // the true, live-derived state instead of trusting the literal value,
+    // so reactivating never fabricates a status the data doesn't support.
+    const resolvedStatus =
+      status === undefined
+        ? undefined
+        : status === 'archived'
+          ? 'archived'
+          : await deriveClientStatus(prisma, id);
+
     const client = await prisma.client.update({
       where: { id },
       data: {
@@ -147,10 +161,58 @@ export async function PATCH(
         ...(sector !== undefined ? { sector } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(imageUrl !== undefined ? { imageUrl } : {}),
-        ...(status !== undefined ? { status } : {}),
+        ...(resolvedStatus !== undefined ? { status: resolvedStatus } : {}),
       },
     });
 
     return NextResponse.json(client, { headers: { 'x-request-id': reqCtx.requestId } });
+  });
+}
+
+// Client/Project and Client/Invoice both cascade-delete at the DB level
+// (schema.prisma), so this guard is the only thing standing between
+// "delete this client" and silently wiping their whole project/devis/
+// facture history. Only a client with zero links in the system — the
+// freelance's own words — may actually be deleted; everyone else can only
+// be archived.
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const reqCtx = makeRequestContext(req.headers);
+  return withRequestContext(reqCtx, async () => {
+    const csrfFail = verifyCsrf(req);
+    if (csrfFail) return csrfFail;
+
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
+    const { id } = await ctx.params;
+
+    const existing = await prisma.client.findFirst({
+      where: { id, userId: auth.user.sub },
+      select: { id: true, _count: { select: { projects: true, invoices: true } } },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'CLIENT_NOT_FOUND', message: 'Client does not exist or does not belong to you' },
+        { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    if (existing._count.projects > 0 || existing._count.invoices > 0) {
+      return NextResponse.json(
+        {
+          error: 'CLIENT_HAS_LINKED_RECORDS',
+          message:
+            'Ce client a des projets, devis ou factures liés — archive-le plutôt que de le supprimer.',
+        },
+        { status: 409, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    await prisma.client.delete({ where: { id } });
+
+    return NextResponse.json({ ok: true }, { headers: { 'x-request-id': reqCtx.requestId } });
   });
 }

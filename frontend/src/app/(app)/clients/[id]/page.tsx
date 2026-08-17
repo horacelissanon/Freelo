@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
 import { BackButton } from '@/components/ui/BackButton';
+import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { ProjectRow } from '@/components/dashboard/ProjectRow';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { ClientForm } from '@/components/forms/ClientForm';
@@ -67,12 +68,15 @@ interface ClientDetail {
 
 export default function ClientDetailPage() {
   const user = useUser();
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
   const { openCreate } = useCreateMenu();
   const { data: client, loading, error, refresh } = useApi<ClientDetail>(`/api/clients/${id}`);
   const [editOpen, setEditOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!user) return null;
 
@@ -99,6 +103,20 @@ export default function ClientDetailPage() {
       toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
     } finally {
       setArchiving(false);
+    }
+  }
+
+  async function deleteClient() {
+    if (!client) return;
+    setDeleting(true);
+    try {
+      await api(`/api/clients/${client.id}`, { method: 'DELETE' });
+      invalidateCachePrefix('/api/clients');
+      toast('Client supprimé.', 'success');
+      router.push('/clients');
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : 'Une erreur est survenue.', 'error');
+      setDeleting(false);
     }
   }
 
@@ -189,9 +207,31 @@ export default function ClientDetailPage() {
                 disabled={archiving}
                 className="flex items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-foreground disabled:opacity-50"
               >
-                <Icon i={client.status === 'archived' ? 'check-circle' : 'trash'} size={15} />
+                <Icon i={client.status === 'archived' ? 'check-circle' : 'archive'} size={15} />
                 {client.status === 'archived' ? 'Réactiver' : 'Archiver'}
               </button>
+              {client.projects.length === 0 && client.invoices.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="flex items-center gap-2 rounded-md border border-tag-red-fg px-4 py-2.5 font-body text-sm font-medium text-tag-red-fg"
+                >
+                  <Icon i="trash" size={15} />
+                  Supprimer
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled
+                    className="flex items-center gap-2 rounded-md border border-border px-4 py-2.5 font-body text-sm font-medium text-muted-foreground opacity-50"
+                  >
+                    <Icon i="trash" size={15} />
+                    Supprimer
+                  </button>
+                  <InfoTooltip text="Suppression impossible : ce client a au moins un projet, devis ou facture lié. Archive-le si tu veux le sortir de tes listes actives." />
+                </div>
+              )}
             </div>
           </div>
 
@@ -356,6 +396,31 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
+
+          {confirmingDelete && (
+            <Modal title="Supprimer le client" onClose={() => setConfirmingDelete(false)}>
+              <p className="font-body text-sm text-muted-foreground">
+                {client.name} sera définitivement supprimé. Cette action est irréversible.
+              </p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void deleteClient()}
+                  disabled={deleting}
+                  className="rounded-md bg-tag-red-fg px-4 py-2 font-body text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {deleting ? 'Suppression…' : 'Supprimer définitivement'}
+                </button>
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </div>

@@ -325,6 +325,22 @@ describe('POST /api/projects', () => {
     await POST(makePost({ clientId: 'c-1', name: 'X', amount: 100000 }));
     expect(prismaMock.order.create).not.toHaveBeenCalled();
   });
+
+  it('creating a non-DRAFT project promotes the client from new/pending to active', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.project.create.mockResolvedValue(project() as never);
+    await POST(makePost({ clientId: 'c-1', name: 'X', amount: 1000, status: 'PENDING' }));
+    const updateManyArg = prismaMock.client.updateMany.mock.calls[0]?.[0];
+    expect(updateManyArg?.where).toEqual({ id: 'c-1', status: { in: ['new', 'pending'] } });
+    expect(updateManyArg?.data).toEqual({ status: 'active' });
+  });
+
+  it('creating a DRAFT project does not touch the client status', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.project.create.mockResolvedValue(project() as never);
+    await POST(makePost({ clientId: 'c-1', name: 'X', amount: 1000, status: 'DRAFT' }));
+    expect(prismaMock.client.updateMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('source invariants', () => {

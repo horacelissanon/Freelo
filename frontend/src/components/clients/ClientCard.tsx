@@ -48,7 +48,7 @@ export function ClientCard({ client }: { client: ClientCardData }) {
           </span>
           {client.activeProjectCount > 0 && (
             <span className="rounded-full bg-tag-green px-2 py-0.5 text-xs font-medium text-tag-green-fg">
-              {client.activeProjectCount} actif{client.activeProjectCount !== 1 ? 's' : ''}
+              {`${client.activeProjectCount} projet${client.activeProjectCount !== 1 ? 's' : ''} actif${client.activeProjectCount !== 1 ? 's' : ''}`}
             </span>
           )}
         </div>

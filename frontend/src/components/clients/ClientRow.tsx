@@ -40,7 +40,7 @@ export function ClientRow({ client, index }: { client: ClientRowData; index: num
       </div>
       {client.activeProjectCount > 0 && (
         <div className="hidden flex-shrink-0 rounded-full bg-tag-green px-2.5 py-1 text-xs font-medium text-tag-green-fg sm:block">
-          {client.activeProjectCount} actif{client.activeProjectCount !== 1 ? 's' : ''}
+          {`${client.activeProjectCount} projet${client.activeProjectCount !== 1 ? 's' : ''} actif${client.activeProjectCount !== 1 ? 's' : ''}`}
         </div>
       )}
       <div className="flex-shrink-0 text-right text-xs text-muted-foreground">
