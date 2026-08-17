@@ -22,6 +22,7 @@
  */
 import type { Redis } from '@upstash/redis';
 import { randomBytes } from 'node:crypto';
+import { log } from '@/lib/server/observability/log';
 
 export interface QueueJob<T> {
   id: string;
@@ -258,9 +259,13 @@ export class JobQueue<T> {
         if (this.onDeadLetter) {
           await this.onDeadLetter(updated, err);
         } else {
-          console.warn(
-            `[JobQueue:${this.mainKey}] dropping job ${updated.id} after ${updated.attempts} attempts (no onDeadLetter handler)`,
-            { lastError: err instanceof Error ? err.message : String(err) },
+          log.warn(
+            `job queue: dropping job after ${updated.attempts} attempts (no onDeadLetter handler)`,
+            {
+              queue: this.mainKey,
+              jobId: updated.id,
+              lastError: err instanceof Error ? err.message : String(err),
+            },
           );
         }
       } else {
