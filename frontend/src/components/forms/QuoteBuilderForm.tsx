@@ -546,7 +546,7 @@ export function QuoteBuilderForm({
           targetStatus === 'SENT' ? 'Devis prêt à envoyer.' : 'Brouillon enregistré.',
           'success',
         );
-        router.push(`/invoices/${quote.id}`);
+        backOrPush(`/invoices/${quote.id}`);
       } else {
         const created = await api<{ id: string }>('/api/invoices', {
           method: 'POST',
@@ -579,17 +579,25 @@ export function QuoteBuilderForm({
     void saveQuote('DRAFT');
   }
 
-  // router.back() when real history exists — router.push() here would stack
-  // a *second* /invoices/[id] entry on top of the /edit-quote one instead of
-  // returning to it, so the page's own "Retour" button (which does use
-  // router.back(), see BackButton.tsx) would then land back on /edit-quote
-  // instead of wherever the freelance actually came from.
-  function cancel() {
+  // Prefers router.back() over router.push() whenever we're returning to a
+  // devis detail page that's already sitting in the history stack (both
+  // Annuler and a successful edit-save do this) — router.push() here would
+  // stack a *second* entry for that same URL on top of /edit-quote instead
+  // of returning to it, so the destination page's own "Retour" button
+  // (router.back(), see BackButton.tsx) would land back on /edit-quote
+  // instead of wherever the freelance actually came from. Falls back to a
+  // plain push only when there's no real in-tab history to go back to
+  // (direct link, page refreshed mid-edit).
+  function backOrPush(path: string) {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back();
     } else {
-      router.push(quote ? `/invoices/${quote.id}` : '/invoices');
+      router.push(path);
     }
+  }
+
+  function cancel() {
+    backOrPush(quote ? `/invoices/${quote.id}` : '/invoices');
   }
 
   if (!clientsLoading && clients.length === 0) {
