@@ -25,8 +25,10 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-border bg-canvas shadow-card p-4">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-body text-xs text-muted-foreground sm:text-sm">{label}</span>
+      <div className="flex items-start justify-between gap-2">
+        <span className="line-clamp-2 font-body text-xs text-muted-foreground sm:text-sm">
+          {label}
+        </span>
         {onToggleMasked ? (
           <button
             type="button"
