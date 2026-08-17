@@ -634,8 +634,13 @@ model InvoicePack {
   // this pack's own computeItemsTotal — never the (nonexistent) grand total.
   depositType  String? // FIXED | PERCENT
   depositValue Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  // Freelance-chosen free text ("2 semaines", "10 jours") — no structured
+  // duration parsing, the freelance picks whatever format makes sense to
+  // them. Shown on the devis (freelance + client suivi + PDF) so a client
+  // knows how long the offer they're picking actually takes.
+  turnaroundTime String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   items InvoiceLineItem[]
 

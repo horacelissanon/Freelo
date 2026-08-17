@@ -160,11 +160,12 @@ function InvoiceList({
   }
   return (
     <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-      {items.map((i) => {
+      {items.map((i, idx) => {
         const depositAmount = resolveDeposit(i);
         return (
           <InvoiceRow
             key={i.id}
+            index={idx}
             invoice={{
               id: i.id,
               number: i.number,

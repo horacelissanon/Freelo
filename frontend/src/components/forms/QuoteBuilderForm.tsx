@@ -53,6 +53,7 @@ type DepositTypeDraft = 'FIXED' | 'PERCENT' | '';
 interface PackDraft {
   title: string;
   description: string;
+  turnaroundTime: string;
   items: ItemDraft[];
   depositType: DepositTypeDraft;
   depositValue: string;
@@ -73,9 +74,11 @@ export interface QuoteBuilderExisting {
   currency: string;
   dueDate: string | null;
   paymentTermsNote: string | null;
+  footerNote: string | null;
   packs: {
     title: string;
     description: string | null;
+    turnaroundTime: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
     depositType: string | null;
     depositValue: number | null;
@@ -87,7 +90,14 @@ function emptyItem(): ItemDraft {
   return { designation: '', quantity: '1', unitPrice: '' };
 }
 function emptyPack(): PackDraft {
-  return { title: '', description: '', items: [emptyItem()], depositType: '', depositValue: '' };
+  return {
+    title: '',
+    description: '',
+    turnaroundTime: '',
+    items: [emptyItem()],
+    depositType: '',
+    depositValue: '',
+  };
 }
 
 function initialPacks(existing?: QuoteBuilderExisting): PackDraft[] {
@@ -95,6 +105,7 @@ function initialPacks(existing?: QuoteBuilderExisting): PackDraft[] {
     return existing.packs.map((pack) => ({
       title: pack.title,
       description: pack.description ?? '',
+      turnaroundTime: pack.turnaroundTime ?? '',
       items: pack.items.map((item) => ({
         designation: item.designation,
         quantity: String(item.quantity),
@@ -116,6 +127,22 @@ function previewPackDeposit(pack: PackDraft, packTotal: number): number | null {
   if (pack.depositType === 'PERCENT') return Math.round((packTotal * Math.min(raw, 100)) / 100);
   return raw;
 }
+
+// Fallback FAQ shown on a brand-new devis when there's no prior quote to
+// template from — professional, generic, never overwrites a freelance's own
+// content once they've written any FAQ block themselves.
+const DEFAULT_QUOTE_FAQ: ContentBlockDraft[] = [
+  {
+    primaryText: 'Que se passe-t-il si des modifications sont demandées après validation ?',
+    secondaryText:
+      "Les retouches mineures liées au périmètre initial sont incluses. Toute demande allant au-delà fait l'objet d'un avenant ou d'un devis complémentaire.",
+  },
+  {
+    primaryText: 'Comment démarre le projet une fois le devis accepté ?',
+    secondaryText:
+      "Dès réception de l'acompte (si prévu), un lien de suivi personnalisé est transmis pour suivre l'avancement en temps réel.",
+  },
+];
 
 function blocksOfKind(
   contentBlocks: { kind: string; primaryText: string; secondaryText: string | null }[],
@@ -175,6 +202,12 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
   const [packs, setPacks] = useState<PackDraft[]>(() => initialPacks(quote));
 
   const [paymentTermsNote, setPaymentTermsNote] = useState(quote?.paymentTermsNote ?? '');
+  // A new devis pre-fills footerNote from the freelance's default legal
+  // mention (same pattern as InvoiceForm.tsx) — an existing quote's own
+  // saved footerNote always wins.
+  const [footerNote, setFooterNote] = useState(
+    quote?.footerNote ?? user?.defaultLegalMention ?? '',
+  );
   const [processBlocks, setProcessBlocks] = useState<ContentBlockDraft[]>(() =>
     blocksOfKind(quote?.contentBlocks ?? [], 'PROCESS'),
   );
@@ -250,8 +283,12 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     if (lastQuoteDetail) {
       setProcessBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PROCESS'));
       setConditionBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'CONDITIONS'));
-      setFaqBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'FAQ'));
+      const lastFaq = blocksOfKind(lastQuoteDetail.contentBlocks, 'FAQ');
+      setFaqBlocks(lastFaq.length > 0 ? lastFaq : DEFAULT_QUOTE_FAQ);
       if (lastQuoteDetail.paymentTermsNote) setPaymentTermsNote(lastQuoteDetail.paymentTermsNote);
+    } else {
+      // First devis ever — no prior quote to inherit a FAQ from.
+      setFaqBlocks(DEFAULT_QUOTE_FAQ);
     }
 
     const defaultMethods = defaultPaymentMethodsData?.methods ?? [];
@@ -262,8 +299,15 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
           secondaryText: m.secondaryText ?? '',
         })),
       );
-    } else if (lastQuoteDetail) {
-      setPaymentBlocks(blocksOfKind(lastQuoteDetail.contentBlocks, 'PAYMENT_METHOD'));
+    } else {
+      const lastPayment = lastQuoteDetail
+        ? blocksOfKind(lastQuoteDetail.contentBlocks, 'PAYMENT_METHOD')
+        : [];
+      // Never leave the section at zero rows — an empty one is ready to
+      // fill in rather than requiring a click on "+ Ajouter" first.
+      setPaymentBlocks(
+        lastPayment.length > 0 ? lastPayment : [{ primaryText: '', secondaryText: '' }],
+      );
     }
     // Only re-run when the template/default data itself arrives —
     // deliberately not depending on the draft state above, which would
@@ -291,7 +335,11 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     if (invalidPackIndexes.size > 0) setInvalidPackIndexes(new Set());
   }
 
-  function updatePackField(packIndex: number, field: 'title' | 'description', value: string) {
+  function updatePackField(
+    packIndex: number,
+    field: 'title' | 'description' | 'turnaroundTime',
+    value: string,
+  ) {
     setPacks((prev) => prev.map((p, i) => (i === packIndex ? { ...p, [field]: value } : p)));
     clearPacksError();
   }
@@ -359,6 +407,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     | {
         title: string;
         description?: string;
+        turnaroundTime?: string;
         items: { designation: string; quantity: number; unitPrice: number }[];
         depositType?: 'FIXED' | 'PERCENT';
         depositValue?: number;
@@ -367,6 +416,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
     const built: {
       title: string;
       description?: string;
+      turnaroundTime?: string;
       items: { designation: string; quantity: number; unitPrice: number }[];
       depositType?: 'FIXED' | 'PERCENT';
       depositValue?: number;
@@ -405,6 +455,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       built.push({
         title,
         ...(pack.description.trim() ? { description: pack.description.trim() } : {}),
+        ...(pack.turnaroundTime.trim() ? { turnaroundTime: pack.turnaroundTime.trim() } : {}),
         items,
         ...(deposit ? deposit : {}),
       });
@@ -472,6 +523,7 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
       packs: packsPayload,
       contentBlocks: buildContentBlocksPayload(),
       paymentTermsNote: paymentTermsNote.trim() || null,
+      footerNote: footerNote.trim() || null,
       currency,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
       status: targetStatus,
@@ -695,7 +747,10 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             </div>
           </div>
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-            Échéance
+            Échéance{' '}
+            <span className="font-normal text-muted-foreground">
+              (date d&apos;expiration du devis)
+            </span>
             <DatePicker value={dueDate} onChange={setDueDate} />
           </label>
         </div>
@@ -770,6 +825,17 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
                 >
                   <Icon i="trash" size={14} />
                 </button>
+              </div>
+
+              <div className="pl-6">
+                <input
+                  type="text"
+                  placeholder="Délai de réalisation (ex : 2 semaines)"
+                  value={pack.turnaroundTime}
+                  onChange={(e) => updatePackField(packIndex, 'turnaroundTime', e.target.value)}
+                  maxLength={200}
+                  className={`${inputClass} w-full`}
+                />
               </div>
 
               <div className="flex flex-col gap-2 pl-6">
@@ -1021,6 +1087,21 @@ export function QuoteBuilderForm({ quote }: { quote?: QuoteBuilderExisting }) {
             À titre indicatif uniquement — aucun paiement en ligne n&apos;est traité à l&apos;étape
             du devis.
           </p>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <div className="flex items-center gap-2">
+            <Icon i="file-text" size={16} className="text-muted-foreground" />
+            <p className="font-body text-sm font-semibold text-foreground">Note de bas de page</p>
+          </div>
+          <input
+            type="text"
+            placeholder="Ex : Merci pour votre confiance !"
+            value={footerNote}
+            onChange={(e) => setFooterNote(e.target.value)}
+            maxLength={1000}
+            className={inputClass}
+          />
         </div>
 
         <ContentBlockList

@@ -58,16 +58,20 @@ export function DatePicker({
   onChange,
   placeholder = 'Sélectionner une date',
   className = '',
+  max,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** 'YYYY-MM-DD' — days after this (and month navigation past it) are disabled. */
+  max?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [align, setAlign] = useState<'left' | 'right'>('left');
   const selected = parseValue(value);
   const today = new Date();
+  const maxDate = max ? parseValue(max) : null;
   const [viewDate, setViewDate] = useState(selected ?? today);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -150,10 +154,13 @@ export function DatePicker({
             <button
               type="button"
               aria-label="Mois suivant"
+              disabled={
+                !!maxDate && new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1) > maxDate
+              }
               onClick={() =>
                 setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))
               }
-              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
             >
               <Icon i="chevron-right" size={16} />
             </button>
@@ -172,19 +179,23 @@ export function DatePicker({
               const inMonth = d.getMonth() === currentMonth;
               const isToday = isSameDay(d, today);
               const isSelected = selected ? isSameDay(d, selected) : false;
+              const isDisabled = !!maxDate && d.getTime() > maxDate.getTime();
               return (
                 <button
                   key={i}
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => pick(d)}
                   className={`flex h-8 w-8 items-center justify-center rounded-full font-body text-xs transition-colors ${
-                    isSelected
-                      ? 'bg-primary font-semibold text-primary-foreground'
-                      : isToday
-                        ? 'border border-primary/50 font-medium text-foreground'
-                        : inMonth
-                          ? 'text-foreground hover:bg-secondary'
-                          : 'text-muted-foreground/40 hover:bg-secondary'
+                    isDisabled
+                      ? 'cursor-not-allowed text-muted-foreground/30'
+                      : isSelected
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : isToday
+                          ? 'border border-primary/50 font-medium text-foreground'
+                          : inMonth
+                            ? 'text-foreground hover:bg-secondary'
+                            : 'text-muted-foreground/40 hover:bg-secondary'
                   }`}
                 >
                   {d.getDate()}

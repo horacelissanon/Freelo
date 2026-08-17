@@ -21,7 +21,16 @@ export interface ProjectRowData {
   balance?: { amount: number; paid: boolean };
 }
 
-export function ProjectRow({ project, masked }: { project: ProjectRowData; masked?: boolean }) {
+export function ProjectRow({
+  project,
+  masked,
+  index,
+}: {
+  project: ProjectRowData;
+  masked?: boolean;
+  /** Only the main Projets list view passes this — other call sites (dashboard widget, client detail sub-list) render without a number. */
+  index?: number;
+}) {
   const { toast } = useToast();
   const colors = PROJECT_STATUS_COLORS[project.status];
 
@@ -34,6 +43,11 @@ export function ProjectRow({ project, masked }: { project: ProjectRowData; maske
   return (
     <div className="flex items-center gap-2 border-b border-border py-3.5 font-body last:border-b-0">
       <Link href={`/projects/${project.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+        {index !== undefined && (
+          <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary font-body text-xs font-bold text-foreground">
+            {index + 1}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
           {(project.clientName || project.step) && (

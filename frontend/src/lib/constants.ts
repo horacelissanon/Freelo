@@ -287,8 +287,11 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, { bg: string; fg: stri
 
 export type ClientStatus = 'active' | 'pending' | 'archived';
 
+// "active" reads as "Confirmé" (not "Actif") to avoid the reader assuming
+// it means "has an active project" — a client relationship status and a
+// project's status are unrelated concepts that happened to share a word.
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
-  active: 'Actif',
+  active: 'Confirmé',
   pending: 'En attente',
   archived: 'Archivé',
 };

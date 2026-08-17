@@ -254,6 +254,18 @@ export function EspaceTab({ user }: { user: User }) {
     }
   }
 
+  // Self-heals a drifted brandColor: if a past persistAccentColor() call
+  // silently failed (e.g. mid Neon-connectivity hiccup), this browser's
+  // accent moved on but the server never got the update — the PDF and
+  // tracking-page footer band then kept showing a stale color while the
+  // workspace itself already looked right, which reads as a confusing
+  // desync rather than an error. Re-syncs quietly whenever the two disagree.
+  useEffect(() => {
+    if (accentHex.toLowerCase() !== (user.brandColor ?? '').toLowerCase()) {
+      void persistAccentColor(accentHex);
+    }
+  }, [accentHex, user.brandColor]);
+
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col divide-y divide-border rounded-lg border border-border bg-canvas p-5 shadow-card">
@@ -355,89 +367,155 @@ export function EspaceTab({ user }: { user: User }) {
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-        <h2 className="font-headings text-lg font-semibold text-foreground">Couleur du menu</h2>
-        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-          La couleur de fond du menu latéral (et du menu du bas sur mobile).
-        </p>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <h2 className="font-headings text-lg font-semibold text-foreground">Couleur du menu</h2>
+          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+            La couleur de fond du menu latéral (et du menu du bas sur mobile).
+          </p>
 
-        <p className="mb-2 font-body text-xs font-medium text-foreground">Combinaisons</p>
-        <div className="flex flex-wrap gap-3">
-          {COLOR_DUOS.map((duo) => {
-            const isActive =
-              sidebarColor.toLowerCase() === duo.sidebar.toLowerCase() && accent === duo.accent;
-            return (
+          <p className="mb-2 font-body text-xs font-medium text-foreground">Combinaisons</p>
+          <div className="flex flex-wrap gap-3">
+            {COLOR_DUOS.map((duo) => {
+              const isActive =
+                sidebarColor.toLowerCase() === duo.sidebar.toLowerCase() && accent === duo.accent;
+              return (
+                <button
+                  key={duo.name}
+                  type="button"
+                  onClick={() => {
+                    setSidebarColor(duo.sidebar);
+                    setAccent(duo.accent);
+                    void persistAccentColor(ACCENT_PRESET_HEX[duo.accent]);
+                    toast(`Palette « ${duo.name} » appliquée.`, 'success');
+                  }}
+                  aria-pressed={isActive}
+                  title={duo.name}
+                  className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                    isActive ? 'ring-foreground' : 'ring-transparent'
+                  }`}
+                >
+                  <DuoSwatch sidebar={duo.sidebar} accent={ACCENT_PRESET_HEX[duo.accent]} />
+                  <span className="font-body text-[11px] text-muted-foreground">{duo.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-5 mb-2 font-body text-xs font-medium text-foreground">
+            Ou personnalise le fond à volonté
+          </p>
+          <div className="flex items-center gap-3">
+            <label className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border">
+              <input
+                type="color"
+                value={sidebarColor}
+                onChange={(e) => setSidebarColor(e.target.value)}
+                onBlur={() => toast('Couleur du menu mise à jour.', 'success')}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                aria-label="Choisir une couleur de fond personnalisée pour le menu"
+              />
+              <span
+                className="h-7 w-7 rounded-full border border-border"
+                style={{ backgroundColor: sidebarColor }}
+              />
+            </label>
+            <HexInput
+              value={sidebarColor}
+              onCommit={(hex) => {
+                setSidebarColor(hex);
+                toast('Couleur du menu mise à jour.', 'success');
+              }}
+              ariaLabel="Code hexadécimal du fond du menu"
+            />
+            {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
               <button
-                key={duo.name}
                 type="button"
                 onClick={() => {
-                  setSidebarColor(duo.sidebar);
-                  setAccent(duo.accent);
-                  void persistAccentColor(ACCENT_PRESET_HEX[duo.accent]);
-                  toast(`Palette « ${duo.name} » appliquée.`, 'success');
+                  setSidebarColor(null);
+                  toast('Couleur du menu réinitialisée.', 'success');
                 }}
-                aria-pressed={isActive}
-                title={duo.name}
-                className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
-                  isActive ? 'ring-foreground' : 'ring-transparent'
-                }`}
+                className="font-body text-xs font-medium text-muted-foreground underline"
               >
-                <DuoSwatch sidebar={duo.sidebar} accent={ACCENT_PRESET_HEX[duo.accent]} />
-                <span className="font-body text-[11px] text-muted-foreground">{duo.name}</span>
+                Réinitialiser
               </button>
-            );
-          })}
-        </div>
+            )}
+          </div>
 
-        <p className="mt-5 mb-2 font-body text-xs font-medium text-foreground">
-          Ou personnalise le fond à volonté
-        </p>
-        <div className="flex items-center gap-3">
-          <label className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border">
-            <input
-              type="color"
-              value={sidebarColor}
-              onChange={(e) => setSidebarColor(e.target.value)}
-              onBlur={() => toast('Couleur du menu mise à jour.', 'success')}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="Choisir une couleur de fond personnalisée pour le menu"
-            />
-            <span
-              className="h-7 w-7 rounded-full border border-border"
-              style={{ backgroundColor: sidebarColor }}
-            />
-          </label>
-          <HexInput
-            value={sidebarColor}
-            onCommit={(hex) => {
-              setSidebarColor(hex);
-              toast('Couleur du menu mise à jour.', 'success');
-            }}
-            ariaLabel="Code hexadécimal du fond du menu"
-          />
-          {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
-            <button
-              type="button"
-              onClick={() => {
-                setSidebarColor(null);
-                toast('Couleur du menu réinitialisée.', 'success');
-              }}
-              className="font-body text-xs font-medium text-muted-foreground underline"
-            >
-              Réinitialiser
-            </button>
+          {contrastRatio(sidebarColor, accentHex) < HARMONY_THRESHOLD && (
+            <p className="mt-4 flex items-start gap-2 rounded-md bg-tag-orange px-3 py-2.5 font-body text-xs text-tag-orange-fg">
+              <Icon i="info" size={14} className="mt-0.5 flex-shrink-0" />
+              Le fond du menu et la couleur d&apos;accent se ressemblent beaucoup : les éléments
+              actifs risquent de se fondre dans le menu. À titre indicatif seulement — ton choix
+              reste appliqué.
+            </p>
           )}
-        </div>
+        </section>
 
-        {contrastRatio(sidebarColor, accentHex) < HARMONY_THRESHOLD && (
-          <p className="mt-4 flex items-start gap-2 rounded-md bg-tag-orange px-3 py-2.5 font-body text-xs text-tag-orange-fg">
-            <Icon i="info" size={14} className="mt-0.5 flex-shrink-0" />
-            Le fond du menu et la couleur d&apos;accent se ressemblent beaucoup : les éléments
-            actifs risquent de se fondre dans le menu. À titre indicatif seulement — ton choix reste
-            appliqué.
+        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <h2 className="font-headings text-lg font-semibold text-foreground">
+            Couleur d&apos;accent
+          </h2>
+          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+            S&apos;applique aux boutons, liens et éléments actifs de tout l&apos;espace de travail.
           </p>
-        )}
-      </section>
+          <div className="flex flex-wrap items-center gap-3">
+            {ACCENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setAccent(opt.value);
+                  void persistAccentColor(opt.hex);
+                  toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
+                }}
+                aria-label={opt.label}
+                aria-pressed={accent === opt.value}
+                className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                  accent === opt.value ? 'ring-foreground' : 'ring-transparent'
+                }`}
+                style={{ backgroundColor: opt.hex }}
+                title={opt.label}
+              >
+                {accent === opt.value && <Icon i="check-circle" size={16} className="text-white" />}
+              </button>
+            ))}
+            <label
+              className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border"
+              title="Couleur personnalisée"
+            >
+              <input
+                type="color"
+                value={accentHex}
+                onChange={(e) => setCustomAccent(e.target.value)}
+                onBlur={(e) => {
+                  void persistAccentColor(e.target.value);
+                  toast("Couleur d'accent mise à jour.", 'success');
+                }}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                aria-label="Choisir une couleur d'accent personnalisée"
+              />
+              {accent === 'custom' ? (
+                <span
+                  className="h-7 w-7 rounded-full border border-border"
+                  style={{ backgroundColor: accentHex }}
+                />
+              ) : (
+                <Icon i="palette" size={16} className="text-muted-foreground" />
+              )}
+            </label>
+            <HexInput
+              value={accentHex}
+              onCommit={(hex) => {
+                setCustomAccent(hex);
+                void persistAccentColor(hex);
+                toast("Couleur d'accent mise à jour.", 'success');
+              }}
+              ariaLabel="Code hexadécimal de la couleur d'accent"
+            />
+          </div>
+        </section>
+      </div>
 
       <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
         <h2 className="font-headings text-lg font-semibold text-foreground">Forme du menu</h2>
@@ -504,70 +582,6 @@ export function EspaceTab({ user }: { user: User }) {
               setNavStyle('drawer');
               toast('Navigation mobile : menu latéral.', 'success');
             }}
-          />
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-        <h2 className="font-headings text-lg font-semibold text-foreground">
-          Couleur d&apos;accent
-        </h2>
-        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-          S&apos;applique aux boutons, liens et éléments actifs de tout l&apos;espace de travail.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          {ACCENT_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => {
-                setAccent(opt.value);
-                void persistAccentColor(opt.hex);
-                toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
-              }}
-              aria-label={opt.label}
-              aria-pressed={accent === opt.value}
-              className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
-                accent === opt.value ? 'ring-foreground' : 'ring-transparent'
-              }`}
-              style={{ backgroundColor: opt.hex }}
-              title={opt.label}
-            >
-              {accent === opt.value && <Icon i="check-circle" size={16} className="text-white" />}
-            </button>
-          ))}
-          <label
-            className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border"
-            title="Couleur personnalisée"
-          >
-            <input
-              type="color"
-              value={accentHex}
-              onChange={(e) => setCustomAccent(e.target.value)}
-              onBlur={(e) => {
-                void persistAccentColor(e.target.value);
-                toast("Couleur d'accent mise à jour.", 'success');
-              }}
-              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              aria-label="Choisir une couleur d'accent personnalisée"
-            />
-            {accent === 'custom' ? (
-              <span
-                className="h-7 w-7 rounded-full border border-border"
-                style={{ backgroundColor: accentHex }}
-              />
-            ) : (
-              <Icon i="palette" size={16} className="text-muted-foreground" />
-            )}
-          </label>
-          <HexInput
-            value={accentHex}
-            onCommit={(hex) => {
-              setCustomAccent(hex);
-              void persistAccentColor(hex);
-              toast("Couleur d'accent mise à jour.", 'success');
-            }}
-            ariaLabel="Code hexadécimal de la couleur d'accent"
           />
         </div>
       </section>

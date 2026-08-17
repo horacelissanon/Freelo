@@ -14,6 +14,7 @@ export interface ClientCardData {
   phone: string | null;
   status: ClientStatus;
   projectCount: number;
+  activeProjectCount: number;
 }
 
 export function ClientCard({ client }: { client: ClientCardData }) {
@@ -41,9 +42,16 @@ export function ClientCard({ client }: { client: ClientCardData }) {
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-3">
-        <span className="text-xs text-muted-foreground">
-          {client.projectCount} projet{client.projectCount !== 1 ? 's' : ''}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            {client.projectCount} projet{client.projectCount !== 1 ? 's' : ''}
+          </span>
+          {client.activeProjectCount > 0 && (
+            <span className="rounded-full bg-tag-green px-2 py-0.5 text-xs font-medium text-tag-green-fg">
+              {client.activeProjectCount} actif{client.activeProjectCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
         <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
           <Icon i="chevron-right" size={14} />
         </div>

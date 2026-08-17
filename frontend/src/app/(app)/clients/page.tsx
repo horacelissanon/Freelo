@@ -213,15 +213,17 @@ export default function ClientsPage() {
                 phone: c.phone,
                 status: c.status,
                 projectCount: c._count.projects,
+                activeProjectCount: c.projects.length,
               }}
             />
           ))}
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-          {filtered.map((c) => (
+          {filtered.map((c, i) => (
             <ClientRow
               key={c.id}
+              index={i}
               client={{
                 id: c.id,
                 code: c.code,
@@ -231,6 +233,7 @@ export default function ClientsPage() {
                 phone: c.phone,
                 status: c.status,
                 projectCount: c._count.projects,
+                activeProjectCount: c.projects.length,
               }}
             />
           ))}

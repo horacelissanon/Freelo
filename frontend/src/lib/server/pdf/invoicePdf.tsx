@@ -24,6 +24,7 @@ export interface PdfPack {
   id: string;
   title: string;
   description?: string | null;
+  turnaroundTime?: string | null;
   items: PdfLineItem[];
   depositType?: string | null;
   depositValue?: number | null;
@@ -304,6 +305,11 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
                   </Text>
                   {pack.description && (
                     <Text style={styles.packDescription}>{pack.description}</Text>
+                  )}
+                  {pack.turnaroundTime && (
+                    <Text style={styles.packDescription}>
+                      Délai de réalisation : {pack.turnaroundTime}
+                    </Text>
                   )}
                   <LineItemsTable items={pack.items} currency={data.currency} />
                   <View style={styles.packSubtotalRow}>

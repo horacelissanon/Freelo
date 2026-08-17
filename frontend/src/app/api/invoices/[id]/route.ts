@@ -50,6 +50,7 @@ const PackInput = z
   .object({
     title: z.string().min(1).max(200),
     description: z.string().max(1000).optional(),
+    turnaroundTime: z.string().max(200).optional(),
     items: z.array(LineItemInput).min(1).max(50),
     // Per-offer acompte — see POST /api/invoices for the FIXED/PERCENT shape.
     depositType: z.enum(['FIXED', 'PERCENT']).nullable().optional(),
@@ -233,6 +234,9 @@ export async function PATCH(
       overdueAfterDays,
     } = parsed.data;
 
+    // footerNote is deliberately NOT part of this set — it's a presentation/
+    // legal-mention field, not a contractual term, so it stays editable on a
+    // facture regardless of status (see the freeze check just below).
     const editingContent =
       clientId !== undefined ||
       projectId !== undefined ||
@@ -248,7 +252,6 @@ export async function PATCH(
       depositAmount !== undefined ||
       deliveryDate !== undefined ||
       paymentMethodNote !== undefined ||
-      footerNote !== undefined ||
       issueDate !== undefined ||
       overdueAfterDays !== undefined;
 
@@ -275,7 +278,6 @@ export async function PATCH(
         depositAmount !== undefined ||
         deliveryDate !== undefined ||
         paymentMethodNote !== undefined ||
-        footerNote !== undefined ||
         issueDate !== undefined ||
         overdueAfterDays !== undefined)
     ) {
@@ -283,7 +285,7 @@ export async function PATCH(
         {
           error: 'VALIDATION_FAILED',
           message:
-            'lineItems/depositAmount/deliveryDate/paymentMethodNote/footerNote/issueDate/overdueAfterDays are invoice-only fields',
+            'lineItems/depositAmount/deliveryDate/paymentMethodNote/issueDate/overdueAfterDays are invoice-only fields',
         },
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -456,6 +458,7 @@ export async function PATCH(
                 order: pi + 1,
                 title: pack.title,
                 ...(pack.description ? { description: pack.description } : {}),
+                ...(pack.turnaroundTime ? { turnaroundTime: pack.turnaroundTime } : {}),
                 ...(pack.depositType && pack.depositValue != null
                   ? { depositType: pack.depositType, depositValue: pack.depositValue }
                   : {}),

@@ -24,7 +24,7 @@ export interface InvoiceRowData {
   balanceAmount?: number | null;
 }
 
-export function InvoiceRow({ invoice }: { invoice: InvoiceRowData }) {
+export function InvoiceRow({ invoice, index }: { invoice: InvoiceRowData; index?: number }) {
   const colors = INVOICE_STATUS_COLORS[invoice.status];
   const docType = DOC_TYPE_LABELS[invoice.docType];
   return (
@@ -32,6 +32,11 @@ export function InvoiceRow({ invoice }: { invoice: InvoiceRowData }) {
       href={`/invoices/${invoice.id}`}
       className="flex items-center gap-4 border-b border-border py-3.5 font-body last:border-b-0"
     >
+      {index !== undefined && (
+        <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary font-body text-xs font-bold text-foreground">
+          {index + 1}
+        </span>
+      )}
       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-secondary">
         <Icon i={colors.icon} size={15} />
       </div>

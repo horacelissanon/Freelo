@@ -120,6 +120,38 @@ export default function InvoiceDetailPage() {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositPaymentMethod, setDepositPaymentMethod] = useState<PaymentMethod | ''>('');
   const [depositPaymentMethodOther, setDepositPaymentMethodOther] = useState('');
+  // Same reasoning as ProjectForm.tsx: the freelance's own configured
+  // payment methods take priority over the generic enum buttons.
+  const { data: configuredPaymentMethodsData } = useApi<{
+    methods: { primaryText: string; secondaryText: string | null }[];
+  }>('/api/settings/payment-methods');
+  const configuredPaymentMethods = configuredPaymentMethodsData?.methods ?? [];
+  // The footer/legal-mention band stays editable regardless of status —
+  // unlike amount/line items, it's presentation text, not a contractual
+  // term, so it doesn't need the full "Modifier" flow (frozen once sent).
+  const [editingFooterNote, setEditingFooterNote] = useState(false);
+  const [footerNoteDraft, setFooterNoteDraft] = useState('');
+  const [savingFooterNote, setSavingFooterNote] = useState(false);
+
+  async function saveFooterNote() {
+    setSavingFooterNote(true);
+    try {
+      await api(`/api/invoices/${id}`, {
+        method: 'PATCH',
+        body: { footerNote: footerNoteDraft.trim() || null },
+      });
+      invalidateCachePrefix('/api/invoices');
+      await refresh();
+      setEditingFooterNote(false);
+    } catch (err) {
+      toast(
+        err instanceof ApiError ? err.message : "Impossible d'enregistrer la mention.",
+        'error',
+      );
+    } finally {
+      setSavingFooterNote(false);
+    }
+  }
 
   function closeCreatingProject() {
     setCreatingProjectOpen(false);
@@ -576,12 +608,67 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
               )}
-              {invoice.footerNote && (
-                <div
-                  className="mt-4 rounded-md px-4 py-3"
-                  style={{ backgroundColor: user.brandColor }}
-                >
-                  <p className="font-body text-xs text-white/90 italic">{invoice.footerNote}</p>
+              {invoice.status !== 'CANCELED' && invoice.docType !== 'CREDIT_NOTE' && (
+                <div className="mt-4">
+                  {editingFooterNote ? (
+                    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+                      <textarea
+                        autoFocus
+                        value={footerNoteDraft}
+                        onChange={(e) => setFooterNoteDraft(e.target.value)}
+                        maxLength={1000}
+                        rows={2}
+                        className="rounded-md border border-border bg-input px-3 py-2 font-body text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void saveFooterNote()}
+                          disabled={savingFooterNote}
+                          className="rounded-md bg-primary px-3 py-1.5 font-body text-xs font-medium text-primary-foreground disabled:opacity-50"
+                        >
+                          {savingFooterNote ? 'Enregistrement…' : 'Enregistrer'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingFooterNote(false)}
+                          disabled={savingFooterNote}
+                          className="font-body text-xs font-medium text-muted-foreground"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : invoice.footerNote ? (
+                    <div
+                      className="group relative rounded-md px-4 py-3"
+                      style={{ backgroundColor: user.brandColor }}
+                    >
+                      <p className="font-body text-xs text-white/90 italic">{invoice.footerNote}</p>
+                      <button
+                        type="button"
+                        aria-label="Modifier la mention"
+                        onClick={() => {
+                          setFooterNoteDraft(invoice.footerNote ?? '');
+                          setEditingFooterNote(true);
+                        }}
+                        className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-md text-white/70 hover:bg-white/20 hover:text-white"
+                      >
+                        <Icon i="pen-line" size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFooterNoteDraft('');
+                        setEditingFooterNote(true);
+                      }}
+                      className="font-body text-xs font-medium text-primary hover:underline"
+                    >
+                      + Ajouter une mention de bas de page
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -887,32 +974,73 @@ export default function InvoiceDetailPage() {
               <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
                 Moyen de paiement utilisé
                 <div className="flex flex-wrap gap-2">
-                  {PAYMENT_METHODS.map((value) => (
+                  {configuredPaymentMethods.length > 0
+                    ? configuredPaymentMethods.map((m) => (
+                        <button
+                          key={m.primaryText}
+                          type="button"
+                          onClick={() => {
+                            setDepositPaymentMethod('OTHER');
+                            setDepositPaymentMethodOther(m.primaryText);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                            depositPaymentMethod === 'OTHER' &&
+                            depositPaymentMethodOther === m.primaryText
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-canvas text-foreground'
+                          }`}
+                        >
+                          {m.primaryText}
+                        </button>
+                      ))
+                    : PAYMENT_METHODS.map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setDepositPaymentMethod(value)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                            depositPaymentMethod === value
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-canvas text-foreground'
+                          }`}
+                        >
+                          {PAYMENT_METHOD_LABELS[value]}
+                        </button>
+                      ))}
+                  {configuredPaymentMethods.length > 0 && (
                     <button
-                      key={value}
                       type="button"
-                      onClick={() => setDepositPaymentMethod(value)}
+                      onClick={() => {
+                        setDepositPaymentMethod('OTHER');
+                        setDepositPaymentMethodOther('');
+                      }}
                       className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                        depositPaymentMethod === value
+                        depositPaymentMethod === 'OTHER' &&
+                        !configuredPaymentMethods.some(
+                          (m) => m.primaryText === depositPaymentMethodOther,
+                        )
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-canvas text-foreground'
                       }`}
                     >
-                      {PAYMENT_METHOD_LABELS[value]}
+                      {PAYMENT_METHOD_LABELS.OTHER}
                     </button>
-                  ))}
+                  )}
                 </div>
-                {depositPaymentMethod === 'OTHER' && (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={depositPaymentMethodOther}
-                    onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
-                    placeholder="Précisez le moyen utilisé…"
-                    maxLength={100}
-                    className="mt-1 rounded-md border border-border bg-input px-3 py-2.5 font-body text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
-                  />
-                )}
+                {depositPaymentMethod === 'OTHER' &&
+                  !configuredPaymentMethods.some(
+                    (m) => m.primaryText === depositPaymentMethodOther,
+                  ) && (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={depositPaymentMethodOther}
+                      onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
+                      placeholder="Précisez le moyen utilisé…"
+                      maxLength={100}
+                      className="mt-1 rounded-md border border-border bg-input px-3 py-2.5 font-body text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none"
+                    />
+                  )}
               </div>
               <div className="flex items-center gap-3">
                 <button

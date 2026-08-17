@@ -5,13 +5,22 @@
 // for the authenticated app.
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+  type FormEvent,
+} from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { StarRating } from '@/components/ui/StarRating';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance, computePackDeposit } from '@/lib/invoiceTotals';
+import { darkenHex } from '@/lib/color';
 import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
@@ -53,6 +62,7 @@ interface ClientView {
   client: { name: string };
   projects: ClientProjectRow[];
   invoices: ClientInvoiceRow[];
+  brandColor: string | null;
 }
 
 interface TrackedLineItem {
@@ -66,6 +76,7 @@ interface TrackedPack {
   id: string;
   title: string;
   description: string | null;
+  turnaroundTime: string | null;
   items: TrackedLineItem[];
   depositType: string | null;
   depositValue: number | null;
@@ -157,9 +168,26 @@ interface ProjectView {
   balance: { amount: number; paid: boolean };
   providerPhone: string | null;
   paymentInfo: { note: string | null; blocks: TrackedContentBlock[] } | null;
+  brandColor: string | null;
 }
 
 type TrackView = ClientView | ProjectView | QuoteOrInvoiceView;
+
+// The visiting client has no localStorage entry for the freelancer's chosen
+// accent (AccentColorContext is scoped to the freelancer's own browser), so
+// every `bg-primary`/`text-primary`/`border-primary`/`from-primary` class on
+// this public page would otherwise silently fall back to the app's default
+// green. Mirrors AccentColorContext's applyCustomAccent() so the freelancer's
+// real brand color (already synced server-side, see EspaceTab.tsx) drives
+// the whole page consistently — not just the one-off inline-styled elements
+// like the footer band.
+function brandColorVars(hex: string | null): CSSProperties {
+  const color = hex ?? '#059669';
+  return {
+    '--color-primary': color,
+    '--color-accent': darkenHex(color, 0.12),
+  } as CSSProperties;
+}
 
 function Brand() {
   return (
@@ -201,7 +229,10 @@ export default function TrackingPage() {
   }, [load]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-background px-4 py-12">
+    <main
+      className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-background px-4 py-12"
+      style={view ? brandColorVars(view.brandColor) : undefined}
+    >
       <Brand />
 
       {loading ? (
@@ -335,9 +366,24 @@ function ProjectDetail({
 }: {
   view: ProjectView;
   token: string;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void>;
 }) {
   const { project, steps, comments, review, deposit, balance, providerPhone, paymentInfo } = view;
+  const [refreshingSteps, setRefreshingSteps] = useState(false);
+  // Mirrors the freelance-facing page's own derivation (projects/[id]/page.tsx):
+  // the stored per-step status never auto-advances to IN_PROGRESS server-side
+  // (only COMPLETED is ever written), so "current step" is derived here too —
+  // the first not-yet-completed step, in order.
+  const firstOpenStep = steps.find((s) => s.status !== 'COMPLETED');
+
+  async function refreshSteps() {
+    setRefreshingSteps(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshingSteps(false);
+    }
+  }
 
   const [paymentModalKind, setPaymentModalKind] = useState<'DEPOSIT' | 'BALANCE' | 'FULL' | null>(
     null,
@@ -507,10 +553,27 @@ function ProjectDetail({
       </div>
 
       <div className="rounded-lg border border-border bg-canvas shadow-card p-6 sm:p-8">
-        <h2 className="mb-4 font-headings text-base font-bold text-foreground">Étapes du projet</h2>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="font-headings text-base font-bold text-foreground">Étapes du projet</h2>
+          <button
+            type="button"
+            onClick={() => void refreshSteps()}
+            disabled={refreshingSteps}
+            className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-body text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <Icon i="rotate-ccw" size={13} className={refreshingSteps ? 'animate-spin' : ''} />
+            Actualiser
+          </button>
+        </div>
         <div className="flex flex-col gap-3">
           {steps.map((step) => {
-            const colors = STEP_STATUS_COLORS[step.status];
+            const displayStatus =
+              step.status === 'COMPLETED'
+                ? 'COMPLETED'
+                : step.id === firstOpenStep?.id
+                  ? 'IN_PROGRESS'
+                  : 'PENDING';
+            const colors = STEP_STATUS_COLORS[displayStatus];
             return (
               <div
                 key={step.id}
@@ -529,7 +592,7 @@ function ProjectDetail({
                     <span
                       className={`flex-shrink-0 rounded-full px-2 py-0.5 font-body text-xs font-medium ${colors.bg} ${colors.fg}`}
                     >
-                      {STEP_STATUS_LABELS[step.status]}
+                      {STEP_STATUS_LABELS[displayStatus]}
                     </span>
                   </div>
                   {step.description && (
@@ -866,6 +929,12 @@ function PackPlanCard({
         </p>
         {pack.description && (
           <p className="font-body text-xs text-muted-foreground">{pack.description}</p>
+        )}
+        {pack.turnaroundTime && (
+          <p className="flex items-center gap-1.5 font-body text-xs text-muted-foreground">
+            <Icon i="clock" size={13} className="flex-shrink-0" />
+            {pack.turnaroundTime}
+          </p>
         )}
         {deposit != null && (
           <p className="font-body text-xs text-muted-foreground">
@@ -1207,7 +1276,12 @@ function QuoteInvoiceDetail({
   const [validating, setValidating] = useState(false);
   const [validateError, setValidateError] = useState<string | null>(null);
   const [forceFaqOpen, setForceFaqOpen] = useState(false);
-  const [pendingPackId, setPendingPackId] = useState<string | null>(invoice.selectedPackId);
+  // A single-offer devis has nothing to choose between — start it
+  // pre-selected so the client isn't forced to click before validating.
+  // A multi-offer devis keeps the normal unselected start.
+  const [pendingPackId, setPendingPackId] = useState<string | null>(
+    invoice.selectedPackId ?? (invoice.packs.length === 1 ? (invoice.packs[0]?.id ?? null) : null),
+  );
   const [showAcceptedModal, setShowAcceptedModal] = useState(false);
 
   useEffect(() => {

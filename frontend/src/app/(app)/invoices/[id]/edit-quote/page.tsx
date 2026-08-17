@@ -17,11 +17,13 @@ interface QuoteDetail {
   currency: string;
   dueDate: string | null;
   paymentTermsNote: string | null;
+  footerNote: string | null;
   client: { id: string };
   project: { id: string } | null;
   packs: {
     title: string;
     description: string | null;
+    turnaroundTime: string | null;
     items: { designation: string; quantity: number; unitPrice: number }[];
     depositType: string | null;
     depositValue: number | null;
@@ -73,6 +75,7 @@ export default function EditQuotePage() {
             currency: quote.currency,
             dueDate: quote.dueDate,
             paymentTermsNote: quote.paymentTermsNote,
+            footerNote: quote.footerNote,
             packs: quote.packs,
             contentBlocks: quote.contentBlocks,
           }}

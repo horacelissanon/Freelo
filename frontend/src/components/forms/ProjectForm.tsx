@@ -146,6 +146,15 @@ export function ProjectForm({
   const [depositAmount, setDepositAmount] = useState('');
   const [depositPaymentMethod, setDepositPaymentMethod] = useState<PaymentMethod | ''>('');
   const [depositPaymentMethodOther, setDepositPaymentMethodOther] = useState('');
+  // The freelance's own configured payment methods (Paramètres → Facturation)
+  // take priority over the generic CASH/WAVE/... enum buttons below — a
+  // freelance should pick from the methods they actually use, not a fixed
+  // app-wide list. Sent to the server as paymentMethod: 'OTHER' +
+  // paymentMethodLabel (the enum itself stays fixed server-side).
+  const { data: configuredPaymentMethodsData } = useApi<{
+    methods: { primaryText: string; secondaryText: string | null }[];
+  }>('/api/settings/payment-methods');
+  const configuredPaymentMethods = configuredPaymentMethodsData?.methods ?? [];
   const [error, setError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -637,39 +646,81 @@ export function ProjectForm({
               <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">
                 Moyen de paiement utilisé
                 <div className="flex flex-wrap gap-2">
-                  {PAYMENT_METHODS.map((value) => (
+                  {configuredPaymentMethods.length > 0
+                    ? configuredPaymentMethods.map((m) => (
+                        <button
+                          key={m.primaryText}
+                          type="button"
+                          onClick={() => {
+                            setDepositPaymentMethod('OTHER');
+                            setDepositPaymentMethodOther(m.primaryText);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                            depositPaymentMethod === 'OTHER' &&
+                            depositPaymentMethodOther === m.primaryText
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-canvas text-foreground'
+                          }`}
+                        >
+                          {m.primaryText}
+                        </button>
+                      ))
+                    : PAYMENT_METHODS.map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setDepositPaymentMethod(value)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                            depositPaymentMethod === value
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-canvas text-foreground'
+                          }`}
+                        >
+                          {PAYMENT_METHOD_LABELS[value]}
+                        </button>
+                      ))}
+                  {configuredPaymentMethods.length > 0 && (
                     <button
-                      key={value}
                       type="button"
-                      onClick={() => setDepositPaymentMethod(value)}
+                      onClick={() => {
+                        setDepositPaymentMethod('OTHER');
+                        setDepositPaymentMethodOther('');
+                      }}
                       className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                        depositPaymentMethod === value
+                        depositPaymentMethod === 'OTHER' &&
+                        !configuredPaymentMethods.some(
+                          (m) => m.primaryText === depositPaymentMethodOther,
+                        )
                           ? 'border-primary bg-primary text-primary-foreground'
                           : 'border-border bg-canvas text-foreground'
                       }`}
                     >
-                      {PAYMENT_METHOD_LABELS[value]}
+                      {PAYMENT_METHOD_LABELS.OTHER}
                     </button>
-                  ))}
+                  )}
                 </div>
-                {depositPaymentMethod === 'OTHER' && (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={depositPaymentMethodOther}
-                    onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
-                    placeholder="Précisez le moyen utilisé…"
-                    maxLength={100}
-                    className={`${inputClass} mt-1`}
-                  />
-                )}
+                {depositPaymentMethod === 'OTHER' &&
+                  !configuredPaymentMethods.some(
+                    (m) => m.primaryText === depositPaymentMethodOther,
+                  ) && (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={depositPaymentMethodOther}
+                      onChange={(e) => setDepositPaymentMethodOther(e.target.value)}
+                      placeholder="Précisez le moyen utilisé…"
+                      maxLength={100}
+                      className={`${inputClass} mt-1`}
+                    />
+                  )}
               </div>
             </div>
           )}
         </div>
       )}
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
-        Échéance
+        Échéance{' '}
+        <span className="font-normal text-muted-foreground">(date de livraison du projet)</span>
         <DatePicker value={dueDate} onChange={setDueDate} />
       </label>
       <div className="flex flex-col gap-1.5 font-body text-sm text-foreground">

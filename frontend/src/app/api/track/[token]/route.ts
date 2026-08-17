@@ -61,7 +61,7 @@ export async function GET(
       where: { trackingToken: token },
       select: {
         name: true,
-        user: { select: { publicPortalEnabled: true } },
+        user: { select: { publicPortalEnabled: true, brandColor: true } },
         projects: {
           where: { status: { not: 'DRAFT' } },
           orderBy: { createdAt: 'desc' },
@@ -101,6 +101,7 @@ export async function GET(
           client: { name: client.name },
           projects: client.projects,
           invoices: client.invoices,
+          brandColor: client.user.brandColor,
         },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -121,7 +122,7 @@ export async function GET(
         depositValue: true,
         createdAt: true,
         client: { select: { name: true } },
-        user: { select: { id: true, publicPortalEnabled: true, phone: true } },
+        user: { select: { id: true, publicPortalEnabled: true, phone: true, brandColor: true } },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
         review: { select: { rating: true, comment: true } },
@@ -168,6 +169,7 @@ export async function GET(
           deposit,
           balance,
           providerPhone: user.phone,
+          brandColor: user.brandColor,
           paymentInfo:
             originQuote?.paymentTermsNote != null || paymentBlocks.length > 0
               ? { note: originQuote?.paymentTermsNote ?? null, blocks: paymentBlocks }

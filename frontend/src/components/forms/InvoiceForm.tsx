@@ -18,6 +18,7 @@ import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { PlanLimitPrompt, isPlanLimitCode } from '@/components/ui/PlanLimitPrompt';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { localDateValue } from '@/lib/dateFilter';
 import { CURRENCIES } from '@/lib/constants';
 
 const inputClass =
@@ -612,7 +613,7 @@ export function InvoiceForm({
 
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Date facture
-          <DatePicker value={issueDate} onChange={setIssueDate} />
+          <DatePicker value={issueDate} onChange={setIssueDate} max={localDateValue()} />
         </label>
         <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Jours avant retard

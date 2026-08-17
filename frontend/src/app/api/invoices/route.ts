@@ -41,6 +41,7 @@ const PackInput = z
   .object({
     title: z.string().min(1).max(200),
     description: z.string().max(1000).optional(),
+    turnaroundTime: z.string().max(200).optional(),
     items: z.array(LineItemInput).min(1).max(50),
     // Per-offer acompte — a devis with several packs can ask a different
     // deposit per offer. FIXED: depositValue is an amount in the smallest
@@ -172,7 +173,6 @@ const Body = z
         data.depositAmount !== undefined ||
         data.deliveryDate !== undefined ||
         data.paymentMethodNote !== undefined ||
-        data.footerNote !== undefined ||
         data.issueDate !== undefined ||
         data.overdueAfterDays !== undefined
       ) {
@@ -180,7 +180,7 @@ const Body = z
           code: z.ZodIssueCode.custom,
           path: ['docType'],
           message:
-            'depositAmount/deliveryDate/paymentMethodNote/footerNote/issueDate/overdueAfterDays are invoice-only fields',
+            'depositAmount/deliveryDate/paymentMethodNote/issueDate/overdueAfterDays are invoice-only fields',
         });
       }
     }
@@ -388,6 +388,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(docType === 'QUOTE' && paymentTermsNote ? { paymentTermsNote } : {}),
         ...(docType === 'QUOTE' && sector ? { sector } : {}),
         ...(docType === 'QUOTE' && type ? { type } : {}),
+        ...(footerNote ? { footerNote } : {}),
         ...(status ? { status } : {}),
       };
 
@@ -399,7 +400,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               ...(depositAmount !== undefined ? { depositAmount } : {}),
               ...(deliveryDate ? { deliveryDate: new Date(deliveryDate) } : {}),
               ...(paymentMethodNote ? { paymentMethodNote } : {}),
-              ...(footerNote ? { footerNote } : {}),
               lineItems: {
                 create: lineItems!.map((item, i) => ({
                   order: i + 1,
@@ -425,6 +425,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                   order: pi + 1,
                   title: pack.title,
                   ...(pack.description ? { description: pack.description } : {}),
+                  ...(pack.turnaroundTime ? { turnaroundTime: pack.turnaroundTime } : {}),
                   ...(pack.depositType && pack.depositValue != null
                     ? { depositType: pack.depositType, depositValue: pack.depositValue }
                     : {}),

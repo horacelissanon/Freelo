@@ -273,9 +273,10 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
-          {filtered.map((p) => (
+          {filtered.map((p, i) => (
             <ProjectRow
               key={p.id}
+              index={i}
               project={{
                 id: p.id,
                 name: p.name,

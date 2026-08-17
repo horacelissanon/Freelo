@@ -433,7 +433,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
 
   return (
     <>
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-6">
         <div className="lg:col-start-1 lg:row-start-1">
           <div className="mb-6 flex flex-col gap-4 rounded-lg border border-border bg-canvas shadow-card p-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -566,7 +566,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
           </div>
         </div>
 
-        <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:mb-0">
+        <div className="mb-6 rounded-lg border border-border bg-canvas shadow-card p-5 lg:col-start-2 lg:row-start-1 lg:mb-0">
           <h2 className="mb-4 font-headings text-sm font-bold text-foreground">Étapes du projet</h2>
           <div className="flex flex-col">
             {steps.map((step, index) => {
