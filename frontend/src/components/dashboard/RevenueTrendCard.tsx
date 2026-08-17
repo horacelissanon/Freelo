@@ -80,7 +80,7 @@ export function RevenueTrendCard({
   const last = points[points.length - 1];
 
   return (
-    <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-canvas shadow-card p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="font-headings text-base font-semibold text-foreground">{title}</h2>
         {last && (
@@ -96,7 +96,7 @@ export function RevenueTrendCard({
           description="Les factures payées apparaîtront ici, mois par mois."
         />
       ) : (
-        <div>
+        <div className="flex flex-1 flex-col justify-center">
           <svg
             viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
             className="w-full"

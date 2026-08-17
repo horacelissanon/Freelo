@@ -292,7 +292,7 @@ export default function DashboardPage() {
           {stats.data && <RevenueTrendCard data={stats.data.revenueTrend} masked={moneyMasked} />}
         </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex h-full flex-col justify-center gap-6">
           <UpcomingDeadlinesCard items={upcomingDeadlines} />
 
           {stats.data && (
