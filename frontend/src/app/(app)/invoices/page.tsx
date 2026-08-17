@@ -49,6 +49,9 @@ interface InvoiceApiRow {
   depositAmount: number | null;
   selectedPackId: string | null;
   packs: InvoicePackRow[];
+  /** Actual amount received once this devis became a project — 0 until a
+   *  linked project's deposit shows PAID, per GET /api/invoices. */
+  depositReceived: number;
 }
 
 // Facture: depositAmount is a stored figure, solde is the simple remainder.
@@ -402,6 +405,10 @@ function DevisTab({
     (sum, r) => sum + (resolveDevisDeposit(r) ?? 0),
     0,
   );
+  const depositReceived = [...pendingRows, ...acceptedRows].reduce(
+    (sum, r) => sum + r.depositReceived,
+    0,
+  );
 
   return (
     <>
@@ -418,7 +425,7 @@ function DevisTab({
       )}
 
       {rows.length > 0 && (
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
@@ -431,6 +438,12 @@ function DevisTab({
             value={formatPrice(depositExpected)}
             unit="XOF"
             icon="banknote"
+          />
+          <StatCard
+            label="Acompte reçu"
+            value={formatPrice(depositReceived)}
+            unit="XOF"
+            icon="wallet"
           />
         </div>
       )}

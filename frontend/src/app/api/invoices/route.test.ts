@@ -135,6 +135,60 @@ describe('GET /api/invoices', () => {
     expect(body.items[0].depositAmount).toBe(20000);
     expect(body.items[0].selectedPackId).toBeNull();
   });
+
+  it('QUOTE row with no linked project -> depositReceived is 0, no project lookup', async () => {
+    prismaMock.invoice.findMany.mockResolvedValue([
+      {
+        id: 'i-1',
+        docType: 'QUOTE',
+        amount: 100000,
+        depositAmount: null,
+        selectedPackId: null,
+        projectId: null,
+        client: { id: 'c-1', name: 'Tekki Foods' },
+        packs: [],
+        createdAt: new Date('2026-05-01T00:00:00Z'),
+      },
+    ] as never);
+    const res = await GET(makeGet('http://test/api/invoices'));
+    const body = await res.json();
+    expect(body.items[0].depositReceived).toBe(0);
+    expect(prismaMock.project.findMany).not.toHaveBeenCalled();
+  });
+
+  it('QUOTE row with a linked project -> depositReceived reflects the real paid amount', async () => {
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'i-1',
+          docType: 'QUOTE',
+          amount: 100000,
+          depositAmount: null,
+          selectedPackId: null,
+          projectId: 'p-1',
+          client: { id: 'c-1', name: 'Tekki Foods' },
+          packs: [],
+          createdAt: new Date('2026-05-01T00:00:00Z'),
+        },
+      ] as never)
+      // computeDepositBalanceBatch's own paid-invoice-settled lookup, keyed
+      // on the same mock — resolved second since it's called after the
+      // route's own list query.
+      .mockResolvedValueOnce([] as never);
+    prismaMock.project.findMany.mockResolvedValue([
+      { id: 'p-1', amount: 100000, depositType: 'PERCENT', depositValue: 30 },
+    ] as never);
+    prismaMock.order.findMany.mockResolvedValue([
+      { amount: 30000, metadata: { projectId: 'p-1', docType: 'DEPOSIT' } },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/invoices'));
+    const body = await res.json();
+    expect(body.items[0].depositReceived).toBe(30000);
+
+    const projectArgs = prismaMock.project.findMany.mock.calls[0]?.[0];
+    expect(projectArgs?.where?.id).toEqual({ in: ['p-1'] });
+  });
 });
 
 describe('POST /api/invoices', () => {

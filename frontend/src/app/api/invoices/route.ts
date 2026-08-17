@@ -27,6 +27,7 @@ import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/p
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
+import { computeDepositBalanceBatch } from '@/lib/server/projects/depositBalance';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES } from '@/lib/constants';
@@ -229,7 +230,31 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json(buildPage(rows, limit), {
+    // "Acompte prévu" (computed client-side from each devis's own pack
+    // terms) is theoretical — this is what the client has *actually* paid,
+    // read from the same PAID-Order ledger the project detail/tracking
+    // pages use, for whichever devis already became a project. Batched (2
+    // extra queries total, not 2×N) via the same helper GET /api/projects
+    // uses for its list view.
+    const quoteProjectIds = rows
+      .filter((r) => r.docType === 'QUOTE' && r.projectId)
+      .map((r) => r.projectId as string);
+    const depositByProjectId =
+      quoteProjectIds.length > 0
+        ? await computeDepositBalanceBatch(
+            prisma,
+            await prisma.project.findMany({
+              where: { id: { in: quoteProjectIds } },
+              select: { id: true, amount: true, depositType: true, depositValue: true },
+            }),
+          )
+        : new Map();
+    const rowsWithDeposit = rows.map((r) => {
+      const balance = r.projectId ? depositByProjectId.get(r.projectId) : undefined;
+      return { ...r, depositReceived: balance?.deposit.paid ? balance.deposit.amount : 0 };
+    });
+
+    return NextResponse.json(buildPage(rowsWithDeposit, limit), {
       headers: { 'x-request-id': ctx.requestId },
     });
   });
