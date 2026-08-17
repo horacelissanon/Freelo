@@ -261,7 +261,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => openCreate('client')}
-          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
         >
           <Icon i="users" size={16} className="text-primary" />
           Nouveau client
@@ -269,7 +269,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => openCreate('quote')}
-          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
         >
           <Icon i="file-plus" size={16} className="text-primary" />
           Nouveau devis
@@ -277,7 +277,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => openCreate('project')}
-          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
         >
           <Icon i="plus" size={16} className="text-primary" />
           Nouveau projet
