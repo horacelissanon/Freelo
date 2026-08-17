@@ -937,14 +937,21 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
               <h2 className="font-headings text-sm font-bold text-foreground">
                 Factures ({projectFactures.length})
               </h2>
-              <button
-                type="button"
-                onClick={() => setCreatingInvoiceOpen(true)}
-                className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
-              >
-                <Icon i="plus" size={14} />
-                Créer facture
-              </button>
+              {deposit.paid && balance.paid ? (
+                <span className="flex items-center gap-1.5 font-body text-xs font-medium text-tag-green-fg">
+                  <Icon i="check-circle" size={14} />
+                  Projet réglé
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCreatingInvoiceOpen(true)}
+                  className="flex items-center gap-1.5 font-body text-xs font-medium text-primary"
+                >
+                  <Icon i="plus" size={14} />
+                  Créer facture
+                </button>
+              )}
             </div>
             <div className="p-5">
               {projectFactures.length === 0 ? (
