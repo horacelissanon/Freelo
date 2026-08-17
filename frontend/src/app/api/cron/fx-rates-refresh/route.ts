@@ -1,0 +1,32 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30; // D-10
+
+import 'server-only';
+import { NextResponse, type NextRequest } from 'next/server';
+import { verifyCronSecret } from '@/lib/server/cron/auth';
+import { withLease } from '@/lib/server/leader-lease';
+import { redis } from '@/lib/server/redis';
+import { refreshCachedRates } from '@/lib/server/fx/rates';
+import { createLogger } from '@/lib/server/logger';
+import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+
+const log = createLogger();
+const LEASE_TTL_MS = 60_000; // ~2 × maxDuration (Pitfall 3)
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const fail = verifyCronSecret(req);
+  if (fail) return fail;
+
+  const ctx = makeRequestContext(req.headers);
+  return withRequestContext(ctx, async () => {
+    let rates: Awaited<ReturnType<typeof refreshCachedRates>> | null = null;
+
+    await withLease(redis ?? undefined, 'fx-rates-refresh', LEASE_TTL_MS, async () => {
+      rates = await refreshCachedRates();
+      log.info('fx-rates-refresh tick', { rates, requestId: ctx.requestId });
+    });
+
+    return NextResponse.json({ ok: true, rates }, { headers: { 'x-request-id': ctx.requestId } });
+  });
+}

@@ -9,95 +9,95 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                      String    @id @default(cuid())
+  email                   String    @unique
   // Nullable: OAuth-only users (e.g. signed up with Google) never set a
   // password. Email/password signup still requires it; the auth route
   // enforces presence at runtime.
-  passwordHash      String?
+  passwordHash            String?
   // Set by change-password/set-password on success — surfaced read-only in
   // Paramètres → Sécurité ("Dernière modification"). Not used for any auth
   // decision (tokenVersion already handles session invalidation).
-  passwordChangedAt DateTime?
-  emailVerifiedAt   DateTime?
-  tokenVersion      Int       @default(0)
-  withdrawalPinHash String? // bcrypt hash of withdrawal PIN; null = no PIN set
+  passwordChangedAt       DateTime?
+  emailVerifiedAt         DateTime?
+  tokenVersion            Int       @default(0)
+  withdrawalPinHash       String? // bcrypt hash of withdrawal PIN; null = no PIN set
   // Display name — collected at signup for email/password accounts (POST
   // /api/auth/signup), populated from the OAuth profile on first sign-in for
   // Google accounts, editable later via /api/auth/me PATCH. Stays nullable
   // for rows created before this was required.
-  name              String?
+  name                    String?
   // Optional avatar URL — populated from OAuth profile on first sign-in.
-  avatarUrl         String?
+  avatarUrl               String?
   // Profile fields editable via PATCH /api/auth/me (Paramètres → Compte).
-  phone             String?
-  bio               String?
+  phone                   String?
+  bio                     String?
   // Workspace/business fields (Paramètres → Espace de travail).
-  studioName        String?
-  taxId             String?
+  studioName              String?
+  taxId                   String?
   // Registre de commerce (business registration number) — displayed on
   // devis/factures alongside the tax ID once the freelancer fills it in.
-  commerceRegistry  String?
-  address           String?
+  commerceRegistry        String?
+  address                 String?
   // Which identity shows in the header of this user's devis/factures:
   // PERSONAL (name/phone/bio) or COMPANY (studioName/address/taxId/
   // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to
   // COMPANY (matches the pre-existing studioName-first fallback behavior).
-  documentIdentity  String    @default("COMPANY") // PERSONAL | COMPANY
+  documentIdentity        String    @default("COMPANY") // PERSONAL | COMPANY
   // Client-facing branding (Paramètres → Compte → Entreprise) — used on the
   // PDF footer band, the on-screen invoice footer, and the /suivi/[token]
   // tracking page footer. Independent from the dashboard-only accent color
   // (EspaceTab/AccentColorContext), which never leaves the browser.
-  brandColor          String?   @default("#059669")
+  brandColor              String?   @default("#059669")
   // Pre-fills Invoice.footerNote on every new facture — stays freely
   // editable per invoice afterward.
-  defaultLegalMention String?
-  defaultCurrency   String    @default("XOF")
-  language          String    @default("fr")
+  defaultLegalMention     String?
+  defaultCurrency         String    @default("XOF")
+  language                String    @default("fr")
   // showPaidInvoicesDefault: when false, /invoices pre-filters PAID docs out
   // of the initial view (still togglable via the existing filter tabs).
-  showPaidInvoicesDefault Boolean @default(true)
+  showPaidInvoicesDefault Boolean   @default(true)
   // publicPortalEnabled: kill switch for this user's /suivi/[token] links —
   // when false, GET /api/track/[token] (+ comments/pay siblings) 404 for
   // all of this user's clients/projects, same shape as an invalid token.
-  publicPortalEnabled     Boolean @default(true)
+  publicPortalEnabled     Boolean   @default(true)
   // Onboarding — null means the first-run setup wizard + product tour
   // haven't been completed or explicitly skipped yet; set once (never
   // reset) the first time the user finishes or dismisses it. The migration
   // backfills this to createdAt for every pre-existing row so only NEW
   // signups see the wizard, not the whole existing user base.
-  onboardingCompletedAt DateTime?
+  onboardingCompletedAt   DateTime?
   // App-wide role. USER is the default; ADMIN unlocks /admin back-office;
   // SUPERADMIN can promote/demote other admins. Bootstrap an initial
   // SUPERADMIN via `pnpm db:make-superadmin <email>` (see scripts).
-  role              String    @default("USER") // USER | ADMIN | SUPERADMIN
+  role                    String    @default("USER") // USER | ADMIN | SUPERADMIN
   // Account status. ACTIVE = login + refresh allowed; SUSPENDED = both
   // refused with 403 ACCOUNT_SUSPENDED. Mutated via /api/admin/users/[id]/status
   // (ADMIN can suspend; only SUPERADMIN can restore).
-  status            String    @default("ACTIVE") // ACTIVE | SUSPENDED
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  status                  String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  verificationCodes VerificationCode[]
-  uploads           FileUpload[]
-  notifications     Notification[]
-  notifPrefs        NotificationPreferences?
-  orders            Order[]
-  withdrawals       Withdrawal[]
-  oauthAccounts     OAuthAccount[]
-  adminActions      AdminAction[]
-  clients           Client[]
-  projects          Project[]
-  invoices          Invoice[]
-  reviews           Review[]
-  subscription      Subscription?
-  sessions          Session[]
+  verificationCodes     VerificationCode[]
+  uploads               FileUpload[]
+  notifications         Notification[]
+  notifPrefs            NotificationPreferences?
+  orders                Order[]
+  withdrawals           Withdrawal[]
+  oauthAccounts         OAuthAccount[]
+  adminActions          AdminAction[]
+  clients               Client[]
+  projects              Project[]
+  invoices              Invoice[]
+  reviews               Review[]
+  subscription          Subscription?
+  sessions              Session[]
   defaultPaymentMethods DefaultPaymentMethod[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
   // on their domain models.
-  ownedOrganizations Organization[]      @relation("OrgOwner")
+  ownedOrganizations Organization[]       @relation("OrgOwner")
   memberships        OrganizationMember[] @relation("OrgMembership")
 
   @@index([email])
@@ -146,14 +146,14 @@ model AdminAction {
 // used as a stable URL segment.
 // ───────────────────────────────────────────────────────────────────────
 model Organization {
-  id        String   @id @default(cuid())
-  slug      String   @unique
+  id        String               @id @default(cuid())
+  slug      String               @unique
   name      String
   ownerId   String
-  owner     User     @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner     User                 @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   members   OrganizationMember[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
 
   @@index([ownerId])
 }
@@ -355,21 +355,21 @@ model WebhookLog {
 // at the call site — the schema is currency-agnostic.
 // ───────────────────────────────────────────────────────────────────────
 model Order {
-  id              String    @id @default(cuid())
-  userId          String? // nullable — guest checkout supported
-  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  amount          Int // gross amount, smallest unit
-  currency        String    @default("XOF") // ISO 4217
-  status          String    @default("PENDING") // PENDING | PAID | EXPIRED | FAILED | REFUNDED
-  customerEmail   String?
-  customerPhone   String?
-  customerName    String?
-  metadata        Json? // app-specific fields
+  id            String  @id @default(cuid())
+  userId        String? // nullable — guest checkout supported
+  user          User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  amount        Int // gross amount, smallest unit
+  currency      String  @default("XOF") // ISO 4217
+  status        String  @default("PENDING") // PENDING | PAID | EXPIRED | FAILED | REFUNDED
+  customerEmail String?
+  customerPhone String?
+  customerName  String?
+  metadata      Json? // app-specific fields
 
   // Stripe-grade idempotency. Required header on POST /api/orders; replay
   // with same value returns the original Order row instead of double-charging.
   // Nullable so existing rows pre-migration don't break the @unique constraint.
-  idempotencyKey  String?   @unique
+  idempotencyKey String? @unique
 
   // Provider reference
   provider         String // e.g. "bictorys"
@@ -393,12 +393,12 @@ model Order {
 }
 
 model Withdrawal {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user        User   @relation(fields: [userId], references: [id], onDelete: Restrict)
   amount      Int // requested amount, smallest unit
-  currency    String   @default("XOF")
-  status      String   @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED | CANCELLED
+  currency    String @default("XOF")
+  status      String @default("PENDING") // PENDING | PROCESSING | COMPLETED | FAILED | CANCELLED
   destination Json // { method: "WAVE" | "ORANGE_MONEY" | ..., phone: "+221...", accountName?: "..." }
 
   // Provider reference
@@ -427,24 +427,24 @@ model Withdrawal {
 // guest-checkout Order path rather than duplicating payment logic here.
 // ───────────────────────────────────────────────────────────────────────
 model Client {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  code        String   @unique // human-friendly disambiguator ("CL-0001"), sequential per user — assigned explicitly by POST /api/clients (see route for the retry-on-collision pattern)
-  name        String
-  contactName String?
-  email       String?
-  phone       String?
-  company     String?
-  website     String?
-  city        String?
-  sector      String?
-  notes       String?
-  status      String   @default("new") // new | pending | active | archived — see lib/server/clients/status.ts
-  imageUrl    String?
-  trackingToken String @unique @default(cuid()) // Client Link Portal (Phase C) — lists all of this client's projects
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code          String   @unique // human-friendly disambiguator ("CL-0001"), sequential per user — assigned explicitly by POST /api/clients (see route for the retry-on-collision pattern)
+  name          String
+  contactName   String?
+  email         String?
+  phone         String?
+  company       String?
+  website       String?
+  city          String?
+  sector        String?
+  notes         String?
+  status        String   @default("new") // new | pending | active | archived — see lib/server/clients/status.ts
+  imageUrl      String?
+  trackingToken String   @unique @default(cuid()) // Client Link Portal (Phase C) — lists all of this client's projects
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   projects Project[]
   invoices Invoice[]
@@ -455,35 +455,40 @@ model Client {
 }
 
 model Project {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId    String
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  name        String
-  sector      String    @default("OTHER") // Secteur freelance — DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER; scopes which `type` values the UI offers (see SECTOR_PROJECT_TYPES in lib/constants.ts)
-  type        String    @default("OTHER") // scoped to `sector` — see PROJECT_TYPE_LABELS in lib/constants.ts
-  description String? // short brief, freeform (v1)
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name                  String
+  sector                String    @default("OTHER") // Secteur freelance — DESIGN | DEV | REDACTION | CONSULTING | VIDEO | COMMUNITY | OTHER; scopes which `type` values the UI offers (see SECTOR_PROJECT_TYPES in lib/constants.ts)
+  type                  String    @default("OTHER") // scoped to `sector` — see PROJECT_TYPE_LABELS in lib/constants.ts
+  description           String? // short brief, freeform (v1)
   // DRAFT is the only freelance-chosen value (creation-time: "Enregistrer
   // brouillon" vs "Créer projet"). Once PENDING+, status is fully derived
   // from step completion (see lib/server/projects/progress.ts) and never
   // freelance-chosen again.
-  status      String    @default("PENDING") // DRAFT | PENDING | IN_PROGRESS | IN_REVIEW | DELIVERED
-  progress    Int       @default(0) // 0-100
-  amount      Int // smallest currency unit, matches Order convention
-  currency    String    @default("XOF")
-  dueDate     DateTime?
-  step        String? // current milestone label, freeform (v1)
-  publicToken String    @unique @default(cuid()) // Client Link Portal (Phase C)
+  status                String    @default("PENDING") // DRAFT | PENDING | IN_PROGRESS | IN_REVIEW | DELIVERED
+  progress              Int       @default(0) // 0-100
+  amount                Int // smallest currency unit, matches Order convention
+  currency              String    @default("XOF")
+  // Rate frozen at creation time: 1 unit of `currency` = X units of
+  // User.defaultCurrency. Null when currency === defaultCurrency (implicit
+  // rate of 1). Never recomputed automatically afterwards — the freelance
+  // can edit it manually, but it doesn't track the live market rate.
+  exchangeRateToDefault Float?
+  dueDate               DateTime?
+  step                  String? // current milestone label, freeform (v1)
+  publicToken           String    @unique @default(cuid()) // Client Link Portal (Phase C)
   // Deposit terms for this project. NONE: no deposit expected, the whole
   // amount is due as balance. FIXED: depositValue is an amount in the
   // project's smallest currency unit. PERCENT (system default): depositValue
   // is a 0-100 rate applied to `amount`. Mirrors InvoicePack's depositType/
   // depositValue pattern below.
-  depositType  String @default("PERCENT") // NONE | FIXED | PERCENT
-  depositValue Int    @default(50)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  depositType           String    @default("PERCENT") // NONE | FIXED | PERCENT
+  depositValue          Int       @default(50)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   invoices Invoice[]
   steps    ProjectStep[]
@@ -525,34 +530,39 @@ model ProjectComment {
 }
 
 model Invoice {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientId    String
-  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  projectId   String?
-  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  docType     String // INVOICE | QUOTE | CREDIT_NOTE
-  number      String // "2025-001" / "QT-2025-008" / "AV-2025-003" — sequential per userId+docType
-  description String?
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId              String
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  projectId             String?
+  project               Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  docType               String // INVOICE | QUOTE | CREDIT_NOTE
+  number                String // "2025-001" / "QT-2025-008" / "AV-2025-003" — sequential per userId+docType
+  description           String?
   // Denormalized total, always server-computed from lineItems (INVOICE) or
   // packs (QUOTE) — never accepted directly from the client. Kept in sync on
   // every create/edit so dashboard stats, InvoiceCard/InvoiceRow and the
   // invoices list keep reading this single Int with zero changes.
-  amount      Int
-  currency    String    @default("XOF")
-  status      String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE | ACCEPTED | CANCELED
-  issueDate   DateTime  @default(now())
-  dueDate     DateTime?
+  amount                Int
+  currency              String    @default("XOF")
+  // Rate frozen at creation time: 1 unit of `currency` = X units of
+  // User.defaultCurrency. Null when currency === defaultCurrency (implicit
+  // rate of 1). Never recomputed automatically afterwards — the freelance
+  // can edit it manually, but it doesn't track the live market rate.
+  exchangeRateToDefault Float?
+  status                String    @default("DRAFT") // DRAFT | SENT | PAID | OVERDUE | ACCEPTED | CANCELED
+  issueDate             DateTime  @default(now())
+  dueDate               DateTime?
   // Facture-only ("Jours avant retard"): dueDate is computed server-side as
   // issueDate + overdueAfterDays whenever the invoice moves to SENT — the
   // freelance sets a day count (default 5), never an absolute due date.
   // Ignored for QUOTE, which still uses a freely-picked absolute dueDate
   // (Échéance) feeding the EXPIRED sweep.
-  overdueAfterDays Int @default(5)
-  orderId     String?   @unique // set once a payment Order is created (Phase C)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  overdueAfterDays      Int       @default(5)
+  orderId               String?   @unique // set once a payment Order is created (Phase C)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   // Facture-only breakdown fields (INVOICE docType). Never set on a QUOTE —
   // enforced in the route handlers, not at the schema level.
@@ -620,20 +630,20 @@ model Invoice {
 // subtotal. Never used for an INVOICE (which has a flat lineItems list
 // instead, packId null throughout).
 model InvoicePack {
-  id          String   @id @default(cuid())
-  invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  order       Int
-  title       String
-  description String?
+  id             String   @id @default(cuid())
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  order          Int
+  title          String
+  description    String?
   // Per-offer acompte, optional — a devis with several packs can ask a
   // different deposit for each since they're independent proposals, not
   // line items of one bill. null depositType = no deposit configured for
   // this offer. FIXED: depositValue is an amount in the invoice's smallest
   // currency unit. PERCENT: depositValue is a 0-100 integer rate applied to
   // this pack's own computeItemsTotal — never the (nonexistent) grand total.
-  depositType  String? // FIXED | PERCENT
-  depositValue Int?
+  depositType    String? // FIXED | PERCENT
+  depositValue   Int?
   // Freelance-chosen free text ("2 semaines", "10 jours") — no structured
   // duration parsing, the freelance picks whatever format makes sense to
   // them. Shown on the devis (freelance + client suivi + PDF) so a client
@@ -657,10 +667,10 @@ model InvoiceLineItem {
   pack        InvoicePack? @relation(fields: [packId], references: [id], onDelete: Cascade)
   order       Int
   designation String
-  quantity    Int      @default(1)
+  quantity    Int          @default(1)
   unitPrice   Int // integer, smallest currency unit — same money invariant as amount
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@index([invoiceId, order])
   @@index([packId, order])
@@ -747,16 +757,16 @@ model Review {
 // plan (lazy-created on first read, see lib/server/billing/subscription.ts).
 // ───────────────────────────────────────────────────────────────────────
 model Subscription {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan              String   @default("FREE") // FREE | PRO
-  status            String   @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED | EXPIRED
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              String    @default("FREE") // FREE | PRO
+  status            String    @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELED | EXPIRED
   billingCycle      String? // MONTHLY | YEARLY — null while FREE
   currentPeriodEnd  DateTime?
-  cancelAtPeriodEnd Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  cancelAtPeriodEnd Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   transactions SubscriptionTransaction[]
 }
@@ -776,7 +786,7 @@ model SubscriptionTransaction {
   periodStart           DateTime?
   periodEnd             DateTime?
   createdAt             DateTime     @default(now())
-  updatedAt              DateTime    @updatedAt
+  updatedAt             DateTime     @updatedAt
 
   @@index([subscriptionId, createdAt])
   @@index([status])
