@@ -12,14 +12,10 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
-import { detectInstallPlatform, type InstallPlatform } from '@/lib/installPlatform';
+import { useInstallPrompt } from '@/lib/useInstallPrompt';
+import type { InstallPlatform } from '@/lib/installPlatform';
 
 const DISMISSED_KEY = 'merrudit-install-prompt-dismissed';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
 
 export function InstallPromptWidget({
   variant = 'public',
@@ -33,9 +29,8 @@ export function InstallPromptWidget({
 }) {
   const [ready, setReady] = useState(false);
   const [dismissed, setDismissed] = useState(true);
-  const [platform, setPlatform] = useState<InstallPlatform>('desktop');
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const { platform, canInstallNow, installNow } = useInstallPrompt();
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -53,16 +48,8 @@ export function InstallPromptWidget({
       // Storage unavailable — treat as not dismissed.
     }
 
-    setPlatform(detectInstallPlatform(navigator.userAgent));
     setDismissed(isStandalone || isDismissed);
     setReady(true);
-
-    function onBeforeInstallPrompt(e: Event) {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    }
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
   }, []);
 
   function dismiss() {
@@ -75,14 +62,8 @@ export function InstallPromptWidget({
     }
   }
 
-  async function installNow() {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    if (choice.outcome === 'accepted') {
-      setDeferredPrompt(null);
-      dismiss();
-    }
+  async function handleInstallNow() {
+    if (await installNow()) dismiss();
   }
 
   if (!ready || dismissed) return null;
@@ -123,8 +104,8 @@ export function InstallPromptWidget({
         <Modal title="Installer Freelo" onClose={() => setModalOpen(false)}>
           <InstallInstructions
             platform={platform}
-            canInstallNow={!!deferredPrompt}
-            onInstallNow={() => void installNow()}
+            canInstallNow={canInstallNow}
+            onInstallNow={() => void handleInstallNow()}
           />
         </Modal>
       )}
@@ -132,7 +113,7 @@ export function InstallPromptWidget({
   );
 }
 
-function InstallInstructions({
+export function InstallInstructions({
   platform,
   canInstallNow,
   onInstallNow,

@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { InstallAppButton } from '@/components/InstallAppButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
@@ -115,7 +116,10 @@ function SidebarBody({
           )}
         </Link>
         {!collapsed && (
-          <ThemeToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
+          <div className="flex items-center gap-1">
+            <InstallAppButton className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
+            <ThemeToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
+          </div>
         )}
       </div>
 
