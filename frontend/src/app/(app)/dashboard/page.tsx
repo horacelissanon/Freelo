@@ -257,30 +257,33 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-3 gap-2 sm:gap-4">
         <button
           type="button"
           onClick={() => openCreate('client')}
-          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-canvas shadow-card px-2 py-3 font-body text-xs font-semibold text-foreground transition-colors hover:border-primary/40 sm:gap-2 sm:px-4 sm:py-3.5 sm:text-sm"
         >
-          <Icon i="users" size={16} className="text-primary" />
-          Nouveau client
+          <Icon i="users" size={16} className="shrink-0 text-primary" />
+          <span className="sm:hidden">Client</span>
+          <span className="hidden sm:inline">Nouveau client</span>
         </button>
         <button
           type="button"
           onClick={() => openCreate('quote')}
-          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-canvas shadow-card px-2 py-3 font-body text-xs font-semibold text-foreground transition-colors hover:border-primary/40 sm:gap-2 sm:px-4 sm:py-3.5 sm:text-sm"
         >
-          <Icon i="file-plus" size={16} className="text-primary" />
-          Nouveau devis
+          <Icon i="file-plus" size={16} className="shrink-0 text-primary" />
+          <span className="sm:hidden">Devis</span>
+          <span className="hidden sm:inline">Nouveau devis</span>
         </button>
         <button
           type="button"
           onClick={() => openCreate('project')}
-          className="flex items-center justify-start gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40 sm:justify-center"
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-canvas shadow-card px-2 py-3 font-body text-xs font-semibold text-foreground transition-colors hover:border-primary/40 sm:gap-2 sm:px-4 sm:py-3.5 sm:text-sm"
         >
-          <Icon i="plus" size={16} className="text-primary" />
-          Nouveau projet
+          <Icon i="plus" size={16} className="shrink-0 text-primary" />
+          <span className="sm:hidden">Projet</span>
+          <span className="hidden sm:inline">Nouveau projet</span>
         </button>
       </div>
 
