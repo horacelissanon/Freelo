@@ -22,9 +22,11 @@
 import type { CreateNotificationInput } from './index';
 
 /**
- * Dispatched by the deadline-alerts cron the moment an INVOICE crosses its
- * dueDate still unpaid (status flips SENT → OVERDUE in the same sweep).
- * Deduped per invoice — fires once, not once per hour the sweep re-runs.
+ * Dispatched by the deadline-alerts cron for every INVOICE currently
+ * OVERDUE and still unpaid — the first firing coincides with the SENT →
+ * OVERDUE flip, then repeats once per calendar day (dedupeKey includes
+ * `todayKey`) for as long as the invoice stays unpaid. Stops naturally the
+ * day it's marked paid (query no longer matches status: 'OVERDUE').
  */
 export function invoiceOverdue(
   userId: string,
@@ -32,6 +34,7 @@ export function invoiceOverdue(
   number: string,
   amount: number,
   currency: string,
+  todayKey: string,
 ): CreateNotificationInput {
   return {
     userId,
@@ -39,7 +42,7 @@ export function invoiceOverdue(
     title: `Facture ${number} en retard`,
     body: `${amount} ${currency} attendu — le client n'a pas encore payé.`,
     data: { invoiceId },
-    dedupeKey: `invoice-overdue:${invoiceId}`,
+    dedupeKey: `invoice-overdue:${invoiceId}:${todayKey}`,
   };
 }
 
@@ -66,14 +69,16 @@ export function quoteExpired(
 /**
  * Dispatched by the deadline-alerts cron for a PROJECT whose dueDate falls
  * within the reminder window and isn't DELIVERED yet. Deduped per
- * (project, dueDate) so it fires once per due date — changing the due date
- * lets it fire again, but the hourly sweep tick doesn't re-spam it.
+ * (project, todayKey) so it fires once per calendar day for as long as the
+ * project stays inside the window — stops the day it's delivered (drops out
+ * of the query) or its due date passes the window.
  */
 export function projectDeadlineSoon(
   userId: string,
   projectId: string,
   name: string,
   dueDateIso: string,
+  todayKey: string,
 ): CreateNotificationInput {
   return {
     userId,
@@ -81,7 +86,30 @@ export function projectDeadlineSoon(
     title: `${name} — échéance proche`,
     body: `Livraison prévue le ${new Date(dueDateIso).toLocaleDateString('fr-FR')}.`,
     data: { projectId },
-    dedupeKey: `project-deadline-soon:${projectId}:${dueDateIso.slice(0, 10)}`,
+    dedupeKey: `project-deadline-soon:${projectId}:${todayKey}`,
+  };
+}
+
+/**
+ * Dispatched by the deadline-alerts cron for a QUOTE (devis) whose dueDate
+ * falls within the reminder window and is still awaiting a client decision.
+ * Mirrors projectDeadlineSoon — deduped per (quote, todayKey), repeats
+ * daily until accepted or expired (either way it leaves status: 'SENT').
+ */
+export function quoteExpiringSoon(
+  userId: string,
+  invoiceId: string,
+  number: string,
+  dueDateIso: string,
+  todayKey: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'quote-expiring-soon',
+    title: `Devis ${number} — échéance proche`,
+    body: `Le devis ${number} expire le ${new Date(dueDateIso).toLocaleDateString('fr-FR')} s'il n'est pas accepté.`,
+    data: { invoiceId },
+    dedupeKey: `quote-expiring-soon:${invoiceId}:${todayKey}`,
   };
 }
 
@@ -137,13 +165,16 @@ export function subscriptionRenewed(
 
 /**
  * Dispatched by the subscription-expiry cron a few days before a Pro
- * period ends. Deduped per (subscription, period) so the daily cron tick
- * doesn't re-fire it every day inside the reminder window.
+ * period ends. Deduped per (subscription, todayKey) so it repeats once per
+ * calendar day for as long as the subscription stays inside the reminder
+ * window — stops the day it's renewed (currentPeriodEnd moves out of the
+ * window) or it actually lapses (see subscriptionExpired below).
  */
 export function subscriptionExpiringSoon(
   userId: string,
   subscriptionId: string,
   currentPeriodEnd: string,
+  todayKey: string,
 ): CreateNotificationInput {
   return {
     userId,
@@ -151,6 +182,28 @@ export function subscriptionExpiringSoon(
     title: 'Ton abonnement Pro expire bientôt',
     body: `Renouvelle avant le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')} pour garder tes fonctionnalités Pro.`,
     data: { subscriptionId, currentPeriodEnd },
-    dedupeKey: `subscription-expiring:${subscriptionId}:${currentPeriodEnd}`,
+    dedupeKey: `subscription-expiring:${subscriptionId}:${todayKey}`,
+  };
+}
+
+/**
+ * Dispatched by the subscription-expiry cron the moment a Pro subscription
+ * lapses (currentPeriodEnd passed without renewal, flipped to plan: FREE /
+ * status: EXPIRED) — i.e. the "payment overdue" terminal event. Fires once
+ * per lapse; a later re-subscribe + a later new lapse would produce a
+ * different currentPeriodEnd, so the dedupeKey still holds.
+ */
+export function subscriptionExpired(
+  userId: string,
+  subscriptionId: string,
+  expiredPeriodEnd: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'SUBSCRIPTION_EXPIRED',
+    title: 'Ton abonnement Pro a expiré',
+    body: "Le paiement n'a pas été reçu à temps — ton compte est repassé en plan Gratuit.",
+    data: { subscriptionId, expiredPeriodEnd },
+    dedupeKey: `subscription-expired:${subscriptionId}:${expiredPeriodEnd}`,
   };
 }

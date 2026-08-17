@@ -10,7 +10,12 @@ export interface NotificationBellItem {
   type: string;
   title: string;
   body: string;
-  data?: { projectId?: string; invoiceId?: string } | null;
+  data?: {
+    projectId?: string;
+    invoiceId?: string;
+    subscriptionId?: string;
+    orderId?: string;
+  } | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -22,13 +27,25 @@ const TYPE_STYLE: Record<string, { bg: string; fg: string; icon: string }> = {
   invoice: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'file-check' },
   'invoice-overdue': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   'quote-expired': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
+  'quote-expiring-soon': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
   'project-deadline': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
+  WELCOME: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'star' },
+  PAYMENT_RECEIVED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'credit-card' },
+  SUBSCRIPTION_RENEWED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'credit-card' },
+  SUBSCRIPTION_EXPIRING_SOON: {
+    bg: 'bg-tag-orange',
+    fg: 'text-tag-orange-fg',
+    icon: 'alert-circle',
+  },
+  SUBSCRIPTION_EXPIRED: { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
+  WITHDRAWAL_REQUESTED: { bg: 'bg-tag-purple', fg: 'text-tag-purple-fg', icon: 'banknote' },
 };
 const DEFAULT_STYLE = { bg: 'bg-secondary', fg: 'text-muted-foreground', icon: 'bell' };
 
 function hrefFor(n: NotificationBellItem): string | null {
   if (n.data?.invoiceId) return `/invoices/${n.data.invoiceId}`;
   if (n.data?.projectId) return `/projects/${n.data.projectId}`;
+  if (n.data?.subscriptionId) return '/settings?tab=abonnement';
   return null;
 }
 

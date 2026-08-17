@@ -14,7 +14,10 @@ import { withLease } from '@/lib/server/leader-lease';
 import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { createNotification } from '@/lib/server/notifications/index';
-import { subscriptionExpiringSoon } from '@/lib/server/notifications/templates';
+import {
+  subscriptionExpired,
+  subscriptionExpiringSoon,
+} from '@/lib/server/notifications/templates';
 import { getEmailQueue } from '@/lib/server/queues/email-queue-singleton';
 import { createLogger } from '@/lib/server/logger';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -34,6 +37,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await withLease(redis ?? undefined, 'subscription-expiry', LEASE_TTL_MS, async () => {
       const now = new Date();
+      const todayKey = now.toISOString().slice(0, 10);
       const reminderCutoff = new Date(now.getTime() + REMINDER_WINDOW_MS);
 
       const expiringSoon = await prisma.subscription.findMany({
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const periodEndIso = sub.currentPeriodEnd.toISOString();
         const created = await createNotification(
           prisma,
-          subscriptionExpiringSoon(sub.userId, sub.id, periodEndIso),
+          subscriptionExpiringSoon(sub.userId, sub.id, periodEndIso, todayKey),
         );
         if (created) {
           reminded++;
@@ -70,11 +74,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       }
 
-      const expiredResult = await prisma.subscription.updateMany({
+      // Per-row (not bulk) so the freelance actually learns their Pro plan
+      // lapsed — this is the "payment overdue" terminal event for a
+      // subscription that reminders above didn't manage to get renewed.
+      const lapsing = await prisma.subscription.findMany({
         where: { plan: 'PRO', currentPeriodEnd: { lt: now } },
-        data: { plan: 'FREE', status: 'EXPIRED', cancelAtPeriodEnd: false },
+        select: {
+          id: true,
+          userId: true,
+          currentPeriodEnd: true,
+          user: { select: { email: true } },
+        },
       });
-      expired = expiredResult.count;
+      for (const sub of lapsing) {
+        if (!sub.currentPeriodEnd) continue;
+        const updated = await prisma.subscription.updateMany({
+          where: { id: sub.id, plan: 'PRO', currentPeriodEnd: { lt: now } },
+          data: { plan: 'FREE', status: 'EXPIRED', cancelAtPeriodEnd: false },
+        });
+        if (updated.count === 0) continue;
+        expired++;
+        const created = await createNotification(
+          prisma,
+          subscriptionExpired(sub.userId, sub.id, sub.currentPeriodEnd.toISOString()),
+        );
+        if (created) {
+          const queue = getEmailQueue();
+          if (queue) {
+            await queue.enqueue({
+              to: sub.user.email,
+              subject: 'Ton abonnement Merrudit Pro a expiré',
+              html: "<p>Le paiement n'a pas été reçu à temps et ton compte est repassé en plan Gratuit. Réabonne-toi depuis Paramètres → Abonnement pour retrouver tes fonctionnalités Pro.</p>",
+            });
+          }
+        }
+      }
 
       log.info('subscription-expiry tick', { reminded, expired, requestId: ctx.requestId });
     });
