@@ -231,8 +231,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const chatFileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const [editOpen, setEditOpen] = useState(false);
   const [savingType, setSavingType] = useState(false);
@@ -382,18 +381,11 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
     }
   }
 
-  async function onPhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onAttachmentSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    await sendAttachment(file, 'IMAGE');
-  }
-
-  async function onChatFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    await sendAttachment(file, 'FILE');
+    await sendAttachment(file, file.type.startsWith('image/') ? 'IMAGE' : 'FILE');
   }
 
   async function startRecording() {
@@ -836,20 +828,20 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
 
             <form onSubmit={onSubmitComment} className="mt-4 flex items-center gap-2">
               <input
-                ref={photoInputRef}
+                ref={attachmentInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,application/pdf,application/zip,application/postscript"
                 className="hidden"
-                onChange={(e) => void onPhotoSelected(e)}
+                onChange={(e) => void onAttachmentSelected(e)}
               />
               <button
                 type="button"
                 disabled={posting}
-                onClick={() => photoInputRef.current?.click()}
-                aria-label="Envoyer une photo"
+                onClick={() => attachmentInputRef.current?.click()}
+                aria-label="Envoyer une pièce jointe"
                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
               >
-                <Icon i="camera" size={16} />
+                <Icon i="plus" size={16} />
               </button>
               <button
                 type="button"
@@ -863,22 +855,6 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                 }`}
               >
                 <Icon i="mic" size={16} />
-              </button>
-              <input
-                ref={chatFileInputRef}
-                type="file"
-                accept="application/pdf,image/png,image/jpeg,application/zip,application/postscript"
-                className="hidden"
-                onChange={(e) => void onChatFileSelected(e)}
-              />
-              <button
-                type="button"
-                disabled={posting}
-                onClick={() => chatFileInputRef.current?.click()}
-                aria-label="Envoyer un fichier"
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
-              >
-                <Icon i="file-text" size={16} />
               </button>
               <input
                 type="text"

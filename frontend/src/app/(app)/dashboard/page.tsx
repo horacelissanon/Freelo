@@ -183,7 +183,8 @@ export default function DashboardPage() {
         </div>
         {/* Desktop only — mobile gets the bell in the persistent top bar
             ((app)/layout.tsx) and relies on BottomNav's central "+" for
-            quick creation instead of a second "Nouveau projet" button. */}
+            quick creation. Quick-create actions live in the Client/Devis/
+            Projet row below instead of a duplicate header button. */}
         <div className="hidden lg:flex lg:items-center lg:gap-3">
           <NotificationBell
             unreadCount={notifCount.data?.count ?? 0}
@@ -191,14 +192,6 @@ export default function DashboardPage() {
             onMarkAllRead={() => void markAllNotificationsRead()}
             onMarkRead={(id) => void markNotificationRead(id)}
           />
-          <button
-            type="button"
-            onClick={() => openCreate('project')}
-            className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 font-body text-sm font-medium text-primary-foreground"
-          >
-            <Icon i="plus" size={15} />
-            Nouveau projet
-          </button>
         </div>
       </div>
 
@@ -264,7 +257,15 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="mb-8 grid grid-cols-2 gap-3">
+      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => openCreate('client')}
+          className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
+        >
+          <Icon i="users" size={16} className="text-primary" />
+          Nouveau client
+        </button>
         <button
           type="button"
           onClick={() => openCreate('quote')}
@@ -275,11 +276,11 @@ export default function DashboardPage() {
         </button>
         <button
           type="button"
-          onClick={() => openCreate('client')}
+          onClick={() => openCreate('project')}
           className="flex items-center justify-center gap-2 rounded-lg border border-border bg-canvas shadow-card px-4 py-3.5 font-body text-sm font-semibold text-foreground transition-colors hover:border-primary/40"
         >
-          <Icon i="users" size={16} className="text-primary" />
-          Nouveau client
+          <Icon i="plus" size={16} className="text-primary" />
+          Nouveau projet
         </button>
       </div>
 
