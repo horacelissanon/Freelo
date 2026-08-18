@@ -226,7 +226,11 @@ export default function StatsPage() {
             />
           </div>
 
-          <RevenueTrendCard data={data.revenueTrend} title="Revenus (12 derniers mois)" />
+          <RevenueTrendCard
+            data={data.revenueTrend}
+            title="Revenus (12 derniers mois)"
+            unit={data.overview.revenue.currency}
+          />
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <ProjectTypeBreakdownCard items={data.revenueByProjectType} />

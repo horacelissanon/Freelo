@@ -12,10 +12,14 @@ export interface UnpaidInvoiceItem {
 export function UnpaidInvoicesPanel({
   invoices,
   total,
+  currency,
   masked,
 }: {
   invoices: UnpaidInvoiceItem[];
   total: number;
+  /** Currency `total` is expressed in — follows the global currency-display
+   *  switcher, not necessarily each invoice's own stored currency. */
+  currency: string;
   masked?: boolean;
 }) {
   if (invoices.length === 0) return null;
@@ -50,7 +54,8 @@ export function UnpaidInvoicesPanel({
               '••••••'
             ) : (
               <>
-                {formatPrice(total)} <span className="font-normal text-muted-foreground">FCFA</span>
+                {formatPrice(total)}{' '}
+                <span className="font-normal text-muted-foreground">{currency}</span>
               </>
             )}
           </p>

@@ -52,10 +52,16 @@ export function RevenueTrendCard({
   data,
   masked,
   title = 'Revenus (6 derniers mois)',
+  unit,
 }: {
   data: RevenueTrendPoint[];
   masked?: boolean;
   title?: string;
+  /** Currency these amounts are stored in (the account's default — this
+   *  trend has no per-currency breakdown, so it never follows the global
+   *  currency-display switcher). Shown next to the total to avoid an
+   *  unlabeled figure sitting beside converted StatCards. */
+  unit?: string;
 }) {
   const gradientId = useId();
   const max = Math.max(1, ...data.map((d) => d.amount));
@@ -86,6 +92,9 @@ export function RevenueTrendCard({
         {last && (
           <p className="font-body text-sm font-semibold text-primary">
             {masked ? '••••' : formatPrice(last.amount)}
+            {!masked && unit && (
+              <span className="ml-1 font-normal text-muted-foreground">{unit}</span>
+            )}
           </p>
         )}
       </div>

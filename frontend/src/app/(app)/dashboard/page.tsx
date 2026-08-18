@@ -328,7 +328,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {stats.data && <RevenueTrendCard data={stats.data.revenueTrend} masked={moneyMasked} />}
+          {stats.data && (
+            <RevenueTrendCard
+              data={stats.data.revenueTrend}
+              masked={moneyMasked}
+              unit={stats.data.revenue.currency}
+            />
+          )}
         </div>
 
         <div className="flex h-full flex-col justify-center gap-6">
@@ -338,6 +344,7 @@ export default function DashboardPage() {
             <UnpaidInvoicesPanel
               invoices={unpaidInvoices}
               total={displayPendingInvoices}
+              currency={displayCurrency}
               masked={moneyMasked}
             />
           )}
