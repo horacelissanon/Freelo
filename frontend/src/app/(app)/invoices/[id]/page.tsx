@@ -413,6 +413,7 @@ export default function InvoiceDetailPage() {
                         selected={invoice.selectedPackId === pack.id}
                         depositType={pack.depositType}
                         depositValue={pack.depositValue}
+                        masked={moneyMasked}
                       />
                     ))}
                   </div>

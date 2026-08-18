@@ -46,6 +46,7 @@ export function PackOfferCard({
   selected,
   depositType,
   depositValue,
+  masked,
 }: {
   index: number;
   title: string;
@@ -56,6 +57,10 @@ export function PackOfferCard({
   selected?: boolean;
   depositType?: string | null;
   depositValue?: number | null;
+  /** Only ever passed true from the freelance-side detail page's global
+   *  money mask — never from the public /suivi/[token] client view, which
+   *  doesn't use this component. */
+  masked?: boolean;
 }) {
   const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const accent = PACK_ACCENTS[(index - 1) % PACK_ACCENTS.length]!;
@@ -90,7 +95,7 @@ export function PackOfferCard({
         <span
           className={`flex-shrink-0 rounded-full px-2.5 py-1 font-body text-xs font-bold ${accent.chip}`}
         >
-          {formatPrice(total, currency)}
+          {masked ? '••••••' : formatPrice(total, currency)}
         </span>
       </div>
       <div className="flex flex-col divide-y divide-border">
@@ -103,7 +108,7 @@ export function PackOfferCard({
               )}
             </span>
             <span className="flex-shrink-0 font-body text-sm font-medium text-foreground">
-              {formatPrice(item.quantity * item.unitPrice)}
+              {masked ? '••••••' : formatPrice(item.quantity * item.unitPrice)}
             </span>
           </div>
         ))}
@@ -113,7 +118,7 @@ export function PackOfferCard({
           Sous-total
         </span>
         <span className="font-body text-sm font-bold text-foreground">
-          {formatPrice(total, currency)}
+          {masked ? '••••••' : formatPrice(total, currency)}
         </span>
       </div>
       {deposit != null && (
@@ -122,7 +127,7 @@ export function PackOfferCard({
             Acompte demandé{depositType === 'PERCENT' ? ` (${depositValue}%)` : ''}
           </span>
           <span className="font-body text-xs font-semibold text-foreground">
-            {formatPrice(deposit, currency)}
+            {masked ? '••••••' : formatPrice(deposit, currency)}
           </span>
         </div>
       )}
