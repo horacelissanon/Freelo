@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { formatPrice } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/PageStates';
 
@@ -19,6 +19,14 @@ function monthLabel(key: string): string {
   return new Date(year ?? 2026, (month ?? 1) - 1, 1)
     .toLocaleDateString('fr-FR', { month: 'short' })
     .replace('.', '');
+}
+
+function monthLabelFull(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return new Date(year ?? 2026, (month ?? 1) - 1, 1).toLocaleDateString('fr-FR', {
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 interface Point {
@@ -48,6 +56,19 @@ function buildSmoothPath(points: Point[]): string {
   return d;
 }
 
+// Boundaries between hover zones sit at the midpoint between two consecutive
+// points, so the zone a pointer is over always maps to the visually nearest
+// point instead of a fixed even split.
+function buildHoverZones(points: Point[]): { x: number; width: number }[] {
+  if (points.length === 0) return [];
+  const edges = [0];
+  for (let i = 0; i < points.length - 1; i++) {
+    edges.push((points[i]!.x + points[i + 1]!.x) / 2);
+  }
+  edges.push(CHART_WIDTH);
+  return points.map((_, i) => ({ x: edges[i]!, width: edges[i + 1]! - edges[i]! }));
+}
+
 export function RevenueTrendCard({
   data,
   masked,
@@ -57,13 +78,13 @@ export function RevenueTrendCard({
   data: RevenueTrendPoint[];
   masked?: boolean;
   title?: string;
-  /** Currency these amounts are stored in (the account's default — this
-   *  trend has no per-currency breakdown, so it never follows the global
-   *  currency-display switcher). Shown next to the total to avoid an
-   *  unlabeled figure sitting beside converted StatCards. */
+  /** Currency these amounts are expressed in — shown next to the total and
+   *  in the hover tooltip so neither reads as an unlabeled, ambiguous
+   *  figure once the global currency-display switcher is in play. */
   unit?: string;
 }) {
   const gradientId = useId();
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const max = Math.max(1, ...data.map((d) => d.amount));
   const hasRevenue = data.some((d) => d.amount > 0);
 
@@ -84,6 +105,8 @@ export function RevenueTrendCard({
       ? `${linePath} L ${points[points.length - 1]!.x} ${baseY} L ${points[0]!.x} ${baseY} Z`
       : '';
   const last = points[points.length - 1];
+  const hoverZones = buildHoverZones(points);
+  const hovered = hoverIndex !== null ? points[hoverIndex] : undefined;
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-border bg-canvas shadow-card p-5">
@@ -106,48 +129,100 @@ export function RevenueTrendCard({
         />
       ) : (
         <div className="flex flex-1 flex-col justify-center">
-          <svg
-            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-            className="w-full"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label={title}
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" style={{ stopColor: 'var(--color-primary)', stopOpacity: 0.3 }} />
-                <stop offset="100%" style={{ stopColor: 'var(--color-primary)', stopOpacity: 0 }} />
-              </linearGradient>
-            </defs>
-            <line
-              x1={PADDING_X}
-              y1={baseY}
-              x2={CHART_WIDTH - PADDING_X}
-              y2={baseY}
-              className="stroke-border"
-              strokeDasharray="4 4"
-            />
-            <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-            <path
-              d={linePath}
-              fill="none"
-              className="stroke-primary"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            {points.map((p, i) => (
-              <circle
-                key={p.month}
-                cx={p.x}
-                cy={p.y}
-                r={i === points.length - 1 ? 5 : 3}
-                className={i === points.length - 1 ? 'fill-primary' : 'fill-canvas'}
-                strokeWidth={2}
-                stroke="var(--color-primary)"
+          <div className="relative">
+            <svg
+              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+              className="w-full"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label={title}
+            >
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="0%"
+                    style={{ stopColor: 'var(--color-primary)', stopOpacity: 0.3 }}
+                  />
+                  <stop
+                    offset="100%"
+                    style={{ stopColor: 'var(--color-primary)', stopOpacity: 0 }}
+                  />
+                </linearGradient>
+              </defs>
+              <line
+                x1={PADDING_X}
+                y1={baseY}
+                x2={CHART_WIDTH - PADDING_X}
+                y2={baseY}
+                className="stroke-border"
+                strokeDasharray="4 4"
               />
-            ))}
-          </svg>
+              <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+              <path
+                d={linePath}
+                fill="none"
+                className="stroke-primary"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {hovered && (
+                <line
+                  x1={hovered.x}
+                  x2={hovered.x}
+                  y1={PADDING_Y}
+                  y2={baseY}
+                  className="stroke-primary/30"
+                  strokeWidth={1}
+                />
+              )}
+              {points.map((p, i) => (
+                <circle
+                  key={p.month}
+                  cx={p.x}
+                  cy={p.y}
+                  r={i === hoverIndex ? 6 : i === points.length - 1 ? 5 : 3}
+                  className={
+                    i === hoverIndex || i === points.length - 1 ? 'fill-primary' : 'fill-canvas'
+                  }
+                  strokeWidth={2}
+                  stroke="var(--color-primary)"
+                />
+              ))}
+              {hoverZones.map((zone, i) => (
+                <rect
+                  key={points[i]!.month}
+                  x={zone.x}
+                  y={0}
+                  width={zone.width}
+                  height={CHART_HEIGHT}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoverIndex(i)}
+                  onMouseLeave={() => setHoverIndex((prev) => (prev === i ? null : prev))}
+                  onTouchStart={() => setHoverIndex(i)}
+                />
+              ))}
+            </svg>
+            {hovered && (
+              <div
+                className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-md border border-border bg-canvas px-2.5 py-1.5 text-center shadow-lg"
+                style={{
+                  left: `${(hovered.x / CHART_WIDTH) * 100}%`,
+                  top: `${Math.max((hovered.y / CHART_HEIGHT) * 100, 12)}%`,
+                  marginTop: '-10px',
+                }}
+              >
+                <p className="whitespace-nowrap font-body text-xs font-medium text-foreground capitalize">
+                  {monthLabelFull(hovered.month)}
+                </p>
+                <p className="whitespace-nowrap font-body text-xs font-semibold text-primary">
+                  {masked ? '••••' : formatPrice(hovered.amount)}
+                  {!masked && unit && <span className="ml-1 font-normal">{unit}</span>}
+                </p>
+              </div>
+            )}
+          </div>
           <div className="mt-2 flex justify-between">
             {data.map((d) => (
               <span

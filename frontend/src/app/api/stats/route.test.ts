@@ -79,7 +79,11 @@ describe('GET /api/stats', () => {
     expect(body.suggestions).toEqual([]);
     expect(body.revenueTrend).toHaveLength(12);
     for (const bucket of body.revenueTrend) {
-      expect(bucket).toEqual({ month: expect.stringMatching(/^\d{4}-\d{2}$/), amount: 0 });
+      expect(bucket).toEqual({
+        month: expect.stringMatching(/^\d{4}-\d{2}$/),
+        amount: 0,
+        amountsByCurrency: {},
+      });
     }
   });
 

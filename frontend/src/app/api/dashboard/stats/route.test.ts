@@ -77,7 +77,11 @@ describe('GET /api/dashboard/stats', () => {
     });
     expect(body.revenueTrend).toHaveLength(6);
     for (const bucket of body.revenueTrend) {
-      expect(bucket).toEqual({ month: expect.stringMatching(/^\d{4}-\d{2}$/), amount: 0 });
+      expect(bucket).toEqual({
+        month: expect.stringMatching(/^\d{4}-\d{2}$/),
+        amount: 0,
+        amountsByCurrency: {},
+      });
     }
   });
 
@@ -98,11 +102,19 @@ describe('GET /api/dashboard/stats', () => {
     const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.revenueTrend).toHaveLength(6);
-    expect(body.revenueTrend[5]).toEqual({ month: thisMonthKey, amount: 80000 });
+    expect(body.revenueTrend[5]).toEqual({
+      month: thisMonthKey,
+      amount: 80000,
+      amountsByCurrency: { XOF: 80000 },
+    });
     const twoMonthsAgoBucket = body.revenueTrend.find(
       (b: { month: string }) => b.month === twoMonthsAgoKey,
     );
-    expect(twoMonthsAgoBucket).toEqual({ month: twoMonthsAgoKey, amount: 20000 });
+    expect(twoMonthsAgoBucket).toEqual({
+      month: twoMonthsAgoKey,
+      amount: 20000,
+      amountsByCurrency: { XOF: 20000 },
+    });
   });
 
   it('revenue trendPercent computed from this-month vs last-month PAID invoice sums', async () => {

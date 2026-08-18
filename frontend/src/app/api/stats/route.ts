@@ -125,10 +125,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const key = monthBucketKey(new Date(row.issueDate));
       buckets.get(key)?.push(row);
     }
-    const revenueTrend = Array.from(buckets.entries()).map(([month, rows]) => ({
-      month,
-      amount: sumConverted(rows, defaultCurrency, rates).amountDefault,
-    }));
+    const revenueTrend = Array.from(buckets.entries()).map(([month, rows]) => {
+      const bucket = sumConverted(rows, defaultCurrency, rates);
+      return { month, amount: bucket.amountDefault, amountsByCurrency: bucket.amountsByCurrency };
+    });
 
     // Convert each delivered project's amount into defaultCurrency before
     // bucketing by type — a raw sum would mix XOF/EUR/USD amounts together.
