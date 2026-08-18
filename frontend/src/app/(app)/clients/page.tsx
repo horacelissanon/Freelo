@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useUser } from '@/contexts/AuthContext';
+import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 import { useApi } from '@/lib/useApi';
+import { displayAmount } from '@/lib/displayAmount';
 import { ClientRow } from '@/components/clients/ClientRow';
 import { ClientCard } from '@/components/clients/ClientCard';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -40,6 +42,7 @@ const inputClass =
 export default function ClientsPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
+  const { displayCurrency } = useDisplayCurrency();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
@@ -48,7 +51,19 @@ export default function ClientsPage() {
     items: ClientApiRow[];
     totalRevenue: number;
     totalRevenueCurrency: string;
+    totalRevenueByCurrency: Record<string, number>;
   }>('/api/clients?limit=50');
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
+  const displayTotalRevenue = data
+    ? displayAmount({
+        amountDefault: data.totalRevenue,
+        amountsByCurrency: data.totalRevenueByCurrency,
+        displayCurrency,
+        defaultCurrency: data.totalRevenueCurrency,
+        liveRates,
+      })
+    : 0;
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_STORAGE_KEY);
@@ -134,8 +149,8 @@ export default function ClientsPage() {
           />
           <StatCard
             label="Chiffre d'affaires total"
-            value={formatPrice(data?.totalRevenue ?? 0)}
-            unit={data?.totalRevenueCurrency ?? 'XOF'}
+            value={formatPrice(displayTotalRevenue)}
+            unit={displayCurrency}
             icon="banknote"
           />
         </div>

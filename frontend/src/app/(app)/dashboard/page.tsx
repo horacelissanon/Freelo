@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
+import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
+import { displayAmount } from '@/lib/displayAmount';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ProjectRow, type ProjectRowData } from '@/components/dashboard/ProjectRow';
 import { AlertBanner } from '@/components/dashboard/AlertBanner';
@@ -19,9 +21,19 @@ import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
 import type { ProjectStatus, InvoiceStatus } from '@/lib/constants';
 
 interface DashboardStats {
-  revenue: { amount: number; currency: string; trendPercent: number | null };
+  revenue: {
+    amount: number;
+    currency: string;
+    amountsByCurrency: Record<string, number>;
+    trendPercent: number | null;
+  };
   activeProjects: { count: number };
-  pendingInvoices: { amount: number; currency: string; overdueCount: number };
+  pendingInvoices: {
+    amount: number;
+    currency: string;
+    amountsByCurrency: Record<string, number>;
+    overdueCount: number;
+  };
   newClients: { count: number; trend: number };
   revenueTrend: { month: string; amount: number }[];
 }
@@ -63,11 +75,38 @@ const MONEY_MASK_KEY = 'merrudit-dashboard-money-masked';
 export default function DashboardPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
+  const { displayCurrency } = useDisplayCurrency();
   const stats = useApi<DashboardStats>('/api/dashboard/stats');
   const projects = useApi<{ items: ProjectApiRow[] }>('/api/projects?status=ACTIVE&limit=5');
   const notifications = useApi<{ items: NotificationApiRow[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
   const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
+
+  // Global currency-display switcher — recomputed from the same
+  // amountDefault/amountsByCurrency pair the API already returns, never a
+  // fresh fetch or a mutation of the underlying documents. See
+  // lib/displayAmount.ts for why this equals amountDefault whenever
+  // displayCurrency === the account's own default.
+  const displayRevenue = stats.data
+    ? displayAmount({
+        amountDefault: stats.data.revenue.amount,
+        amountsByCurrency: stats.data.revenue.amountsByCurrency,
+        displayCurrency,
+        defaultCurrency: stats.data.revenue.currency,
+        liveRates,
+      })
+    : 0;
+  const displayPendingInvoices = stats.data
+    ? displayAmount({
+        amountDefault: stats.data.pendingInvoices.amount,
+        amountsByCurrency: stats.data.pendingInvoices.amountsByCurrency,
+        displayCurrency,
+        defaultCurrency: stats.data.pendingInvoices.currency,
+        liveRates,
+      })
+    : 0;
 
   // Per-device preference, not a server setting — same pattern as
   // sidebar-collapsed/bottom-nav-glass. Defaults to visible. The eye toggle
@@ -148,7 +187,7 @@ export default function DashboardPage() {
     const n = stats.data.pendingInvoices.overdueCount;
     const amountText = moneyMasked
       ? ''
-      : ` — ${formatPrice(stats.data.pendingInvoices.amount)} FCFA à encaisser`;
+      : ` — ${formatPrice(displayPendingInvoices)} ${displayCurrency} à encaisser`;
     alert = {
       text: `${n} facture${n > 1 ? 's' : ''} en retard${amountText}`,
       href: '/invoices',
@@ -209,8 +248,8 @@ export default function DashboardPage() {
         <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <StatCard
             label="Chiffre d'affaires ce mois-ci"
-            value={formatPrice(stats.data.revenue.amount)}
-            unit={stats.data.revenue.currency}
+            value={formatPrice(displayRevenue)}
+            unit={displayCurrency}
             icon="banknote"
             trend={
               stats.data.revenue.trendPercent === null
@@ -229,8 +268,8 @@ export default function DashboardPage() {
           />
           <StatCard
             label="Factures en attente"
-            value={formatPrice(stats.data.pendingInvoices.amount)}
-            unit={stats.data.pendingInvoices.currency}
+            value={formatPrice(displayPendingInvoices)}
+            unit={displayCurrency}
             icon="file-clock"
             trend={
               stats.data.pendingInvoices.overdueCount > 0
@@ -298,7 +337,7 @@ export default function DashboardPage() {
           {stats.data && (
             <UnpaidInvoicesPanel
               invoices={unpaidInvoices}
-              total={stats.data.pendingInvoices.amount}
+              total={displayPendingInvoices}
               masked={moneyMasked}
             />
           )}

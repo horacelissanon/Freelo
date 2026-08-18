@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
+import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 import { useApi } from '@/lib/useApi';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
@@ -18,7 +19,7 @@ import type { ExportColumn } from '@/lib/export/types';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance, computePackDeposit, type PackDepositSource } from '@/lib/invoiceTotals';
-import { sumConverted } from '@/lib/currencyConvert';
+import { sumForDisplay } from '@/lib/displayAmount';
 import { INVOICE_STATUS_LABELS, type InvoiceStatus, type InvoiceDocType } from '@/lib/constants';
 import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
@@ -285,27 +286,34 @@ function FacturesTab({
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
+  const { displayCurrency } = useDisplayCurrency();
+
   // Converted per row via each invoice's own frozen exchangeRateToDefault
-  // (or the live cache for legacy rows) before summing — a raw reduce would
-  // mix XOF/EUR/USD amounts together into a meaningless number.
-  const totalPaid = sumConverted(
+  // (or the live cache for legacy rows) before summing into defaultCurrency
+  // (stable), then re-displayed in whichever currency the global switcher
+  // has picked — a raw reduce would mix XOF/EUR/USD amounts together into a
+  // meaningless number.
+  const totalPaid = sumForDisplay(
     dateScoped.filter((r) => r.status === 'PAID'),
     defaultCurrency,
+    displayCurrency,
     liveRates,
-  ).amountDefault;
+  );
   // Split rather than folded together — "En attente" (not yet due) and "En
   // retard" (past due, needs chasing) call for different actions, so they
   // stay two distinct cards instead of one combined total.
-  const totalPending = sumConverted(
+  const totalPending = sumForDisplay(
     dateScoped.filter((r) => r.status === 'SENT'),
     defaultCurrency,
+    displayCurrency,
     liveRates,
-  ).amountDefault;
-  const totalOverdue = sumConverted(
+  );
+  const totalOverdue = sumForDisplay(
     dateScoped.filter((r) => r.status === 'OVERDUE'),
     defaultCurrency,
+    displayCurrency,
     liveRates,
-  ).amountDefault;
+  );
 
   return (
     <>
@@ -326,19 +334,19 @@ function FacturesTab({
           <StatCard
             label="Chiffre d'affaires total"
             value={formatPrice(totalPaid)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="check-circle"
           />
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="file-clock"
           />
           <StatCard
             label="En retard"
             value={formatPrice(totalOverdue)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="alert-circle"
           />
         </div>
@@ -417,30 +425,35 @@ function DevisTab({
   // business, so folding them into "value" totals would inflate the
   // numbers with speculative or already-lost devis. Still fully visible in
   // the list underneath via the status filter.
+  const { displayCurrency } = useDisplayCurrency();
   const pendingRows = dateScoped.filter((r) => r.status === 'SENT');
   const acceptedRows = dateScoped.filter((r) => r.status === 'ACCEPTED');
   // Converted per row via each devis's own frozen exchangeRateToDefault (or
-  // the live cache for legacy rows) before summing — a raw reduce would mix
-  // XOF/EUR/USD amounts together into a meaningless number.
-  const totalPending = sumConverted(pendingRows, defaultCurrency, liveRates).amountDefault;
-  const depositExpected = sumConverted(
+  // the live cache for legacy rows) before summing into defaultCurrency
+  // (stable), then re-displayed in whichever currency the global switcher
+  // has picked — a raw reduce would mix XOF/EUR/USD amounts together into a
+  // meaningless number.
+  const totalPending = sumForDisplay(pendingRows, defaultCurrency, displayCurrency, liveRates);
+  const depositExpected = sumForDisplay(
     [...pendingRows, ...acceptedRows].map((r) => ({
       amount: resolveDevisDeposit(r) ?? 0,
       currency: r.currency,
       exchangeRateToDefault: r.exchangeRateToDefault,
     })),
     defaultCurrency,
+    displayCurrency,
     liveRates,
-  ).amountDefault;
-  const depositReceived = sumConverted(
+  );
+  const depositReceived = sumForDisplay(
     [...pendingRows, ...acceptedRows].map((r) => ({
       amount: r.depositReceived,
       currency: r.currency,
       exchangeRateToDefault: r.exchangeRateToDefault,
     })),
     defaultCurrency,
+    displayCurrency,
     liveRates,
-  ).amountDefault;
+  );
 
   return (
     <>
@@ -461,20 +474,20 @@ function DevisTab({
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="file-clock"
           />
           <StatCard label="Acceptés" value={String(acceptedRows.length)} icon="check-circle" />
           <StatCard
             label="Acompte prévu"
             value={formatPrice(depositExpected)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="banknote"
           />
           <StatCard
             label="Acompte reçu"
             value={formatPrice(depositReceived)}
-            unit={defaultCurrency}
+            unit={displayCurrency}
             icon="wallet"
           />
         </div>

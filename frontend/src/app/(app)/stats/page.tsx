@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
+import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 import { useApi } from '@/lib/useApi';
+import { displayAmount } from '@/lib/displayAmount';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RevenueTrendCard, type RevenueTrendPoint } from '@/components/dashboard/RevenueTrendCard';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
@@ -30,7 +32,12 @@ interface Suggestion {
 
 interface StatsResponse {
   overview: {
-    revenue: { amount: number; currency: string; trendPercent: number | null };
+    revenue: {
+      amount: number;
+      currency: string;
+      amountsByCurrency: Record<string, number>;
+      trendPercent: number | null;
+    };
     avgProjectValue: { amount: number; currency: string } | null;
     overdueRate: number | null;
   };
@@ -146,9 +153,22 @@ function SuggestionsCard({ items }: { items: Suggestion[] }) {
 
 export default function StatsPage() {
   const user = useUser();
+  const { displayCurrency } = useDisplayCurrency();
   const { data, loading, error, refresh } = useApi<StatsResponse>('/api/stats');
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
 
   if (!user) return null;
+
+  const displayRevenue = data
+    ? displayAmount({
+        amountDefault: data.overview.revenue.amount,
+        amountsByCurrency: data.overview.revenue.amountsByCurrency,
+        displayCurrency,
+        defaultCurrency: data.overview.revenue.currency,
+        liveRates,
+      })
+    : 0;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -175,8 +195,8 @@ export default function StatsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <StatCard
               label="Revenu du mois"
-              value={formatPrice(data.overview.revenue.amount)}
-              unit={data.overview.revenue.currency}
+              value={formatPrice(displayRevenue)}
+              unit={displayCurrency}
               icon="banknote"
               trend={
                 data.overview.revenue.trendPercent != null
