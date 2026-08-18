@@ -56,10 +56,15 @@ export interface InvoicePdfData {
     email: string;
     bio?: string | null;
     phone?: string | null;
+    // Accepted for API-shape parity with ResolvedDocumentIdentity, but not
+    // rendered — slogan took over the "under the name" header spot, and the
+    // freelancer's own footerNote/mention légale is the place to mention an
+    // address, since it's the only free-text spot both renderers guarantee.
     address?: string | null;
     taxId?: string | null;
     commerceRegistry?: string | null;
     brandColor?: string | null;
+    slogan?: string | null;
   };
   lineItems: PdfLineItem[];
   packs: PdfPack[];
@@ -107,8 +112,12 @@ const styles = StyleSheet.create({
   headerCenter: { flexGrow: 1, flexBasis: 0, alignItems: 'center' },
   providerName: { fontSize: 13, fontWeight: 700, marginBottom: 3 },
   muted: { color: '#6b6b6b', fontSize: 9 },
-  docTitle: { fontSize: 20, fontWeight: 700, color: PRIMARY, textAlign: 'right' },
-  docNumber: { fontSize: 11, textAlign: 'right', marginTop: 2, color: PRIMARY },
+  // Neutral, not brand-colored — mirrors the on-screen preview's "FACTURE"
+  // heading (text-foreground). Only docNumber carries the brand color there
+  // (text-primary, now driven by the same provider.brandColor as here), so
+  // the two renderers agree on which single element gets the accent.
+  docTitle: { fontSize: 20, fontWeight: 700, textAlign: 'right' },
+  docNumber: { fontSize: 11, textAlign: 'right', marginTop: 2 },
   partiesRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 22, gap: 16 },
   partyBlock: { flexGrow: 1, flexBasis: 0 },
   label: {
@@ -172,9 +181,11 @@ const styles = StyleSheet.create({
     borderTopColor: '#1a1a1a',
   },
   grandTotalLabel: { fontSize: 10, fontWeight: 700 },
-  grandTotalValue: { fontSize: 12, fontWeight: 700, color: PRIMARY },
+  // Neutral — mirrors the on-screen preview's plain "TOTAL" box (text-foreground).
+  grandTotalValue: { fontSize: 12, fontWeight: 700 },
   section: { marginTop: 20 },
-  sectionTitle: { fontSize: 11, fontWeight: 700, marginBottom: 6, color: PRIMARY },
+  // Neutral — mirrors the on-screen preview's muted uppercase section labels.
+  sectionTitle: { fontSize: 11, fontWeight: 700, marginBottom: 6 },
   blockPrimary: { fontSize: 10, fontWeight: 700, marginBottom: 2 },
   blockSecondary: { fontSize: 9, color: '#4a4a4a', marginBottom: 8 },
   // Pinned to the true bottom of the physical A4 sheet (not flowed right
@@ -249,6 +260,7 @@ function InvoiceDocument({
   const conditionBlocks = data.contentBlocks.filter((b) => b.kind === 'CONDITIONS');
   const paymentBlocks = data.contentBlocks.filter((b) => b.kind === 'PAYMENT_METHOD');
   const faqBlocks = data.contentBlocks.filter((b) => b.kind === 'FAQ');
+  const accent = data.provider.brandColor ?? PRIMARY;
 
   return (
     <Document
@@ -260,18 +272,7 @@ function InvoiceDocument({
         <View style={styles.headerRow}>
           <View style={styles.headerSide}>
             <Text style={styles.providerName}>{data.provider.name}</Text>
-            {data.provider.address && <Text style={styles.muted}>{data.provider.address}</Text>}
-            {data.provider.phone && <Text style={styles.muted}>{data.provider.phone}</Text>}
-            {(data.provider.taxId || data.provider.commerceRegistry) && (
-              <Text style={styles.muted}>
-                {[
-                  data.provider.taxId && `NIF ${data.provider.taxId}`,
-                  data.provider.commerceRegistry && `RCCM ${data.provider.commerceRegistry}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Text>
-            )}
+            {data.provider.slogan && <Text style={styles.muted}>{data.provider.slogan}</Text>}
           </View>
           {qrCodeDataUrl && (
             <View style={styles.headerCenter}>
@@ -281,7 +282,7 @@ function InvoiceDocument({
           )}
           <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
             <Text style={styles.docTitle}>{DOC_LABELS[data.docType]}</Text>
-            <Text style={styles.docNumber}>{data.number}</Text>
+            <Text style={[styles.docNumber, { color: accent }]}>{data.number}</Text>
             <Text style={[styles.muted, { textAlign: 'right', marginTop: 4 }]}>
               Émis le {formatLongDate(data.issueDate)}
             </Text>
@@ -299,7 +300,16 @@ function InvoiceDocument({
             <Text style={styles.partyName}>{data.provider.name}</Text>
             {data.provider.phone && <Text style={styles.muted}>{data.provider.phone}</Text>}
             <Text style={styles.muted}>{data.provider.email}</Text>
-            {data.provider.bio && <Text style={styles.muted}>{data.provider.bio}</Text>}
+            {(data.provider.taxId || data.provider.commerceRegistry) && (
+              <Text style={styles.muted}>
+                {[
+                  data.provider.taxId && `NIF ${data.provider.taxId}`,
+                  data.provider.commerceRegistry && `RCCM ${data.provider.commerceRegistry}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            )}
           </View>
           <View style={styles.partyBlock}>
             <Text style={styles.label}>Client</Text>
@@ -386,13 +396,6 @@ function InvoiceDocument({
           </>
         )}
 
-        {isQuote && data.paymentTermsNote && (
-          <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>Modalités de paiement</Text>
-            <Text style={{ fontSize: 9.5 }}>{data.paymentTermsNote}</Text>
-          </View>
-        )}
-
         {!isQuote && (data.deliveryDate || data.paymentMethodNote) && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>Règlement</Text>
@@ -407,7 +410,17 @@ function InvoiceDocument({
           </View>
         )}
 
-        {processBlocks.length > 0 && (
+        {/* Content blocks (présentation, étapes, conditions, modalités, FAQ) are
+            devis-only, mirroring the on-screen preview which gates this whole
+            section behind docType === 'QUOTE'. */}
+        {isQuote && data.provider.bio && (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle}>Votre présentation</Text>
+            <Text style={{ fontSize: 9.5 }}>{data.provider.bio}</Text>
+          </View>
+        )}
+
+        {isQuote && processBlocks.length > 0 && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>{CONTENT_BLOCK_LABELS.PROCESS}</Text>
             {processBlocks.map((b, i) => (
@@ -421,7 +434,7 @@ function InvoiceDocument({
           </View>
         )}
 
-        {conditionBlocks.length > 0 && (
+        {isQuote && conditionBlocks.length > 0 && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>{CONTENT_BLOCK_LABELS.CONDITIONS}</Text>
             {conditionBlocks.map((b, i) => (
@@ -433,19 +446,25 @@ function InvoiceDocument({
           </View>
         )}
 
-        {paymentBlocks.length > 0 && (
+        {isQuote && (data.paymentTermsNote || paymentBlocks.length > 0) && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>{CONTENT_BLOCK_LABELS.PAYMENT_METHOD}</Text>
+            {data.paymentTermsNote && (
+              <Text style={{ fontSize: 9.5, marginBottom: 4 }}>{data.paymentTermsNote}</Text>
+            )}
             {paymentBlocks.map((b, i) => (
               <View key={i} style={{ marginBottom: 6 }}>
                 <Text style={styles.blockPrimary}>{b.primaryText}</Text>
                 {b.secondaryText && <Text style={styles.blockSecondary}>{b.secondaryText}</Text>}
               </View>
             ))}
+            <Text style={{ fontSize: 8, color: '#6b6b6b', marginTop: 2 }}>
+              À titre indicatif — aucun paiement en ligne n&apos;est traité à l&apos;étape du devis.
+            </Text>
           </View>
         )}
 
-        {faqBlocks.length > 0 && (
+        {isQuote && faqBlocks.length > 0 && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>{CONTENT_BLOCK_LABELS.FAQ}</Text>
             {faqBlocks.map((b, i) => (
@@ -458,10 +477,7 @@ function InvoiceDocument({
         )}
 
         {data.footerNote && (
-          <View
-            fixed
-            style={[styles.footerBand, { backgroundColor: data.provider.brandColor ?? PRIMARY }]}
-          >
+          <View fixed style={[styles.footerBand, { backgroundColor: accent }]}>
             <Text style={styles.footerBandText}>{data.footerNote}</Text>
           </View>
         )}

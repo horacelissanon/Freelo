@@ -43,6 +43,10 @@ model User {
   // deliberately separate from the personal `phone` field above, which only
   // ever surfaces under documentIdentity=PERSONAL.
   companyPhone            String?
+  // Short tagline shown on devis/factures right under the provider name —
+  // independent of documentIdentity (unlike address/taxId/commerceRegistry,
+  // it applies whichever identity mode is active).
+  slogan                  String?
   // Which identity shows in the header of this user's devis/factures:
   // PERSONAL (name/phone/bio) or COMPANY (studioName/address/taxId/
   // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to

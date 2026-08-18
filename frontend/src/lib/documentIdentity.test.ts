@@ -12,6 +12,7 @@ const BASE: DocumentIdentitySource = {
   commerceRegistry: 'RCCM AB/00000',
   address: 'Cotonou',
   companyPhone: '+22961111111',
+  slogan: 'On code, vous respirez.',
 };
 
 describe('resolveDocumentIdentity', () => {
@@ -24,7 +25,15 @@ describe('resolveDocumentIdentity', () => {
       address: null,
       taxId: null,
       commerceRegistry: null,
+      slogan: 'On code, vous respirez.',
     });
+  });
+
+  it('slogan carries through unchanged regardless of identity mode', () => {
+    expect(resolveDocumentIdentity(BASE).slogan).toBe('On code, vous respirez.');
+    expect(resolveDocumentIdentity({ ...BASE, documentIdentity: 'COMPANY' }).slogan).toBe(
+      'On code, vous respirez.',
+    );
   });
 
   it('PERSONAL: falls back to email when name is unset', () => {

@@ -138,6 +138,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
         email: 'atelier@example.com',
         phone: null,
         companyPhone: null,
+        slogan: null,
         bio: 'Designer freelance.',
         address: null,
         taxId: null,
@@ -175,6 +176,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       address: null,
       taxId: null,
       commerceRegistry: null,
+      slogan: null,
     });
     expect(body.invoice.user).toBeUndefined();
   });
@@ -202,6 +204,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
         email: 'atelier@example.com',
         phone: null,
         companyPhone: null,
+        slogan: null,
         bio: null,
         address: null,
         taxId: null,
@@ -255,6 +258,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
         email: 'atelier@example.com',
         phone: null,
         companyPhone: null,
+        slogan: null,
         bio: null,
         address: null,
         taxId: null,

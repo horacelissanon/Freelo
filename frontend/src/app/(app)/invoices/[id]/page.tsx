@@ -293,9 +293,9 @@ export default function InvoiceDetailPage() {
                   <p className="font-headings text-sm font-bold text-foreground">
                     {providerIdentity.name}
                   </p>
-                  {providerIdentity.address && (
+                  {providerIdentity.slogan && (
                     <p className="font-body text-xs text-muted-foreground">
-                      {providerIdentity.address}
+                      {providerIdentity.slogan}
                     </p>
                   )}
                 </div>
@@ -321,10 +321,17 @@ export default function InvoiceDetailPage() {
                 <h1 className="font-headings text-2xl font-bold tracking-tight text-foreground">
                   {DOC_TYPE_LABELS[invoice.docType].long.toUpperCase()}
                 </h1>
-                <p className="font-body text-sm font-medium text-primary">{invoice.number}</p>
+                <p className="font-body text-sm font-medium" style={{ color: user.brandColor }}>
+                  {invoice.number}
+                </p>
                 <p className="mt-1 font-body text-xs text-muted-foreground">
                   Émise le {formatLongDate(invoice.issueDate)}
                 </p>
+                {invoice.dueDate && (
+                  <p className="font-body text-xs text-muted-foreground">
+                    Échéance {formatLongDate(invoice.dueDate)}
+                  </p>
+                )}
               </div>
             </div>
 

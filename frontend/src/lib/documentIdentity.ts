@@ -18,6 +18,7 @@ export interface DocumentIdentitySource {
   commerceRegistry: string | null;
   address: string | null;
   companyPhone: string | null;
+  slogan: string | null;
 }
 
 export interface ResolvedDocumentIdentity {
@@ -27,6 +28,7 @@ export interface ResolvedDocumentIdentity {
   address: string | null;
   taxId: string | null;
   commerceRegistry: string | null;
+  slogan: string | null;
 }
 
 export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedDocumentIdentity {
@@ -38,6 +40,7 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
       address: null,
       taxId: null,
       commerceRegistry: null,
+      slogan: user.slogan,
     };
   }
   // COMPANY: fall back to the personal name when no studio name was filled
@@ -52,5 +55,6 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
     address: user.address,
     taxId: user.taxId,
     commerceRegistry: user.commerceRegistry,
+    slogan: user.slogan,
   };
 }

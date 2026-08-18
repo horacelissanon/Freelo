@@ -218,6 +218,7 @@ export async function GET(
             email: true,
             phone: true,
             companyPhone: true,
+            slogan: true,
             bio: true,
             address: true,
             taxId: true,

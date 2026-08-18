@@ -119,6 +119,7 @@ interface QuoteOrInvoiceView {
     address: string | null;
     taxId: string | null;
     commerceRegistry: string | null;
+    slogan: string | null;
   };
   // Raw phone, independent of the documentIdentity header choice — needed
   // for the "J'ai envoyé l'acompte" WhatsApp button even when the provider
@@ -1364,9 +1365,9 @@ function QuoteInvoiceDetail({
             {provider.name && (
               <p className="mt-1 font-body text-sm text-white/80">Préparé par {provider.name}</p>
             )}
-            {(provider.address || provider.phone) && (
+            {(provider.slogan || provider.phone) && (
               <p className="mt-0.5 font-body text-xs text-white/60">
-                {provider.address || provider.phone}
+                {provider.slogan || provider.phone}
               </p>
             )}
           </div>

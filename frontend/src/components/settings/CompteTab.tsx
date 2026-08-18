@@ -57,6 +57,7 @@ export function CompteTab({ user }: { user: User }) {
 
   const [studioName, setStudioName] = useState(user.studioName ?? '');
   const [companyPhone, setCompanyPhone] = useState(user.companyPhone ?? '');
+  const [slogan, setSlogan] = useState(user.slogan ?? '');
   const [taxId, setTaxId] = useState(user.taxId ?? '');
   const [commerceRegistry, setCommerceRegistry] = useState(user.commerceRegistry ?? '');
   const [address, setAddress] = useState(user.address ?? '');
@@ -112,6 +113,7 @@ export function CompteTab({ user }: { user: User }) {
           bio: bio.trim(),
           studioName: studioName.trim(),
           companyPhone: companyPhone.trim(),
+          slogan: slogan.trim(),
           taxId: taxId.trim(),
           commerceRegistry: commerceRegistry.trim(),
           address: address.trim(),
@@ -143,6 +145,7 @@ export function CompteTab({ user }: { user: User }) {
     setBio(user.bio ?? '');
     setStudioName(user.studioName ?? '');
     setCompanyPhone(user.companyPhone ?? '');
+    setSlogan(user.slogan ?? '');
     setTaxId(user.taxId ?? '');
     setCommerceRegistry(user.commerceRegistry ?? '');
     setAddress(user.address ?? '');
@@ -354,6 +357,24 @@ export function CompteTab({ user }: { user: User }) {
               </button>
             </div>
           </div>
+
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Slogan
+            <span className="font-body text-xs font-normal text-muted-foreground">
+              Affiché juste sous ton nom sur tes devis/factures, quelle que soit l&apos;identité
+              choisie ci-dessus.
+            </span>
+            <input
+              type="text"
+              value={slogan}
+              onChange={(e) => {
+                setSlogan(e.target.value);
+                markDirty();
+              }}
+              maxLength={150}
+              className={inputClass}
+            />
+          </label>
 
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
             Nom de l&apos;entreprise
