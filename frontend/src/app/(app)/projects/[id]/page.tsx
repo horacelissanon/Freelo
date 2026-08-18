@@ -5,10 +5,16 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi, invalidateCache, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
+import {
+  projectDeadlineUrgency,
+  DEADLINE_URGENCY_STYLE,
+  DEADLINE_URGENCY_LABEL,
+} from '@/lib/projectDeadline';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { Icon } from '@/components/ui/Icon';
 import { StarRating } from '@/components/ui/StarRating';
@@ -214,8 +220,10 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const projectFactures = invoices.filter((inv) => inv.docType !== 'QUOTE');
   const { toast } = useToast();
   const user = useUser();
+  const { moneyMasked } = useMoneyMask();
   const [creatingInvoiceOpen, setCreatingInvoiceOpen] = useState(false);
   const statusColors = PROJECT_STATUS_COLORS[project.status];
+  const deadlineUrgency = projectDeadlineUrgency(project.dueDate, project.status);
   const effectiveSector = resolveFreelanceSector(project.sector, project.type).code;
   const trackingUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/suivi/${project.publicToken}` : '';
@@ -512,14 +520,25 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
             <div className="rounded-lg border border-border bg-canvas shadow-card p-4">
               <p className="font-body text-xs text-muted-foreground">Budget</p>
               <p className="mt-1 font-headings text-base font-bold text-foreground">
-                {formatPrice(project.amount)} {project.currency}
+                {moneyMasked ? '••••••' : `${formatPrice(project.amount)} ${project.currency}`}
               </p>
             </div>
             <div className="rounded-lg border border-border bg-canvas shadow-card p-4">
               <p className="font-body text-xs text-muted-foreground">Échéance</p>
-              <p className="mt-1 font-headings text-base font-bold text-foreground">
-                {project.dueDate ? formatDate(project.dueDate) : '—'}
+              <p
+                className={`mt-1 font-headings text-base font-bold ${deadlineUrgency ? DEADLINE_URGENCY_STYLE[deadlineUrgency] : 'text-foreground'}`}
+              >
+                {deadlineUrgency
+                  ? DEADLINE_URGENCY_LABEL[deadlineUrgency]
+                  : project.dueDate
+                    ? formatDate(project.dueDate)
+                    : '—'}
               </p>
+              {deadlineUrgency && project.dueDate && (
+                <p className="mt-0.5 font-body text-xs text-muted-foreground">
+                  {formatDate(project.dueDate)}
+                </p>
+              )}
             </div>
             <div className="rounded-lg border border-border bg-canvas shadow-card p-4">
               <p className="font-body text-xs text-muted-foreground">Avancement</p>
@@ -687,7 +706,9 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                       {project.depositType === 'PERCENT' ? ` (${project.depositValue}%)` : ''}
                     </p>
                     <p className="font-body text-xs text-muted-foreground">
-                      {formatPrice(deposit.amount)} {project.currency}
+                      {moneyMasked
+                        ? '••••••'
+                        : `${formatPrice(deposit.amount)} ${project.currency}`}
                     </p>
                   </div>
                   <span
@@ -701,7 +722,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                 <div>
                   <p className="font-body text-sm font-medium text-foreground">Solde</p>
                   <p className="font-body text-xs text-muted-foreground">
-                    {formatPrice(balance.amount)} {project.currency}
+                    {moneyMasked ? '••••••' : `${formatPrice(balance.amount)} ${project.currency}`}
                   </p>
                 </div>
                 <span
@@ -915,6 +936,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                   {projectDevis.map((inv) => (
                     <InvoiceRow
                       key={inv.id}
+                      masked={moneyMasked}
                       invoice={{
                         id: inv.id,
                         number: inv.number,
@@ -965,6 +987,7 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
                   {projectFactures.map((inv) => (
                     <InvoiceRow
                       key={inv.id}
+                      masked={moneyMasked}
                       invoice={{
                         id: inv.id,
                         number: inv.number,

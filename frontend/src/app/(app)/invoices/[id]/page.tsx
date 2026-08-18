@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api, ApiError } from '@/lib/api';
 import { formatPrice, formatLongDate, formatDate } from '@/lib/utils';
@@ -106,6 +107,8 @@ export default function InvoiceDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const { moneyMasked } = useMoneyMask();
+  const mask = (text: string) => (moneyMasked ? '••••••' : text);
   const { data: invoice, loading, error, refresh } = useApi<InvoiceDetail>(`/api/invoices/${id}`);
   const [changingStatus, setChangingStatus] = useState<InvoiceStatus | null>(null);
   const [confirmingPaid, setConfirmingPaid] = useState(false);
@@ -385,10 +388,10 @@ export default function InvoiceDetailPage() {
                         {item.quantity}
                       </span>
                       <span className="w-28 flex-shrink-0 text-right font-body text-sm text-muted-foreground">
-                        {formatPrice(item.unitPrice)}
+                        {mask(formatPrice(item.unitPrice))}
                       </span>
                       <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
-                        {formatPrice(item.quantity * item.unitPrice)}
+                        {mask(formatPrice(item.quantity * item.unitPrice))}
                       </span>
                     </div>
                   ))}
@@ -428,7 +431,7 @@ export default function InvoiceDetailPage() {
                           : DOC_TYPE_LABELS[invoice.docType].long)}
                     </span>
                     <span className="w-28 flex-shrink-0 text-right font-body text-sm font-medium text-foreground">
-                      {formatPrice(invoice.amount, invoice.currency)}
+                      {mask(formatPrice(invoice.amount, invoice.currency))}
                     </span>
                   </div>
                 </div>
@@ -440,7 +443,7 @@ export default function InvoiceDetailPage() {
                       Total
                     </span>
                     <span className="font-headings text-base font-bold text-foreground">
-                      {formatPrice(invoice.amount, invoice.currency)}
+                      {mask(formatPrice(invoice.amount, invoice.currency))}
                     </span>
                   </div>
                 </div>
@@ -578,7 +581,7 @@ export default function InvoiceDetailPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Acompte</p>
                       <p className="font-medium text-foreground">
-                        {formatPrice(invoice.depositAmount, invoice.currency)}
+                        {mask(formatPrice(invoice.depositAmount, invoice.currency))}
                       </p>
                     </div>
                   )}
@@ -586,9 +589,11 @@ export default function InvoiceDetailPage() {
                     <div>
                       <p className="text-xs text-muted-foreground">Solde</p>
                       <p className="font-medium text-foreground">
-                        {formatPrice(
-                          computeBalance(invoice.amount, invoice.depositAmount),
-                          invoice.currency,
+                        {mask(
+                          formatPrice(
+                            computeBalance(invoice.amount, invoice.depositAmount),
+                            invoice.currency,
+                          ),
                         )}
                       </p>
                     </div>
@@ -730,7 +735,7 @@ export default function InvoiceDetailPage() {
                 <div className="flex items-center justify-between gap-3 border-t border-border pt-2.5">
                   <dt className="text-muted-foreground">Montant</dt>
                   <dd className="font-semibold text-foreground">
-                    {formatPrice(invoice.amount, invoice.currency)}
+                    {mask(formatPrice(invoice.amount, invoice.currency))}
                   </dd>
                 </div>
               </dl>
@@ -932,7 +937,7 @@ export default function InvoiceDetailPage() {
               </p>
               <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5 font-body text-sm text-foreground">
                 Acompte estimé{packDepositType === 'PERCENT' ? ` (${packDepositValue}%)` : ''} :{' '}
-                {formatPrice(estimatedDeposit, invoice.currency)}
+                {mask(formatPrice(estimatedDeposit, invoice.currency))}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
@@ -1134,7 +1139,7 @@ export default function InvoiceDetailPage() {
       {invoice && confirmingPaid && (
         <Modal title="Marquer comme payée ?" onClose={() => setConfirmingPaid(false)}>
           <p className="font-body text-sm text-muted-foreground">
-            Cette action enregistre {formatPrice(invoice.amount, invoice.currency)} comme
+            Cette action enregistre {mask(formatPrice(invoice.amount, invoice.currency))} comme
             intégralement réglés.
             {invoice.project && (
               <>
@@ -1171,8 +1176,8 @@ export default function InvoiceDetailPage() {
       {invoice && confirmingCreditNote && (
         <Modal title="Émettre un avoir" onClose={() => setConfirmingCreditNote(false)}>
           <p className="font-body text-sm text-muted-foreground">
-            Un avoir de {formatPrice(invoice.amount, invoice.currency)} sera créé pour annuler la
-            facture {invoice.number}. Cette action est irréversible.
+            Un avoir de {mask(formatPrice(invoice.amount, invoice.currency))} sera créé pour annuler
+            la facture {invoice.number}. Cette action est irréversible.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <button
