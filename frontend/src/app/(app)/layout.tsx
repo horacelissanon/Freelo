@@ -131,7 +131,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   />
                   <Link
                     href="/settings?tab=compte"
-                    className="flex items-center gap-2 rounded-md py-1 pr-1 pl-2 text-sidebar-foreground/70"
+                    className="flex items-center gap-2 rounded-full border border-sidebar-foreground/20 bg-sidebar-foreground/5 py-1 pr-1 pl-2.5 text-sidebar-foreground/70 hover:border-sidebar-foreground/35 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground"
                   >
                     <span className="font-body text-xs font-medium">Mon compte</span>
                     <Avatar

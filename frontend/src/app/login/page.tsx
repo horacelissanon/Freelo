@@ -26,6 +26,7 @@ function AuthForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const justReset = params.get('reset') === 'ok';
@@ -111,7 +112,7 @@ function AuthForm() {
 
       <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-12 xl:px-20">
         <div className="mx-auto w-full max-w-sm">
-          <Link href="/" className="mb-8 flex items-center gap-2 lg:hidden">
+          <Link href="/" className="mb-8 flex items-center justify-center gap-2 lg:hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
               <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
             </div>
@@ -120,8 +121,10 @@ function AuthForm() {
             </span>
           </Link>
 
-          <h2 className="font-headings text-2xl font-bold text-foreground">Bienvenue</h2>
-          <p className="mt-1 font-body text-sm text-muted-foreground">
+          <h2 className="text-center font-headings text-2xl font-bold text-foreground">
+            Bienvenue
+          </h2>
+          <p className="mt-1 text-center font-body text-sm text-muted-foreground">
             Connectez-vous ou créez un compte pour continuer.
           </p>
 
@@ -169,14 +172,27 @@ function AuthForm() {
               </label>
               <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
                 Mot de passe
-                <input
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={fieldClass}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${fieldClass} w-full pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={
+                      showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
+                    }
+                    title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <Icon i={showPassword ? 'eye-off' : 'eye'} size={16} />
+                  </button>
+                </div>
               </label>
               {error && (
                 <p role="alert" className="font-body text-sm text-tag-red-fg">
@@ -223,15 +239,28 @@ function AuthForm() {
               </label>
               <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
                 Mot de passe
-                <input
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  minLength={8}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={fieldClass}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="new-password"
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${fieldClass} w-full pr-10`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={
+                      showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
+                    }
+                    title={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    className="absolute top-1/2 right-2.5 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <Icon i={showPassword ? 'eye-off' : 'eye'} size={16} />
+                  </button>
+                </div>
                 <span className="font-body text-xs text-muted-foreground">
                   8 caractères minimum.
                 </span>
