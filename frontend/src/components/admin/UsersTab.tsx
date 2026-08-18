@@ -1,5 +1,10 @@
 'use client';
 
+// Styled with hardcoded slate/emerald classes, not the Freelo workspace's
+// theme tokens (bg-canvas/border-border/text-primary/...) — this component
+// only ever renders inside the Super Admin console (app/admin/**), which is
+// deliberately its own fixed-light visual identity, independent of a
+// freelancer's dark/light mode or accent-color preference.
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
@@ -34,13 +39,13 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  USER: 'bg-secondary text-muted-foreground',
-  ADMIN: 'bg-tag-purple text-tag-purple-fg',
-  SUPERADMIN: 'bg-tag-orange text-tag-orange-fg',
+  USER: 'bg-slate-100 text-slate-500',
+  ADMIN: 'bg-purple-50 text-purple-700',
+  SUPERADMIN: 'bg-amber-50 text-amber-700',
 };
 
 const inputClass =
-  'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
+  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
 
 type PendingAction =
   | { kind: 'role'; user: AdminUserRow; newRole: Role }
@@ -155,7 +160,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-canvas shadow-card p-4 sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
         <input
           type="text"
           placeholder="Rechercher (nom, email)…"
@@ -196,7 +201,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
         />
       ) : (
         <>
-          <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             {items.map((u) => {
               const isSelf = u.id === viewerId;
               const canChangeRole = viewerRole === 'SUPERADMIN' && !isSelf;
@@ -208,17 +213,15 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
               return (
                 <div
                   key={u.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-border py-3.5 last:border-b-0"
+                  className="flex flex-wrap items-center gap-3 border-b border-slate-100 py-3.5 last:border-b-0"
                 >
                   <Avatar name={u.name || u.email} className="h-9 w-9 flex-shrink-0 text-xs" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">
+                    <p className="truncate text-sm font-medium text-slate-800">
                       {u.name || u.email}
-                      {isSelf && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">(vous)</span>
-                      )}
+                      {isSelf && <span className="ml-1.5 text-xs text-slate-400">(vous)</span>}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-slate-400">
                       {u.email} · Inscrit le {formatLongDate(u.createdAt)}
                     </p>
                   </div>
@@ -230,8 +233,8 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                   <span
                     className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
                       u.status === 'ACTIVE'
-                        ? 'bg-tag-green text-tag-green-fg'
-                        : 'bg-tag-red text-tag-red-fg'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-red-50 text-red-700'
                     }`}
                   >
                     {u.status === 'ACTIVE' ? 'Actif' : 'Suspendu'}
@@ -243,7 +246,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                         setPending({ kind: 'role', user: u, newRole: e.target.value as Role })
                       }
                       aria-label={`Changer le rôle de ${u.email}`}
-                      className="flex-shrink-0 rounded-md border border-border bg-input px-2 py-1.5 text-xs text-foreground"
+                      className="flex-shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700"
                     >
                       <option value="USER">Utilisateur</option>
                       <option value="ADMIN">Admin</option>
@@ -254,7 +257,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                     <button
                       type="button"
                       onClick={() => setPending({ kind: 'suspend', user: u })}
-                      className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
+                      className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                       Suspendre
                     </button>
@@ -263,7 +266,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                     <button
                       type="button"
                       onClick={() => setPending({ kind: 'restore', user: u })}
-                      className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
+                      className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                       Réactiver
                     </button>
@@ -279,7 +282,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                 type="button"
                 disabled={loadingMore}
                 onClick={() => void load(false, nextCursor)}
-                className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+                className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 {loadingMore ? 'Chargement…' : 'Charger plus'}
               </button>
@@ -299,7 +302,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
           }
           onClose={closePending}
         >
-          <p className="mb-4 font-body text-sm text-foreground">
+          <p className="mb-4 font-body text-sm text-slate-700">
             {pending.kind === 'role' && (
               <>
                 Passer <span className="font-medium">{pending.user.email}</span> de{' '}
@@ -334,7 +337,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
             <button
               type="button"
               onClick={closePending}
-              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
+              className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700"
             >
               Annuler
             </button>
@@ -342,7 +345,7 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
               type="button"
               disabled={submitting}
               onClick={() => void submitPending()}
-              className="rounded-md bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-emerald-600 px-4 py-2 font-body text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               {submitting ? 'Confirmation…' : 'Confirmer'}
             </button>

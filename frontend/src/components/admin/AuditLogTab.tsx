@@ -1,5 +1,8 @@
 'use client';
 
+// Styled with hardcoded slate/emerald classes, not the Freelo workspace's
+// theme tokens — see the identical note in UsersTab.tsx. This component
+// only ever renders inside the Super Admin console (app/admin/**).
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
@@ -30,11 +33,14 @@ const ACTION_LABELS: Record<string, string> = {
   'user.suspend': 'Suspension de compte',
   'user.restore': 'Réactivation de compte',
   'withdrawal.cancel': 'Annulation de retrait',
+  'subscription.override': "Modification d'abonnement",
+  'outbox.requeue': "Relance d'événement",
+  'email.requeue': "Relance d'email",
   BOOTSTRAP_SUPERADMIN: 'Bootstrap super-administrateur',
 };
 
 const inputClass =
-  'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
+  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
 
 export function AuditLogTab() {
   const [action, setAction] = useState('');
@@ -79,7 +85,7 @@ export function AuditLogTab() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-canvas shadow-card p-4 sm:flex-row sm:items-center">
+      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
         <select
           value={action}
           onChange={(e) => setAction(e.target.value)}
@@ -100,6 +106,9 @@ export function AuditLogTab() {
           <option value="">Toutes les cibles</option>
           <option value="User">Utilisateur</option>
           <option value="Withdrawal">Retrait</option>
+          <option value="Subscription">Abonnement</option>
+          <option value="OutboxEvent">Événement</option>
+          <option value="EmailJob">Email</option>
         </select>
       </div>
 
@@ -115,16 +124,16 @@ export function AuditLogTab() {
         />
       ) : (
         <>
-          <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             {items.map((entry) => (
-              <div key={entry.id} className="border-b border-border py-3.5 last:border-b-0">
+              <div key={entry.id} className="border-b border-slate-100 py-3.5 last:border-b-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="text-sm font-medium text-slate-800">
                     {ACTION_LABELS[entry.action] ?? entry.action}
                   </p>
-                  <p className="text-xs text-muted-foreground">{formatLongDate(entry.createdAt)}</p>
+                  <p className="text-xs text-slate-400">{formatLongDate(entry.createdAt)}</p>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs text-slate-400">
                   {entry.targetType && (
                     <>
                       Cible : <span className="font-mono">{entry.targetType}</span>
@@ -138,7 +147,7 @@ export function AuditLogTab() {
                   {entry.ip && <> · {entry.ip}</>}
                 </p>
                 {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                  <pre className="mt-2 overflow-x-auto rounded-md bg-secondary px-3 py-2 font-mono text-xs text-muted-foreground">
+                  <pre className="mt-2 overflow-x-auto rounded-md bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">
                     {JSON.stringify(entry.metadata, null, 2)}
                   </pre>
                 )}
@@ -152,7 +161,7 @@ export function AuditLogTab() {
                 type="button"
                 disabled={loadingMore}
                 onClick={() => void load(false, nextCursor)}
-                className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
+                className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 {loadingMore ? 'Chargement…' : 'Charger plus'}
               </button>

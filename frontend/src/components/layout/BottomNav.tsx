@@ -4,7 +4,6 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 import { isNavItemActive } from '@/lib/navActive';
@@ -66,19 +65,13 @@ interface QuickMenuItem {
   amber?: boolean;
 }
 
-const BASE_QUICK_MENU: QuickMenuItem[] = [
+const QUICK_MENU: QuickMenuItem[] = [
   { icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
   { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
   { icon: 'settings', label: 'Paramètres', href: '/settings?tab=espace' },
   { icon: 'credit-card', label: 'Abonnement', href: '/settings?tab=abonnement', amber: true },
 ];
-
-const ADMIN_QUICK_MENU_ITEM: QuickMenuItem = {
-  icon: 'shield',
-  label: 'Administration',
-  href: '/admin',
-};
 
 function NavItem({
   icon,
@@ -128,12 +121,9 @@ function BottomNavWithTab() {
 
 function BottomNavBody({ activeTab }: { activeTab: string | null }) {
   const pathname = usePathname();
-  const { user } = useAuth();
   const { glass } = useBottomNavStyle();
   const { shape } = useSidebarShape();
   const [menuOpen, setMenuOpen] = useState(false);
-  const quickMenu =
-    user && user.role !== 'USER' ? [...BASE_QUICK_MENU, ADMIN_QUICK_MENU_ITEM] : BASE_QUICK_MENU;
 
   return (
     <>
@@ -157,7 +147,7 @@ function BottomNavBody({ activeTab }: { activeTab: string | null }) {
 
         {menuOpen && (
           <div className="animate-scale-in absolute bottom-full left-1/2 mb-3 w-52 -translate-x-1/2 origin-bottom rounded-lg border border-border bg-canvas shadow-card p-2 shadow-xl">
-            {quickMenu.map((item) => (
+            {QUICK_MENU.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
