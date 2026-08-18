@@ -10,16 +10,18 @@ import { SecuriteTab } from '@/components/settings/SecuriteTab';
 import { FacturationTab } from '@/components/settings/FacturationTab';
 
 type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement';
+type SettingsTabKey = Exclude<TabKey, 'compte'>;
 
 const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement'];
 
-// Abonnement is reachable from both places now: this tab bar (desktop AND
-// mobile — Paramètres is the same responsive page either way) and its own
-// permanently-amber entry in the Sidebar (see Sidebar.tsx) for desktop.
-// Keeps its own amber/orange identity here too, matching FacturationTab's
-// "don't blend into the rest of the workspace" styling.
-const VISIBLE_TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: 'compte', label: 'Compte', icon: 'user' },
+// "Compte" is deliberately NOT in this tab bar — it has its own dedicated
+// entry point (the "Mon compte" sidebar link, ?tab=compte) rendered below
+// as a single-purpose page with no tab chrome, so profile data doesn't sit
+// redundantly alongside workspace/security/billing settings. Abonnement is
+// still reachable from both here and its own permanently-amber Sidebar
+// entry — keeps its own amber/orange identity here too, matching
+// FacturationTab's "don't blend into the rest of the workspace" styling.
+const SETTINGS_TABS: { key: SettingsTabKey; label: string; icon: string }[] = [
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
   { key: 'abonnement', label: 'Abonnement', icon: 'credit-card' },
@@ -33,9 +35,28 @@ function SettingsPageInner() {
   const user = useUser();
   const params = useSearchParams();
   const initialTab = params.get('tab');
-  const [activeTab, setActiveTab] = useState<TabKey>(isTabKey(initialTab) ? initialTab : 'compte');
+  const isAccountView = initialTab === 'compte';
+  const [activeTab, setActiveTab] = useState<SettingsTabKey>(
+    isTabKey(initialTab) && initialTab !== 'compte' ? initialTab : 'espace',
+  );
 
   if (!user) return null;
+
+  if (isAccountView) {
+    return (
+      <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <header className="mb-6">
+          <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+            Mon compte
+          </h1>
+          <p className="font-body text-sm text-muted-foreground">
+            Connecté en tant que {user.email}
+          </p>
+        </header>
+        <CompteTab user={user} />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -45,7 +66,7 @@ function SettingsPageInner() {
       </header>
 
       <div className="mb-6 flex items-center gap-1 overflow-x-auto border-b border-border font-body">
-        {VISIBLE_TABS.map((tab) => (
+        {SETTINGS_TABS.map((tab) => (
           <button
             key={tab.key}
             type="button"
@@ -66,7 +87,6 @@ function SettingsPageInner() {
         ))}
       </div>
 
-      {activeTab === 'compte' && <CompteTab user={user} />}
       {activeTab === 'espace' && <EspaceTab user={user} />}
       {activeTab === 'securite' && <SecuriteTab user={user} />}
       {activeTab === 'abonnement' && <FacturationTab />}

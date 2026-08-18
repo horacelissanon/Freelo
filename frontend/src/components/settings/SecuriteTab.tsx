@@ -324,7 +324,7 @@ export function SecuriteTab({ user }: { user: User }) {
             </span>
           ) : (
             <a
-              href="/api/auth/oauth/google/start?next=/settings"
+              href="/api/auth/oauth/google/start?next=/settings?tab=securite"
               className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
             >
               Lier Google

@@ -4,7 +4,6 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
-import { useCreateMenu, type CreateEntity } from '@/contexts/CreateMenuContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 import { isNavItemActive } from '@/lib/navActive';
@@ -52,21 +51,21 @@ const RIGHT_ITEMS = [
   { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
 ] as const;
 
-// Mixes create-actions (open the create modal) with plain navigation links
-// (Statistiques, Avis clients) — sections with no dedicated slot among the 4
+// Plain navigation links only — sections with no dedicated slot among the 4
 // fixed LEFT_ITEMS/RIGHT_ITEMS, so they ride the central FAB's popup instead
-// of forcing a 5th/6th fixed icon onto the bar.
-type QuickMenuItem =
-  | { kind: 'create'; icon: string; label: string; entity: CreateEntity }
-  | { kind: 'link'; icon: string; label: string; href: string };
+// of forcing a 5th/6th fixed icon onto the bar. Quick-create actions
+// (Nouveau projet/client/devis) live on the Dashboard instead, so they don't
+// duplicate here.
+interface QuickMenuItem {
+  icon: string;
+  label: string;
+  href: string;
+}
 
 const QUICK_MENU: QuickMenuItem[] = [
-  { kind: 'link', icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
-  { kind: 'create', icon: 'folder-open', label: 'Nouveau projet', entity: 'project' },
-  { kind: 'create', icon: 'users', label: 'Nouveau client', entity: 'client' },
-  { kind: 'create', icon: 'file-text', label: 'Nouveau devis', entity: 'quote' },
-  { kind: 'link', icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
-  { kind: 'link', icon: 'star', label: 'Avis clients', href: '/reviews' },
+  { icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
+  { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
+  { icon: 'star', label: 'Avis clients', href: '/reviews' },
 ];
 
 function NavItem({
@@ -117,7 +116,6 @@ function BottomNavWithTab() {
 
 function BottomNavBody({ activeTab }: { activeTab: string | null }) {
   const pathname = usePathname();
-  const { openCreate } = useCreateMenu();
   const { glass } = useBottomNavStyle();
   const { shape } = useSidebarShape();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -144,32 +142,17 @@ function BottomNavBody({ activeTab }: { activeTab: string | null }) {
 
         {menuOpen && (
           <div className="animate-scale-in absolute bottom-full left-1/2 mb-3 w-52 -translate-x-1/2 origin-bottom rounded-lg border border-border bg-canvas shadow-card p-2 shadow-xl">
-            {QUICK_MENU.map((item) =>
-              item.kind === 'create' ? (
-                <button
-                  key={item.entity}
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    openCreate(item.entity);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
-                >
-                  <Icon i={item.icon} size={16} />
-                  {item.label}
-                </button>
-              ) : (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
-                >
-                  <Icon i={item.icon} size={16} />
-                  {item.label}
-                </Link>
-              ),
-            )}
+            {QUICK_MENU.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+              >
+                <Icon i={item.icon} size={16} />
+                {item.label}
+              </Link>
+            ))}
           </div>
         )}
 

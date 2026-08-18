@@ -188,7 +188,7 @@ function SidebarBody({
           {!collapsed && 'Abonnement'}
         </Link>
         <Link
-          href="/settings"
+          href="/settings?tab=espace"
           onClick={onNavigate}
           title={collapsed ? 'Paramètres' : undefined}
           className={`flex items-center gap-3 ${itemShape} font-body text-sm text-sidebar-foreground/50 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground ${
@@ -200,7 +200,7 @@ function SidebarBody({
         </Link>
         {user && (
           <Link
-            href="/settings"
+            href="/settings?tab=compte"
             onClick={onNavigate}
             title={collapsed ? 'Mon compte' : undefined}
             className={`mt-1 flex items-center gap-3 ${itemShape} bg-sidebar-muted/40 hover:bg-sidebar-muted ${
