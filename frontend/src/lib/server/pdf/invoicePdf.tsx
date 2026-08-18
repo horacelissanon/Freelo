@@ -206,21 +206,15 @@ const styles = StyleSheet.create({
   },
   // Modern "scan me" card — sits in the Prestataire/Client row's third
   // column (the empty space next to Client) instead of the plain
-  // QR-floating-in-the-header look this replaced.
+  // QR-floating-in-the-header look this replaced. No fill — just a thin
+  // frame, so it reads as a tile rather than a flat grey block.
   qrCard: {
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e8e8e8',
-    borderRadius: 12,
-    backgroundColor: '#fafafa',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderColor: '#e5e5e5',
+    borderRadius: 10,
+    padding: 8,
     alignSelf: 'flex-start',
-  },
-  qrCardInner: {
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
-    padding: 6,
   },
   qrImage: { width: 52, height: 52 },
   qrCaption: {
@@ -338,9 +332,7 @@ function InvoiceDocument({
           {qrCodeDataUrl && (
             <View style={styles.partyBlock}>
               <View style={styles.qrCard}>
-                <View style={styles.qrCardInner}>
-                  <Image src={qrCodeDataUrl} style={styles.qrImage} />
-                </View>
+                <Image src={qrCodeDataUrl} style={styles.qrImage} />
                 <Text style={styles.qrCaption}>Scanner pour suivre</Text>
               </View>
             </View>

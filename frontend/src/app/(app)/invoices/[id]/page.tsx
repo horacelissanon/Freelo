@@ -375,7 +375,7 @@ export default function InvoiceDetailPage() {
               </div>
               {invoice.status !== 'DRAFT' && (
                 <div className="flex items-start justify-start sm:justify-end">
-                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-border bg-secondary/40 p-3">
+                  <div className="flex flex-col items-center gap-2">
                     <div className="rounded-xl bg-canvas p-2 shadow-sm ring-1 ring-border/60">
                       <TrackingQrCode
                         size={72}
