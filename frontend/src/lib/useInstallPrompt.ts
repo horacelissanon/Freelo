@@ -1,10 +1,9 @@
 'use client';
 
-// Shared `beforeinstallprompt` capture + platform detection, used by both
-// InstallPromptWidget (the dismissible floating bubble) and InstallAppButton
-// (the permanent header entry point next to ThemeToggle — needed because
-// dismissing the bubble hides it everywhere via a shared localStorage flag,
-// so there must be a non-dismissible way back to the install instructions).
+// Shared `beforeinstallprompt` capture + platform detection, used by
+// InstallPromptWidget — the dismissible floating bubble that's the app's
+// only install entry point (dismissal is per-session, see its own header
+// comment, so there's no need for a separate permanent header button).
 import { useEffect, useState } from 'react';
 import { detectInstallPlatform, type InstallPlatform } from '@/lib/installPlatform';
 

@@ -2,8 +2,8 @@
 
 // Small text button cycling XOF → EUR → USD, sharing DisplayCurrencyContext
 // (localStorage key 'merrudit-display-currency') across every page — same
-// placement pattern as ThemeToggle/InstallAppButton (Sidebar + mobile top
-// bar), authenticated app only (no session/default currency on public pages).
+// placement pattern as ThemeToggle (Sidebar + mobile top bar), authenticated
+// app only (no session/default currency on public pages).
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
 
 const LABEL: Record<string, string> = {

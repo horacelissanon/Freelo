@@ -6,9 +6,11 @@
 // it never fires on Safari (iOS has no such API — Next's own PWA guide
 // explicitly warns against relying on it alone), so the modal always falls
 // back to per-platform manual steps when no native prompt is available.
-// Dismissal is a single shared localStorage flag: closing it anywhere hides
-// it everywhere, matching the "fermable à volonté" ask rather than nagging
-// per-surface.
+// Dismissal is a shared sessionStorage flag (not localStorage): closing it
+// anywhere hides it everywhere for the rest of THIS session, but it comes
+// back next time the app is opened fresh — permanent dismissal left no way
+// back to the install instructions short of a dedicated header button,
+// which took up space on every page for a rarely-used action.
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
@@ -43,7 +45,7 @@ export function InstallPromptWidget({
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     let isDismissed = false;
     try {
-      isDismissed = localStorage.getItem(DISMISSED_KEY) === '1';
+      isDismissed = sessionStorage.getItem(DISMISSED_KEY) === '1';
     } catch {
       // Storage unavailable — treat as not dismissed.
     }
@@ -56,7 +58,7 @@ export function InstallPromptWidget({
     setDismissed(true);
     setModalOpen(false);
     try {
-      localStorage.setItem(DISMISSED_KEY, '1');
+      sessionStorage.setItem(DISMISSED_KEY, '1');
     } catch {
       // Best-effort — the in-memory state above still hides it this session.
     }

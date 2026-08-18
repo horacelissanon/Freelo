@@ -30,7 +30,6 @@ import { ComparisonTable, type ComparisonRow } from '@/components/marketing/Comp
 import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
-import { InstallAppButton } from '@/components/InstallAppButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
@@ -316,7 +315,6 @@ export default function Home() {
             </a>
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <InstallAppButton />
             <ThemeToggle />
             <Link
               href="/login"
