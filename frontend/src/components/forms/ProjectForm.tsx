@@ -4,6 +4,8 @@ import { useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { useExchangeRateField } from '@/lib/useExchangeRateField';
+import { useUser } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -70,6 +72,7 @@ export interface ProjectFormInitial {
   description?: string;
   amount?: number;
   currency?: string;
+  exchangeRateToDefault?: number | null;
   depositType?: DepositType;
   depositValue?: number;
   /** Edit-mode only (see `projectId`) — the form otherwise seeds dueDate
@@ -122,6 +125,13 @@ export function ProjectForm({
   const [type, setType] = useState<ProjectType>(initial?.type ?? 'OTHER');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
+  const user = useUser();
+  const defaultCurrency = user?.defaultCurrency ?? 'XOF';
+  const exchangeRateField = useExchangeRateField(
+    currency,
+    defaultCurrency,
+    initial?.exchangeRateToDefault,
+  );
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
   const [dueDate, setDueDate] = useState(initial?.dueDate?.slice(0, 10) ?? '');
   const [steps, setSteps] = useState<StepDraft[]>(() =>
@@ -162,6 +172,7 @@ export function ProjectForm({
     clientId?: string | undefined;
     name?: string | undefined;
     amount?: string | undefined;
+    exchangeRate?: string | undefined;
   }>({});
   const clientRef = useRef<HTMLSelectElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -238,6 +249,9 @@ export function ProjectForm({
     if (!clientId) errors.clientId = 'Sélectionnez un client.';
     if (!name.trim()) errors.name = 'Le nom du projet est obligatoire.';
     if (!amount || Number(amount) <= 0) errors.amount = 'Indiquez un montant supérieur à 0.';
+    if (exchangeRateField.needsRate && !(Number(exchangeRateField.rate) > 0)) {
+      errors.exchangeRate = 'Indiquez le taux de conversion.';
+    }
     setFieldErrors(errors);
     const firstInvalidRef = errors.clientId ? clientRef : errors.name ? nameRef : amountRef;
     if (Object.keys(errors).length > 0) {
@@ -281,6 +295,7 @@ export function ProjectForm({
         type,
         amount: Number(amount),
         currency,
+        exchangeRateToDefault: exchangeRateField.needsRate ? Number(exchangeRateField.rate) : null,
         status: targetStatus,
         ...(description.trim() ? { description: description.trim() } : {}),
         ...(dueDate ? { dueDate: new Date(dueDate).toISOString() } : {}),
@@ -528,7 +543,10 @@ export function ProjectForm({
             <button
               key={c.value}
               type="button"
-              onClick={() => setCurrency(c.value)}
+              onClick={() => {
+                setCurrency(c.value);
+                exchangeRateField.reset();
+              }}
               title={c.label}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                 currency === c.value
@@ -544,6 +562,36 @@ export function ProjectForm({
           S’applique au montant du projet ci-dessous.
         </p>
       </div>
+      {exchangeRateField.needsRate && (
+        <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+          Taux de conversion — 1 {currency} = combien de {defaultCurrency} ?
+          <input
+            type="number"
+            step="any"
+            min={0}
+            value={exchangeRateField.rate}
+            onChange={(e) => {
+              exchangeRateField.onChange(e.target.value);
+              if (fieldErrors.exchangeRate) {
+                setFieldErrors((prev) => ({ ...prev, exchangeRate: undefined }));
+              }
+            }}
+            aria-invalid={!!fieldErrors.exchangeRate}
+            className={
+              fieldErrors.exchangeRate
+                ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                : inputClass
+            }
+          />
+          {fieldErrors.exchangeRate && (
+            <p className="font-body text-xs text-tag-red-fg">{fieldErrors.exchangeRate}</p>
+          )}
+          <p className="font-body text-xs text-muted-foreground">
+            Pré-rempli avec le taux du jour — sert uniquement à tes totaux internes (Tableau de
+            bord, Statistiques). N’affecte jamais ce que voit le client.
+          </p>
+        </label>
+      )}
       <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
         Montant ({currency}) *
         <input

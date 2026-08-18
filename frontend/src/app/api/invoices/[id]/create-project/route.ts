@@ -25,6 +25,10 @@ import {
 } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 
 const PAYMENT_METHOD_VALUES = Object.keys(PAYMENT_METHOD_LABELS) as [string, ...string[]];
 
@@ -36,6 +40,7 @@ const Body = z
     description: z.string().max(2000).optional(),
     amount: z.number().int().positive(),
     currency: z.string().length(3).default('XOF'),
+    exchangeRateToDefault: z.number().positive().nullable().optional(),
     dueDate: z.string().datetime().optional(),
     steps: z
       .array(
@@ -162,6 +167,15 @@ export async function POST(
       );
     }
 
+    const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+    const rateError = exchangeRateValidationError(
+      parsed.data.currency,
+      defaultCurrency,
+      parsed.data.exchangeRateToDefault,
+      reqCtx.requestId,
+    );
+    if (rateError) return rateError;
+
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
     if (!isProActive(subscription)) {
       if (parsed.data.currency !== 'XOF') {
@@ -199,6 +213,7 @@ export async function POST(
         progress: 0,
         amount: parsed.data.amount,
         currency: parsed.data.currency,
+        exchangeRateToDefault: parsed.data.exchangeRateToDefault ?? null,
         ...(parsed.data.description ? { description: parsed.data.description } : {}),
         ...(parsed.data.dueDate ? { dueDate: parsed.data.dueDate } : {}),
         ...(parsed.data.steps ? { steps: parsed.data.steps } : {}),

@@ -268,20 +268,28 @@ describe('PATCH /api/invoices/[id]', () => {
   });
 
   it('currency changed to non-XOF on FREE plan -> 403 PLAN_LIMIT_CURRENCY, no update', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
     prismaMock.subscription.findUnique.mockResolvedValue(subscription() as never);
-    const res = await PATCH(makePatch({ currency: 'EUR' }), ctxWith('i-1'));
+    const res = await PATCH(
+      makePatch({ currency: 'EUR', exchangeRateToDefault: 655.957 }),
+      ctxWith('i-1'),
+    );
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('PLAN_LIMIT_CURRENCY');
     expect(prismaMock.invoice.update).not.toHaveBeenCalled();
   });
 
   it('currency changed to non-XOF on PRO plan -> 200, updates currency', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
     prismaMock.subscription.findUnique.mockResolvedValue(subscription({ plan: 'PRO' }) as never);
     prismaMock.invoice.update.mockResolvedValue(invoice({ currency: 'EUR' } as never) as never);
-    const res = await PATCH(makePatch({ currency: 'EUR' }), ctxWith('i-1'));
+    const res = await PATCH(
+      makePatch({ currency: 'EUR', exchangeRateToDefault: 655.957 }),
+      ctxWith('i-1'),
+    );
     expect(res.status).toBe(200);
     const updateArg = prismaMock.invoice.update.mock.calls[0]?.[0];
-    expect(updateArg?.data).toEqual({ currency: 'EUR' });
+    expect(updateArg?.data).toEqual({ currency: 'EUR', exchangeRateToDefault: 655.957 });
   });
 
   it('dueDate is rejected for an invoice — use issueDate/overdueAfterDays instead', async () => {

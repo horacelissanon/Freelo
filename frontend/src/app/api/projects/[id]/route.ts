@@ -19,6 +19,10 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 
 const PAYMENT_METHOD_VALUES = Object.keys(PAYMENT_METHOD_LABELS) as [string, ...string[]];
 
@@ -29,6 +33,7 @@ const PatchBody = z.object({
   description: z.string().max(2000).nullable().optional(),
   amount: z.number().int().positive().optional(),
   currency: z.string().length(3).optional(),
+  exchangeRateToDefault: z.number().positive().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   // "Enregistrer brouillon" vs "Créer projet" — only meaningful while the
   // project is still DRAFT (guarded below). Once PENDING+, status is fully
@@ -169,6 +174,7 @@ export async function PATCH(
       description,
       amount,
       currency,
+      exchangeRateToDefault,
       dueDate,
       status,
       clientId,
@@ -192,6 +198,7 @@ export async function PATCH(
         clientId !== undefined ||
         steps !== undefined ||
         currency !== undefined ||
+        exchangeRateToDefault !== undefined ||
         depositType !== undefined ||
         depositValue !== undefined ||
         depositReceived !== undefined ||
@@ -222,6 +229,17 @@ export async function PATCH(
       }
     }
 
+    if (currency !== undefined) {
+      const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+      const rateError = exchangeRateValidationError(
+        currency,
+        defaultCurrency,
+        exchangeRateToDefault,
+        reqCtx.requestId,
+      );
+      if (rateError) return rateError;
+    }
+
     // Same free-plan gate as POST /api/projects — only enforced when
     // actually finalizing (DRAFT -> PENDING), never for re-saving a draft.
     if (status === 'PENDING') {
@@ -249,6 +267,7 @@ export async function PATCH(
       ...(description !== undefined ? { description } : {}),
       ...(amount !== undefined ? { amount } : {}),
       ...(currency !== undefined ? { currency } : {}),
+      ...(exchangeRateToDefault !== undefined ? { exchangeRateToDefault } : {}),
       ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(clientId !== undefined ? { clientId } : {}),

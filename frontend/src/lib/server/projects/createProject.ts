@@ -28,6 +28,7 @@ export interface CreateProjectInput {
   progress: number;
   amount: number;
   currency: string;
+  exchangeRateToDefault?: number | null;
   dueDate?: string;
   step?: string;
   steps?: { title: string; description?: string | undefined }[];
@@ -56,6 +57,7 @@ export async function createProject(db: Db, input: CreateProjectInput) {
       progress: input.progress,
       amount: input.amount,
       currency: input.currency,
+      exchangeRateToDefault: input.exchangeRateToDefault ?? null,
       ...(input.description ? { description: input.description } : {}),
       ...(input.dueDate ? { dueDate: new Date(input.dueDate) } : {}),
       ...(input.step ? { step: input.step } : {}),

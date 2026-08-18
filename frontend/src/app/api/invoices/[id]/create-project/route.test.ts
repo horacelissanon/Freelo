@@ -65,6 +65,7 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.invoice.findFirst.mockResolvedValue(invoice() as never);
   prismaMock.project.count.mockResolvedValue(0 as never);
+  prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
   prismaMock.subscription.findUnique.mockResolvedValue({
     id: 'sub-1',
     userId: 'user-1',
@@ -129,7 +130,10 @@ describe('POST /api/invoices/[id]/create-project', () => {
   });
 
   it('FREE plan + non-XOF currency -> 403 PLAN_LIMIT_CURRENCY', async () => {
-    const res = await POST(makePost(validBody({ currency: 'EUR' })), ctxWith('i-1'));
+    const res = await POST(
+      makePost(validBody({ currency: 'EUR', exchangeRateToDefault: 655.957 })),
+      ctxWith('i-1'),
+    );
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('PLAN_LIMIT_CURRENCY');
     expect(prismaMock.project.create).not.toHaveBeenCalled();

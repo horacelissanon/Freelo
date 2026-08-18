@@ -19,6 +19,10 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { createProject } from '@/lib/server/projects/createProject';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 import { computeDepositBalanceBatch } from '@/lib/server/projects/depositBalance';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
@@ -39,6 +43,7 @@ const Body = z
     progress: z.number().int().min(0).max(100).default(0),
     amount: z.number().int().positive(),
     currency: z.string().length(3).default('XOF'),
+    exchangeRateToDefault: z.number().positive().nullable().optional(),
     dueDate: z.string().datetime().optional(),
     step: z.string().max(200).optional(),
     steps: z
@@ -190,6 +195,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+    const rateError = exchangeRateValidationError(
+      parsed.data.currency,
+      defaultCurrency,
+      parsed.data.exchangeRateToDefault,
+      ctx.requestId,
+    );
+    if (rateError) return rateError;
+
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
     if (!isProActive(subscription)) {
       if (parsed.data.currency !== 'XOF') {
@@ -229,6 +243,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       progress: parsed.data.progress,
       amount: parsed.data.amount,
       currency: parsed.data.currency,
+      exchangeRateToDefault: parsed.data.exchangeRateToDefault ?? null,
       ...(parsed.data.description ? { description: parsed.data.description } : {}),
       ...(parsed.data.dueDate ? { dueDate: parsed.data.dueDate } : {}),
       ...(parsed.data.step ? { step: parsed.data.step } : {}),

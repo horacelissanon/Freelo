@@ -83,6 +83,7 @@ beforeEach(() => {
   // iterating the unmocked-deep-mock's `undefined` return.
   prismaMock.order.findMany.mockResolvedValue([] as never);
   prismaMock.invoice.findMany.mockResolvedValue([] as never);
+  prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
 });
 
 describe('GET /api/projects', () => {
@@ -178,6 +179,42 @@ describe('POST /api/projects', () => {
     expect(createArg?.data?.status).toBe('PENDING');
     expect(createArg?.data?.progress).toBe(0);
     expect(createArg?.data?.currency).toBe('XOF');
+  });
+
+  it('non-default currency without exchangeRateToDefault -> 400 VALIDATION_FAILED, no create', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    const res = await POST(makePost({ clientId: 'c-1', name: 'X', amount: 1000, currency: 'EUR' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.project.create).not.toHaveBeenCalled();
+  });
+
+  it('non-default currency with exchangeRateToDefault -> stored on the created project', async () => {
+    prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      plan: 'PRO',
+      status: 'ACTIVE',
+      billingCycle: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      updatedAt: new Date('2026-05-01T00:00:00Z'),
+    } as never);
+    prismaMock.project.create.mockResolvedValue(project() as never);
+    await POST(
+      makePost({
+        clientId: 'c-1',
+        name: 'X',
+        amount: 1000,
+        currency: 'EUR',
+        exchangeRateToDefault: 655.957,
+      }),
+    );
+    const createArg = prismaMock.project.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.currency).toBe('EUR');
+    expect(createArg?.data?.exchangeRateToDefault).toBe(655.957);
   });
 
   it('no steps supplied -> falls back to the 4 default steps', async () => {

@@ -21,6 +21,10 @@ import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { computeItemsTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 
 const MAX_NUMBER_RETRIES = 3;
 
@@ -34,6 +38,7 @@ const Body = z.object({
   description: z.string().max(500).optional(),
   lineItems: z.array(LineItemInput).min(1).max(100),
   currency: z.string().length(3).default('XOF'),
+  exchangeRateToDefault: z.number().positive().nullable().optional(),
   depositAmount: z.number().int().min(0).optional(),
   deliveryDate: z.string().datetime().optional(),
   paymentMethodNote: z.string().max(300).optional(),
@@ -79,6 +84,15 @@ export async function POST(
         { status: 400, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
+
+    const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+    const rateError = exchangeRateValidationError(
+      parsed.data.currency,
+      defaultCurrency,
+      parsed.data.exchangeRateToDefault,
+      reqCtx.requestId,
+    );
+    if (rateError) return rateError;
 
     if (parsed.data.currency !== 'XOF') {
       const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
@@ -131,6 +145,7 @@ export async function POST(
             ...(parsed.data.description ? { description: parsed.data.description } : {}),
             amount: computedAmount,
             currency: parsed.data.currency,
+            exchangeRateToDefault: parsed.data.exchangeRateToDefault ?? null,
             dueDate: computedDueDate,
             issueDate: resolvedIssueDate,
             overdueAfterDays: resolvedOverdueAfterDays,

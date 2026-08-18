@@ -10,6 +10,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { useExchangeRateField } from '@/lib/useExchangeRateField';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatPrice, formatDate } from '@/lib/utils';
@@ -47,6 +48,7 @@ export interface InvoiceFormExisting {
   description: string | null;
   amount: number;
   currency: string;
+  exchangeRateToDefault: number | null;
   issueDate: string;
   overdueAfterDays: number;
   lineItems: { designation: string; quantity: number; unitPrice: number }[];
@@ -60,6 +62,7 @@ export interface InvoiceFormInitial {
   description?: string;
   lineItems?: { designation: string; quantity: number; unitPrice: number }[];
   currency?: string;
+  exchangeRateToDefault?: number | null;
   depositAmount?: number;
 }
 
@@ -164,6 +167,12 @@ export function InvoiceForm({
     invoice?.description ?? initial?.description ?? '',
   );
   const [currency, setCurrency] = useState(invoice?.currency ?? initial?.currency ?? 'XOF');
+  const defaultCurrency = user?.defaultCurrency ?? 'XOF';
+  const exchangeRateField = useExchangeRateField(
+    currency,
+    defaultCurrency,
+    invoice?.exchangeRateToDefault ?? initial?.exchangeRateToDefault,
+  );
   const [issueDate, setIssueDate] = useState(
     invoice?.issueDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
   );
@@ -230,6 +239,7 @@ export function InvoiceForm({
   const [error, setError] = useState<string | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const [lineItemsError, setLineItemsError] = useState<string | null>(null);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const [planLimitMessage, setPlanLimitMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const clientRef = useRef<HTMLSelectElement>(null);
@@ -282,6 +292,7 @@ export function InvoiceForm({
   async function saveInvoice(targetStatus: 'DRAFT' | 'SENT') {
     setClientError(null);
     setLineItemsError(null);
+    setExchangeRateError(null);
     if (!lockedClient && !clientId) {
       setClientError('Sélectionnez un client.');
       clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -291,6 +302,10 @@ export function InvoiceForm({
     const items = buildLineItemsPayload();
     if (!items) {
       lineItemsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (exchangeRateField.needsRate && !(Number(exchangeRateField.rate) > 0)) {
+      setExchangeRateError('Indiquez le taux de conversion.');
       return;
     }
     setSubmitting(true);
@@ -303,6 +318,7 @@ export function InvoiceForm({
         description: description || null,
         lineItems: items,
         currency,
+        exchangeRateToDefault: exchangeRateField.needsRate ? Number(exchangeRateField.rate) : null,
         issueDate: new Date(issueDate).toISOString(),
         overdueAfterDays: Number(overdueAfterDays) || 5,
         depositAmount: depositAmount ? Number(depositAmount) : null,
@@ -487,7 +503,10 @@ export function InvoiceForm({
               <button
                 key={c.value}
                 type="button"
-                onClick={() => setCurrency(c.value)}
+                onClick={() => {
+                  setCurrency(c.value);
+                  exchangeRateField.reset();
+                }}
                 title={c.label}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                   currency === c.value
@@ -500,6 +519,34 @@ export function InvoiceForm({
             ))}
           </div>
         </div>
+        {exchangeRateField.needsRate && (
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Taux de conversion — 1 {currency} = combien de {defaultCurrency} ?
+            <input
+              type="number"
+              step="any"
+              min={0}
+              value={exchangeRateField.rate}
+              onChange={(e) => {
+                exchangeRateField.onChange(e.target.value);
+                if (exchangeRateError) setExchangeRateError(null);
+              }}
+              aria-invalid={!!exchangeRateError}
+              className={
+                exchangeRateError
+                  ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                  : inputClass
+              }
+            />
+            {exchangeRateError && (
+              <p className="font-body text-xs text-tag-red-fg">{exchangeRateError}</p>
+            )}
+            <p className="font-body text-xs text-muted-foreground">
+              Pré-rempli avec le taux du jour — sert uniquement à tes totaux internes (Tableau de
+              bord, Statistiques). N’affecte jamais ce que voit le client.
+            </p>
+          </label>
+        )}
 
         <div ref={lineItemsRef} className="flex flex-col gap-1.5 font-body text-sm text-foreground">
           Prestations *

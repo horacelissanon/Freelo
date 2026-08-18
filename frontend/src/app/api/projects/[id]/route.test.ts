@@ -176,6 +176,27 @@ describe('PATCH /api/projects/[id]', () => {
     expect(res.status).toBe(409);
     expect(prismaMock.project.update).not.toHaveBeenCalled();
   });
+
+  it('currency changed to non-default without a rate on a DRAFT project -> 400 VALIDATION_FAILED', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({ ...baseProject, status: 'DRAFT' } as never);
+    prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
+    const res = await PATCH(makePatch({ currency: 'EUR' }), ctxWith('p-1'));
+    expect(res.status).toBe(400);
+    expect(prismaMock.project.update).not.toHaveBeenCalled();
+  });
+
+  it('currency changed to non-default with a rate on a DRAFT project -> 200, stores the rate', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({ ...baseProject, status: 'DRAFT' } as never);
+    prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
+    prismaMock.project.update.mockResolvedValue(baseProject as never);
+    const res = await PATCH(
+      makePatch({ currency: 'EUR', exchangeRateToDefault: 655.957 }),
+      ctxWith('p-1'),
+    );
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.project.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ currency: 'EUR', exchangeRateToDefault: 655.957 });
+  });
 });
 
 describe('source invariants', () => {

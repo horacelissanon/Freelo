@@ -81,6 +81,7 @@ interface InvoiceDetail {
   type: string | null;
   amount: number;
   currency: string;
+  exchangeRateToDefault: number | null;
   issueDate: string;
   dueDate: string | null;
   overdueAfterDays: number;
@@ -900,6 +901,7 @@ export default function InvoiceDetailPage() {
               description: invoice.description,
               amount: invoice.amount,
               currency: invoice.currency,
+              exchangeRateToDefault: invoice.exchangeRateToDefault,
               issueDate: invoice.issueDate,
               overdueAfterDays: invoice.overdueAfterDays,
               lineItems: invoice.lineItems.map((it) => ({

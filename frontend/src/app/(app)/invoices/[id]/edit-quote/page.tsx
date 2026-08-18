@@ -15,6 +15,7 @@ interface QuoteDetail {
   sector: string | null;
   type: string | null;
   currency: string;
+  exchangeRateToDefault: number | null;
   dueDate: string | null;
   paymentTermsNote: string | null;
   footerNote: string | null;
@@ -73,6 +74,7 @@ export default function EditQuotePage() {
             sector: quote.sector,
             type: quote.type,
             currency: quote.currency,
+            exchangeRateToDefault: quote.exchangeRateToDefault,
             dueDate: quote.dueDate,
             paymentTermsNote: quote.paymentTermsNote,
             footerNote: quote.footerNote,

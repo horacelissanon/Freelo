@@ -31,6 +31,10 @@ import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES } from '@/lib/constants';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 
 // Only the transitions still driven by the UI: InvoiceForm/QuoteBuilderForm
 // save DRAFT/SENT on every save, "Marquer comme payée"/"non payée" toggle
@@ -85,6 +89,7 @@ const PatchBody = z.object({
   projectId: z.string().min(1).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
   currency: z.string().length(3).optional(),
+  exchangeRateToDefault: z.number().positive().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   // INVOICE-only bulk replace — the whole array is sent every time and the
   // handler deletes+recreates the flat (packId: null) lines to match, same
@@ -170,6 +175,7 @@ export async function PATCH(
         docType: true,
         status: true,
         amount: true,
+        currency: true,
         depositAmount: true,
         issueDate: true,
         overdueAfterDays: true,
@@ -219,6 +225,7 @@ export async function PATCH(
       projectId,
       description,
       currency,
+      exchangeRateToDefault,
       dueDate,
       lineItems,
       packs,
@@ -336,6 +343,17 @@ export async function PATCH(
         );
       }
     }
+    if (currency !== undefined || exchangeRateToDefault !== undefined) {
+      const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+      const rateError = exchangeRateValidationError(
+        currency ?? existing.currency,
+        defaultCurrency,
+        exchangeRateToDefault,
+        reqCtx.requestId,
+      );
+      if (rateError) return rateError;
+    }
+
     if (currency !== undefined && currency !== 'XOF') {
       const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
       if (!isProActive(subscription)) {
@@ -409,6 +427,7 @@ export async function PATCH(
       ...(description !== undefined ? { description } : {}),
       ...(newAmount !== undefined ? { amount: newAmount } : {}),
       ...(currency !== undefined ? { currency } : {}),
+      ...(exchangeRateToDefault !== undefined ? { exchangeRateToDefault } : {}),
       ...(existing.docType === 'QUOTE' && dueDate !== undefined
         ? { dueDate: dueDate ? new Date(dueDate) : null }
         : {}),

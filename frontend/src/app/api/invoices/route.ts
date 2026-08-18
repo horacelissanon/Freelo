@@ -31,6 +31,10 @@ import { computeDepositBalanceBatch } from '@/lib/server/projects/depositBalance
 import { zPositiveInt } from '@/lib/server/zod-helpers';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES } from '@/lib/constants';
+import {
+  getDefaultCurrency,
+  exchangeRateValidationError,
+} from '@/lib/server/fx/validateExchangeRate';
 
 const LineItemInput = z.object({
   designation: z.string().min(1).max(200),
@@ -104,6 +108,7 @@ const Body = z
     contentBlocks: z.array(ContentBlockInput).max(80).optional(),
     paymentTermsNote: z.string().max(2000).nullable().optional(),
     currency: z.string().length(3).default('XOF'),
+    exchangeRateToDefault: z.number().positive().nullable().optional(),
     // QUOTE only — the freely-picked "Échéance" feeding the EXPIRED sweep.
     // INVOICE no longer accepts an absolute due date directly (see
     // issueDate/overdueAfterDays below) — dueDate is server-computed.
@@ -293,6 +298,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       type,
       status,
       currency,
+      exchangeRateToDefault,
       dueDate,
       depositAmount,
       deliveryDate,
@@ -328,6 +334,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
       }
     }
+
+    const defaultCurrency = await getDefaultCurrency(prisma, auth.user.sub);
+    const rateError = exchangeRateValidationError(
+      currency,
+      defaultCurrency,
+      exchangeRateToDefault,
+      ctx.requestId,
+    );
+    if (rateError) return rateError;
 
     if (currency !== 'XOF') {
       const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
@@ -406,6 +421,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(description ? { description } : {}),
         amount: computedAmount,
         currency,
+        exchangeRateToDefault: exchangeRateToDefault ?? null,
         ...(computedDueDate ? { dueDate: computedDueDate } : {}),
         ...(docType === 'INVOICE'
           ? { issueDate: resolvedIssueDate, overdueAfterDays: resolvedOverdueAfterDays }

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
+import { useExchangeRateField } from '@/lib/useExchangeRateField';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -72,6 +73,7 @@ export interface QuoteBuilderExisting {
   sector: string | null;
   type: string | null;
   currency: string;
+  exchangeRateToDefault: number | null;
   dueDate: string | null;
   paymentTermsNote: string | null;
   footerNote: string | null;
@@ -207,6 +209,12 @@ export function QuoteBuilderForm({
     (quote?.type as ProjectType | null) ?? 'OTHER',
   );
   const [currency, setCurrency] = useState(quote?.currency ?? 'XOF');
+  const defaultCurrency = user?.defaultCurrency ?? 'XOF';
+  const exchangeRateField = useExchangeRateField(
+    currency,
+    defaultCurrency,
+    quote?.exchangeRateToDefault,
+  );
   const [dueDate, setDueDate] = useState(quote?.dueDate ? quote.dueDate.slice(0, 10) : '');
   const [packs, setPacks] = useState<PackDraft[]>(() => initialPacks(quote));
 
@@ -335,6 +343,7 @@ export function QuoteBuilderForm({
   const [submitting, setSubmitting] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [packsError, setPacksError] = useState<string | null>(null);
+  const [exchangeRateError, setExchangeRateError] = useState<string | null>(null);
   const [invalidPackIndexes, setInvalidPackIndexes] = useState<Set<number>>(new Set());
   const clientRef = useRef<HTMLSelectElement>(null);
   const packsRef = useRef<HTMLDivElement>(null);
@@ -508,11 +517,16 @@ export function QuoteBuilderForm({
   async function saveQuote(targetStatus: 'DRAFT' | 'SENT') {
     setClientError(null);
     setPacksError(null);
+    setExchangeRateError(null);
     setInvalidPackIndexes(new Set());
     if (!clientId) {
       setClientError('Sélectionnez un client.');
       clientRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       clientRef.current?.focus();
+      return;
+    }
+    if (exchangeRateField.needsRate && !(Number(exchangeRateField.rate) > 0)) {
+      setExchangeRateError('Indiquez le taux de conversion.');
       return;
     }
     const packsPayload = buildPacksPayload();
@@ -534,6 +548,7 @@ export function QuoteBuilderForm({
       paymentTermsNote: paymentTermsNote.trim() || null,
       footerNote: footerNote.trim() || null,
       currency,
+      exchangeRateToDefault: exchangeRateField.needsRate ? Number(exchangeRateField.rate) : null,
       dueDate: dueDate ? new Date(dueDate).toISOString() : null,
       status: targetStatus,
     };
@@ -770,7 +785,10 @@ export function QuoteBuilderForm({
                 <button
                   key={c.value}
                   type="button"
-                  onClick={() => setCurrency(c.value)}
+                  onClick={() => {
+                    setCurrency(c.value);
+                    exchangeRateField.reset();
+                  }}
                   title={c.label}
                   className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
                     currency === c.value
@@ -791,6 +809,34 @@ export function QuoteBuilderForm({
             <DatePicker value={dueDate} onChange={setDueDate} />
           </label>
         </div>
+        {exchangeRateField.needsRate && (
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Taux de conversion — 1 {currency} = combien de {defaultCurrency} ?
+            <input
+              type="number"
+              step="any"
+              min={0}
+              value={exchangeRateField.rate}
+              onChange={(e) => {
+                exchangeRateField.onChange(e.target.value);
+                if (exchangeRateError) setExchangeRateError(null);
+              }}
+              aria-invalid={!!exchangeRateError}
+              className={
+                exchangeRateError
+                  ? `${inputClass} border-tag-red-fg focus:ring-tag-red-fg/40`
+                  : inputClass
+              }
+            />
+            {exchangeRateError && (
+              <p className="font-body text-xs text-tag-red-fg">{exchangeRateError}</p>
+            )}
+            <p className="font-body text-xs text-muted-foreground">
+              Pré-rempli avec le taux du jour — sert uniquement à tes totaux internes (Tableau de
+              bord, Statistiques). N’affecte jamais ce que voit le client.
+            </p>
+          </label>
+        )}
       </section>
 
       <section ref={packsRef} className="flex flex-col gap-4">

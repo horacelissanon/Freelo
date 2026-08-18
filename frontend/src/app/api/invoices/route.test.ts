@@ -71,6 +71,7 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
   prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
+  prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
   prismaMock.$transaction.mockImplementation((cb: unknown) => {
     if (typeof cb === 'function') {
       return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
@@ -228,6 +229,48 @@ describe('POST /api/invoices', () => {
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('PROJECT_NOT_FOUND');
     expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it('non-default currency without exchangeRateToDefault -> 400 VALIDATION_FAILED, no create', async () => {
+    const res = await POST(
+      makePost({
+        clientId: 'c-1',
+        docType: 'INVOICE',
+        lineItems: oneLineItem(1000),
+        currency: 'EUR',
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('VALIDATION_FAILED');
+    expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it('non-default currency with exchangeRateToDefault -> stored on the created invoice', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      plan: 'PRO',
+      status: 'ACTIVE',
+      billingCycle: null,
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      updatedAt: new Date('2026-05-01T00:00:00Z'),
+    } as never);
+    prismaMock.invoice.count.mockResolvedValue(0 as never);
+    prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+    await POST(
+      makePost({
+        clientId: 'c-1',
+        docType: 'INVOICE',
+        lineItems: oneLineItem(1000),
+        currency: 'EUR',
+        exchangeRateToDefault: 1.16,
+      }),
+    );
+    const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.currency).toBe('EUR');
+    expect(createArg?.data?.exchangeRateToDefault).toBe(1.16);
   });
 
   it('null projectId/description/dueDate on create -> 201, fields omitted (not rejected)', async () => {
