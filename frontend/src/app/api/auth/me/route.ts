@@ -52,6 +52,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         name: true,
         avatarUrl: true,
         phone: true,
+        companyPhone: true,
         bio: true,
         studioName: true,
         taxId: true,
@@ -99,6 +100,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       name: dbUser?.name ?? null,
       avatarUrl: dbUser?.avatarUrl ?? null,
       phone: dbUser?.phone ?? null,
+      companyPhone: dbUser?.companyPhone ?? null,
       bio: dbUser?.bio ?? null,
       studioName: dbUser?.studioName ?? null,
       taxId: dbUser?.taxId ?? null,
@@ -125,6 +127,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 const PatchBody = z.object({
   name: z.string().max(200).optional(),
   phone: z.string().max(30).optional(),
+  companyPhone: z.string().max(30).optional(),
   bio: z.string().max(1000).optional(),
   avatarUrl: z.string().url().optional(),
   studioName: z.string().max(200).optional(),
@@ -166,6 +169,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     const {
       name,
       phone,
+      companyPhone,
       bio,
       avatarUrl,
       studioName,
@@ -187,6 +191,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(phone !== undefined ? { phone } : {}),
+        ...(companyPhone !== undefined ? { companyPhone } : {}),
         ...(bio !== undefined ? { bio } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         ...(studioName !== undefined ? { studioName } : {}),
@@ -205,6 +210,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       select: {
         name: true,
         phone: true,
+        companyPhone: true,
         bio: true,
         avatarUrl: true,
         studioName: true,

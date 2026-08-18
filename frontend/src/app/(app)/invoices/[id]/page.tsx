@@ -17,6 +17,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { InfoTooltip } from '@/components/ui/InfoTooltip';
 import { BackButton } from '@/components/ui/BackButton';
 import { PackOfferCard } from '@/components/invoices/PackOfferCard';
+import { TrackingQrCode } from '@/components/invoices/TrackingQrCode';
 import { InvoiceForm } from '@/components/forms/InvoiceForm';
 import { ProjectForm } from '@/components/forms/ProjectForm';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
@@ -314,6 +315,16 @@ export default function InvoiceDetailPage() {
                 <p className="mt-1 font-body text-xs text-muted-foreground">
                   Émise le {formatLongDate(invoice.issueDate)}
                 </p>
+                {invoice.status !== 'DRAFT' && (
+                  <div className="mt-2 flex flex-col items-end">
+                    <TrackingQrCode
+                      url={`${typeof window !== 'undefined' ? window.location.origin : ''}/suivi/${invoice.trackingToken}`}
+                    />
+                    <p className="mt-1 font-body text-[10px] text-muted-foreground">
+                      Scannez pour suivre en ligne
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

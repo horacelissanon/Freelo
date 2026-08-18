@@ -92,4 +92,14 @@ describe('renderInvoicePdf', () => {
     });
     expect(pdf.subarray(0, 5).toString('utf8')).toBe('%PDF-');
   });
+
+  it('renders a larger PDF when a trackingUrl is provided (QR code embedded)', async () => {
+    const withoutQr = await renderInvoicePdf(baseData);
+    const withQr = await renderInvoicePdf({
+      ...baseData,
+      trackingUrl: 'https://app.example.com/suivi/tok_abc123',
+    });
+    expect(withQr.subarray(0, 5).toString('utf8')).toBe('%PDF-');
+    expect(withQr.length).toBeGreaterThan(withoutQr.length);
+  });
 });

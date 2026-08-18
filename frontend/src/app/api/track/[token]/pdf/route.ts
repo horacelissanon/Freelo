@@ -52,6 +52,7 @@ export async function GET(
             name: true,
             email: true,
             phone: true,
+            companyPhone: true,
             bio: true,
             address: true,
             taxId: true,
@@ -80,11 +81,16 @@ export async function GET(
       brandColor: invoiceUser.brandColor,
     };
 
+    // Reached this point only for a non-DRAFT invoice (guard above), so the
+    // tracking page always resolves.
+    const trackingUrl = `${(process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/suivi/${token}`;
+
     const pdf = await renderInvoicePdf({
       ...invoiceFields,
       docType: invoiceFields.docType as InvoicePdfData['docType'],
       client: invoice.client,
       provider,
+      trackingUrl,
     });
 
     return new NextResponse(new Uint8Array(pdf), {

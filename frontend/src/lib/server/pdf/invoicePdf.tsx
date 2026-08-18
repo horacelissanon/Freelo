@@ -10,7 +10,8 @@ import 'server-only';
 // classic `React.createElement` calls with no automatic-runtime injection,
 // unlike Next's SWC pipeline which handles that implicitly for app code.
 import React from 'react';
-import { Document, Page, View, Text, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import QRCode from 'qrcode';
+import { Document, Page, View, Text, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
 import { formatPrice, formatLongDate } from '@/lib/utils';
 import { computeItemsTotal, computeBalance, computePackDeposit } from '@/lib/invoiceTotals';
 
@@ -70,6 +71,10 @@ export interface InvoicePdfData {
   deliveryDate?: string | Date | null;
   paymentMethodNote?: string | null;
   footerNote?: string | null;
+  // Public /suivi/[token] URL for this document — rendered as a QR code so
+  // a client scanning the printed/downloaded document lands on the live
+  // tracking page. Absent (no QR rendered) for a DRAFT never shared yet.
+  trackingUrl?: string | null;
 }
 
 const DOC_LABELS: Record<InvoicePdfData['docType'], string> = {
@@ -183,6 +188,9 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: '#ffffff',
   },
+  qrBlock: { marginTop: 10, alignItems: 'flex-end' },
+  qrImage: { width: 54, height: 54 },
+  qrCaption: { fontSize: 7, color: '#9a9a9a', marginTop: 2, textAlign: 'right' },
 });
 
 function LineItemsTable({ items, currency }: { items: PdfLineItem[]; currency: string }) {
@@ -208,7 +216,13 @@ function LineItemsTable({ items, currency }: { items: PdfLineItem[]; currency: s
   );
 }
 
-function InvoiceDocument({ data }: { data: InvoicePdfData }) {
+function InvoiceDocument({
+  data,
+  qrCodeDataUrl,
+}: {
+  data: InvoicePdfData;
+  qrCodeDataUrl: string | null;
+}) {
   const isQuote = data.docType === 'QUOTE';
   const balance = computeBalance(data.amount, data.depositAmount);
   // Defensive fallback: a real invoice created through the app always has
@@ -263,6 +277,12 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
               <Text style={[styles.muted, { textAlign: 'right' }]}>
                 Échéance {formatLongDate(data.dueDate)}
               </Text>
+            )}
+            {qrCodeDataUrl && (
+              <View style={styles.qrBlock}>
+                <Image src={qrCodeDataUrl} style={styles.qrImage} />
+                <Text style={styles.qrCaption}>Scannez pour suivre en ligne</Text>
+              </View>
             )}
           </View>
         </View>
@@ -445,5 +465,8 @@ function InvoiceDocument({ data }: { data: InvoicePdfData }) {
 }
 
 export async function renderInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
-  return renderToBuffer(<InvoiceDocument data={data} />);
+  const qrCodeDataUrl = data.trackingUrl
+    ? await QRCode.toDataURL(data.trackingUrl, { margin: 1, width: 160 })
+    : null;
+  return renderToBuffer(<InvoiceDocument data={data} qrCodeDataUrl={qrCodeDataUrl} />);
 }

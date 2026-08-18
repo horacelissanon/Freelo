@@ -17,6 +17,7 @@ export interface DocumentIdentitySource {
   taxId: string | null;
   commerceRegistry: string | null;
   address: string | null;
+  companyPhone: string | null;
 }
 
 export interface ResolvedDocumentIdentity {
@@ -40,11 +41,14 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
     };
   }
   // COMPANY: fall back to the personal name when no studio name was filled
-  // in yet, so a document never ships with a blank header.
+  // in yet, so a document never ships with a blank header. Phone comes from
+  // the dedicated `companyPhone` field, never the personal `phone` — a
+  // freelancer showing their company identity may not want their personal
+  // number on client-facing documents.
   return {
     name: user.studioName || user.name || user.email,
     bio: user.bio,
-    phone: null,
+    phone: user.companyPhone,
     address: user.address,
     taxId: user.taxId,
     commerceRegistry: user.commerceRegistry,

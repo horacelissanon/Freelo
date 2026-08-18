@@ -21,6 +21,7 @@ export interface User {
   name: string | null;
   avatarUrl: string | null;
   phone: string | null;
+  companyPhone: string | null;
   bio: string | null;
   studioName: string | null;
   taxId: string | null;

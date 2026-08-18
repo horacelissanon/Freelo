@@ -39,6 +39,10 @@ model User {
   // devis/factures alongside the tax ID once the freelancer fills it in.
   commerceRegistry        String?
   address                 String?
+  // Contact phone shown on devis/factures when documentIdentity=COMPANY —
+  // deliberately separate from the personal `phone` field above, which only
+  // ever surfaces under documentIdentity=PERSONAL.
+  companyPhone            String?
   // Which identity shows in the header of this user's devis/factures:
   // PERSONAL (name/phone/bio) or COMPANY (studioName/address/taxId/
   // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to

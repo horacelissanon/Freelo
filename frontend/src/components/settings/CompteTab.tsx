@@ -56,6 +56,7 @@ export function CompteTab({ user }: { user: User }) {
   const [dirty, setDirty] = useState(false);
 
   const [studioName, setStudioName] = useState(user.studioName ?? '');
+  const [companyPhone, setCompanyPhone] = useState(user.companyPhone ?? '');
   const [taxId, setTaxId] = useState(user.taxId ?? '');
   const [commerceRegistry, setCommerceRegistry] = useState(user.commerceRegistry ?? '');
   const [address, setAddress] = useState(user.address ?? '');
@@ -110,6 +111,7 @@ export function CompteTab({ user }: { user: User }) {
           phone: phone.trim(),
           bio: bio.trim(),
           studioName: studioName.trim(),
+          companyPhone: companyPhone.trim(),
           taxId: taxId.trim(),
           commerceRegistry: commerceRegistry.trim(),
           address: address.trim(),
@@ -140,6 +142,7 @@ export function CompteTab({ user }: { user: User }) {
     setPhone(user.phone ?? '');
     setBio(user.bio ?? '');
     setStudioName(user.studioName ?? '');
+    setCompanyPhone(user.companyPhone ?? '');
     setTaxId(user.taxId ?? '');
     setCommerceRegistry(user.commerceRegistry ?? '');
     setAddress(user.address ?? '');
@@ -362,6 +365,22 @@ export function CompteTab({ user }: { user: User }) {
                 markDirty();
               }}
               maxLength={200}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
+            Téléphone de l&apos;entreprise
+            <span className="font-body text-xs font-normal text-muted-foreground">
+              Affiché sur vos devis/factures à la place de votre téléphone personnel.
+            </span>
+            <input
+              type="tel"
+              value={companyPhone}
+              onChange={(e) => {
+                setCompanyPhone(e.target.value);
+                markDirty();
+              }}
+              maxLength={30}
               className={inputClass}
             />
           </label>

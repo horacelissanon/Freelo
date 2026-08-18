@@ -51,6 +51,7 @@ export async function GET(
         name: true,
         email: true,
         phone: true,
+        companyPhone: true,
         bio: true,
         address: true,
         taxId: true,
@@ -74,11 +75,19 @@ export async function GET(
       brandColor: owner.brandColor,
     };
 
+    // No tracking page exists for a DRAFT yet (GET /api/track/[token] 404s
+    // it) — skip the QR code rather than point to a dead link.
+    const trackingUrl =
+      invoice.status === 'DRAFT'
+        ? null
+        : `${(process.env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, '')}/suivi/${invoice.trackingToken}`;
+
     const pdf = await renderInvoicePdf({
       ...invoice,
       docType: invoice.docType as InvoicePdfData['docType'],
       client: invoice.client,
       provider,
+      trackingUrl,
     });
 
     return new NextResponse(new Uint8Array(pdf), {

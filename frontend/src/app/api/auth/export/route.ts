@@ -26,6 +26,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         name: true,
         avatarUrl: true,
         phone: true,
+        companyPhone: true,
         bio: true,
         studioName: true,
         taxId: true,
