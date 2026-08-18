@@ -283,8 +283,8 @@ export default function InvoiceDetailPage() {
         <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6 print:block">
           {/* Left: document-style preview */}
           <div className="mb-6 overflow-hidden rounded-lg border border-border bg-canvas shadow-card lg:col-start-1 lg:row-start-1 lg:mb-0 print:border-0 print:shadow-none">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-6">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-start gap-4 border-b border-border p-6">
+              <div className="flex flex-1 items-center gap-3">
                 <Avatar
                   name={providerIdentity.name}
                   className="h-11 w-11 flex-shrink-0 text-base"
@@ -300,7 +300,17 @@ export default function InvoiceDetailPage() {
                   )}
                 </div>
               </div>
-              <div className="text-right">
+              {invoice.status !== 'DRAFT' && (
+                <div className="flex flex-shrink-0 flex-col items-center self-center">
+                  <TrackingQrCode
+                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/suivi/${invoice.trackingToken}`}
+                  />
+                  <p className="mt-1 font-body text-[10px] text-muted-foreground">
+                    Scannez pour suivre en ligne
+                  </p>
+                </div>
+              )}
+              <div className="flex-1 text-right">
                 <a
                   href={`/api/invoices/${invoice.id}/pdf`}
                   className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:border-primary/40 print:hidden"
@@ -315,16 +325,6 @@ export default function InvoiceDetailPage() {
                 <p className="mt-1 font-body text-xs text-muted-foreground">
                   Émise le {formatLongDate(invoice.issueDate)}
                 </p>
-                {invoice.status !== 'DRAFT' && (
-                  <div className="mt-2 flex flex-col items-end">
-                    <TrackingQrCode
-                      url={`${typeof window !== 'undefined' ? window.location.origin : ''}/suivi/${invoice.trackingToken}`}
-                    />
-                    <p className="mt-1 font-body text-[10px] text-muted-foreground">
-                      Scannez pour suivre en ligne
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 

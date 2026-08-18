@@ -97,7 +97,14 @@ const styles = StyleSheet.create({
   // footerBand (absolutely positioned, see below) never overlaps the last
   // lines of a longer invoice/devis.
   page: { padding: 40, paddingBottom: 90, fontSize: 10, fontFamily: 'Helvetica', color: '#1a1a1a' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  headerSide: { flexGrow: 1, flexBasis: 0 },
+  headerCenter: { flexGrow: 1, flexBasis: 0, alignItems: 'center' },
   providerName: { fontSize: 13, fontWeight: 700, marginBottom: 3 },
   muted: { color: '#6b6b6b', fontSize: 9 },
   docTitle: { fontSize: 20, fontWeight: 700, color: PRIMARY, textAlign: 'right' },
@@ -188,7 +195,6 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: '#ffffff',
   },
-  qrBlock: { marginTop: 10, alignItems: 'flex-end' },
   qrImage: { width: 54, height: 54 },
   qrCaption: { fontSize: 7, color: '#9a9a9a', marginTop: 2, textAlign: 'right' },
 });
@@ -252,7 +258,7 @@ function InvoiceDocument({
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerSide}>
             <Text style={styles.providerName}>{data.provider.name}</Text>
             {data.provider.address && <Text style={styles.muted}>{data.provider.address}</Text>}
             {data.provider.phone && <Text style={styles.muted}>{data.provider.phone}</Text>}
@@ -267,7 +273,13 @@ function InvoiceDocument({
               </Text>
             )}
           </View>
-          <View>
+          {qrCodeDataUrl && (
+            <View style={styles.headerCenter}>
+              <Image src={qrCodeDataUrl} style={styles.qrImage} />
+              <Text style={styles.qrCaption}>Scannez pour suivre en ligne</Text>
+            </View>
+          )}
+          <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
             <Text style={styles.docTitle}>{DOC_LABELS[data.docType]}</Text>
             <Text style={styles.docNumber}>{data.number}</Text>
             <Text style={[styles.muted, { textAlign: 'right', marginTop: 4 }]}>
@@ -277,12 +289,6 @@ function InvoiceDocument({
               <Text style={[styles.muted, { textAlign: 'right' }]}>
                 Échéance {formatLongDate(data.dueDate)}
               </Text>
-            )}
-            {qrCodeDataUrl && (
-              <View style={styles.qrBlock}>
-                <Image src={qrCodeDataUrl} style={styles.qrImage} />
-                <Text style={styles.qrCaption}>Scannez pour suivre en ligne</Text>
-              </View>
             )}
           </View>
         </View>
