@@ -55,17 +55,22 @@ const RIGHT_ITEMS = [
 // fixed LEFT_ITEMS/RIGHT_ITEMS, so they ride the central FAB's popup instead
 // of forcing a 5th/6th fixed icon onto the bar. Quick-create actions
 // (Nouveau projet/client/devis) live on the Dashboard instead, so they don't
-// duplicate here.
+// duplicate here. Paramètres/Abonnement live here too — on mobile there's no
+// separate sidebar to hold them, and "Mon compte" (top bar avatar) only
+// covers the Compte tab now, not the rest of Paramètres.
 interface QuickMenuItem {
   icon: string;
   label: string;
   href: string;
+  amber?: boolean;
 }
 
 const QUICK_MENU: QuickMenuItem[] = [
   { icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
   { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
+  { icon: 'settings', label: 'Paramètres', href: '/settings?tab=espace' },
+  { icon: 'credit-card', label: 'Abonnement', href: '/settings?tab=abonnement', amber: true },
 ];
 
 function NavItem({
@@ -147,7 +152,9 @@ function BottomNavBody({ activeTab }: { activeTab: string | null }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMenuOpen(false)}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 font-body text-sm hover:bg-secondary ${
+                  item.amber ? 'text-amber-500 dark:text-amber-400' : 'text-foreground'
+                }`}
               >
                 <Icon i={item.icon} size={16} />
                 {item.label}
