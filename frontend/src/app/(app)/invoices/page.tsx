@@ -18,6 +18,7 @@ import type { ExportColumn } from '@/lib/export/types';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
 import { computeBalance, computePackDeposit, type PackDepositSource } from '@/lib/invoiceTotals';
+import { sumConverted } from '@/lib/currencyConvert';
 import { INVOICE_STATUS_LABELS, type InvoiceStatus, type InvoiceDocType } from '@/lib/constants';
 import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
@@ -43,6 +44,7 @@ interface InvoiceApiRow {
   status: InvoiceStatus;
   amount: number;
   currency: string;
+  exchangeRateToDefault: number | null;
   dueDate: string | null;
   createdAt: string;
   client: { id: string; name: string };
@@ -236,12 +238,16 @@ function FacturesTab({
   viewMode,
   onChangeView,
   onCreate,
+  defaultCurrency,
+  liveRates,
 }: {
   rows: InvoiceApiRow[];
   hidePaidByDefault: boolean;
   viewMode: ListViewMode;
   onChangeView: (v: ListViewMode) => void;
   onCreate: () => void;
+  defaultCurrency: string;
+  liveRates: Record<string, number> | null;
 }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -279,18 +285,27 @@ function FacturesTab({
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  const totalPaid = dateScoped
-    .filter((r) => r.status === 'PAID')
-    .reduce((sum, r) => sum + r.amount, 0);
+  // Converted per row via each invoice's own frozen exchangeRateToDefault
+  // (or the live cache for legacy rows) before summing — a raw reduce would
+  // mix XOF/EUR/USD amounts together into a meaningless number.
+  const totalPaid = sumConverted(
+    dateScoped.filter((r) => r.status === 'PAID'),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
   // Split rather than folded together — "En attente" (not yet due) and "En
   // retard" (past due, needs chasing) call for different actions, so they
   // stay two distinct cards instead of one combined total.
-  const totalPending = dateScoped
-    .filter((r) => r.status === 'SENT')
-    .reduce((sum, r) => sum + r.amount, 0);
-  const totalOverdue = dateScoped
-    .filter((r) => r.status === 'OVERDUE')
-    .reduce((sum, r) => sum + r.amount, 0);
+  const totalPending = sumConverted(
+    dateScoped.filter((r) => r.status === 'SENT'),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
+  const totalOverdue = sumConverted(
+    dateScoped.filter((r) => r.status === 'OVERDUE'),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
 
   return (
     <>
@@ -311,19 +326,19 @@ function FacturesTab({
           <StatCard
             label="Chiffre d'affaires total"
             value={formatPrice(totalPaid)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="check-circle"
           />
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="file-clock"
           />
           <StatCard
             label="En retard"
             value={formatPrice(totalOverdue)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="alert-circle"
           />
         </div>
@@ -359,11 +374,15 @@ function DevisTab({
   viewMode,
   onChangeView,
   onCreate,
+  defaultCurrency,
+  liveRates,
 }: {
   rows: InvoiceApiRow[];
   viewMode: ListViewMode;
   onChangeView: (v: ListViewMode) => void;
   onCreate: () => void;
+  defaultCurrency: string;
+  liveRates: Record<string, number> | null;
 }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -400,15 +419,28 @@ function DevisTab({
   // the list underneath via the status filter.
   const pendingRows = dateScoped.filter((r) => r.status === 'SENT');
   const acceptedRows = dateScoped.filter((r) => r.status === 'ACCEPTED');
-  const totalPending = pendingRows.reduce((sum, r) => sum + r.amount, 0);
-  const depositExpected = [...pendingRows, ...acceptedRows].reduce(
-    (sum, r) => sum + (resolveDevisDeposit(r) ?? 0),
-    0,
-  );
-  const depositReceived = [...pendingRows, ...acceptedRows].reduce(
-    (sum, r) => sum + r.depositReceived,
-    0,
-  );
+  // Converted per row via each devis's own frozen exchangeRateToDefault (or
+  // the live cache for legacy rows) before summing — a raw reduce would mix
+  // XOF/EUR/USD amounts together into a meaningless number.
+  const totalPending = sumConverted(pendingRows, defaultCurrency, liveRates).amountDefault;
+  const depositExpected = sumConverted(
+    [...pendingRows, ...acceptedRows].map((r) => ({
+      amount: resolveDevisDeposit(r) ?? 0,
+      currency: r.currency,
+      exchangeRateToDefault: r.exchangeRateToDefault,
+    })),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
+  const depositReceived = sumConverted(
+    [...pendingRows, ...acceptedRows].map((r) => ({
+      amount: r.depositReceived,
+      currency: r.currency,
+      exchangeRateToDefault: r.exchangeRateToDefault,
+    })),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
 
   return (
     <>
@@ -429,20 +461,20 @@ function DevisTab({
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="file-clock"
           />
           <StatCard label="Acceptés" value={String(acceptedRows.length)} icon="check-circle" />
           <StatCard
             label="Acompte prévu"
             value={formatPrice(depositExpected)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="banknote"
           />
           <StatCard
             label="Acompte reçu"
             value={formatPrice(depositReceived)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="wallet"
           />
         </div>
@@ -488,6 +520,8 @@ function InvoicesPageInner() {
   const { data, loading, error, refresh } = useApi<{ items: InvoiceApiRow[] }>(
     '/api/invoices?limit=50',
   );
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_STORAGE_KEY);
@@ -542,6 +576,8 @@ function InvoicesPageInner() {
           viewMode={viewMode}
           onChangeView={changeView}
           onCreate={() => openCreate('invoice')}
+          defaultCurrency={user.defaultCurrency}
+          liveRates={liveRates}
         />
       ) : (
         <DevisTab
@@ -549,6 +585,8 @@ function InvoicesPageInner() {
           viewMode={viewMode}
           onChangeView={changeView}
           onCreate={() => openCreate('quote')}
+          defaultCurrency={user.defaultCurrency}
+          liveRates={liveRates}
         />
       )}
     </div>

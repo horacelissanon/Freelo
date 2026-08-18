@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sumConverted } from './convert';
+import { sumConverted } from './currencyConvert';
 
 describe('sumConverted', () => {
   it('sums same-currency rows at face value', () => {

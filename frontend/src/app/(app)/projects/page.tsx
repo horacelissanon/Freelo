@@ -14,6 +14,7 @@ import { DateFilterBar } from '@/components/ui/DateFilterBar';
 import { ExportButtons } from '@/components/ui/ExportButtons';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { formatPrice, formatDate } from '@/lib/utils';
+import { sumConverted } from '@/lib/currencyConvert';
 import { PROJECT_STATUS_LABELS, PROJECT_TYPE_LABELS, type ProjectStatus } from '@/lib/constants';
 import type { ProjectType } from '@/lib/constants';
 import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
@@ -26,6 +27,7 @@ interface ProjectApiRow {
   progress: number;
   amount: number;
   currency: string;
+  exchangeRateToDefault: number | null;
   step: string | null;
   dueDate: string | null;
   publicToken: string;
@@ -50,6 +52,8 @@ export default function ProjectsPage() {
   const { data, loading, error, refresh } = useApi<{ items: ProjectApiRow[] }>(
     '/api/projects?limit=50',
   );
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_STORAGE_KEY);
@@ -102,23 +106,41 @@ export default function ProjectsPage() {
   // Still fully visible/filterable in the list underneath via "Brouillon" in
   // the status filter.
   const realItems = scoped.filter((p) => p.status !== 'DRAFT');
-  const totalAmount = realItems.reduce((sum, p) => sum + p.amount, 0);
+  // Converted per project via its own frozen exchangeRateToDefault (or the
+  // live cache for legacy rows) before summing — a raw reduce would mix
+  // XOF/EUR/USD amounts together into a meaningless number.
+  const defaultCurrency = user.defaultCurrency;
+  const totalAmount = sumConverted(realItems, defaultCurrency, liveRates).amountDefault;
   // "Actifs" mirrors the exact semantic already used app-wide (dashboard's
   // activeProjects, the free-plan project cap): anything not yet delivered.
   const activeCount = realItems.filter((p) => p.status !== 'DELIVERED').length;
-  const depositsPending = realItems.reduce(
-    (sum, p) => sum + (p.deposit.paid ? 0 : p.deposit.amount),
-    0,
-  );
-  const balancesPending = realItems.reduce(
-    (sum, p) => sum + (p.balance.paid ? 0 : p.balance.amount),
-    0,
-  );
-  const collectedAmount = realItems.reduce(
-    (sum, p) =>
-      sum + (p.deposit.paid ? p.deposit.amount : 0) + (p.balance.paid ? p.balance.amount : 0),
-    0,
-  );
+  const depositsPending = sumConverted(
+    realItems.map((p) => ({
+      amount: p.deposit.paid ? 0 : p.deposit.amount,
+      currency: p.currency,
+      exchangeRateToDefault: p.exchangeRateToDefault,
+    })),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
+  const balancesPending = sumConverted(
+    realItems.map((p) => ({
+      amount: p.balance.paid ? 0 : p.balance.amount,
+      currency: p.currency,
+      exchangeRateToDefault: p.exchangeRateToDefault,
+    })),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
+  const collectedAmount = sumConverted(
+    realItems.map((p) => ({
+      amount: (p.deposit.paid ? p.deposit.amount : 0) + (p.balance.paid ? p.balance.amount : 0),
+      currency: p.currency,
+      exchangeRateToDefault: p.exchangeRateToDefault,
+    })),
+    defaultCurrency,
+    liveRates,
+  ).amountDefault;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -156,25 +178,25 @@ export default function ProjectsPage() {
           <StatCard
             label="Valeur totale"
             value={formatPrice(totalAmount)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="banknote"
           />
           <StatCard
             label="Chiffre d'affaires total"
             value={formatPrice(collectedAmount)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="wallet"
           />
           <StatCard
             label="Acomptes en attente"
             value={formatPrice(depositsPending)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="file-clock"
           />
           <StatCard
             label="Soldes en attente"
             value={formatPrice(balancesPending)}
-            unit="XOF"
+            unit={defaultCurrency}
             icon="file-clock"
           />
           <StatCard label="Total projets" value={String(realItems.length)} icon="folder-open" />

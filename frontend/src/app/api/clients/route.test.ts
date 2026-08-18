@@ -13,6 +13,15 @@ vi.mock('@/lib/server/middleware', () => ({
   requireAuth: vi.fn(),
 }));
 
+vi.mock('@/lib/server/fx/rates', () => ({
+  getCachedRates: vi.fn().mockResolvedValue({
+    XOF: 655.957,
+    EUR: 1,
+    USD: 1.16,
+    fetchedAt: '2026-08-18T00:00:00Z',
+  }),
+}));
+
 import { requireAuth } from '@/lib/server/middleware';
 import { GET, POST } from './route';
 
@@ -76,7 +85,8 @@ beforeEach(() => {
   __cookieStore.clear();
   mockRequireAuth.mockResolvedValue(authedCtx);
   prismaMock.subscription.findUnique.mockResolvedValue(subscription() as never);
-  prismaMock.invoice.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
+  prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
+  prismaMock.invoice.findMany.mockResolvedValue([] as never);
 });
 
 describe('GET /api/clients', () => {
@@ -92,7 +102,13 @@ describe('GET /api/clients', () => {
     prismaMock.client.findMany.mockResolvedValue([] as never);
     const res = await GET(makeGet('http://test/api/clients'));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ items: [], nextCursor: null, totalRevenue: 0 });
+    expect(await res.json()).toEqual({
+      items: [],
+      nextCursor: null,
+      totalRevenue: 0,
+      totalRevenueCurrency: 'XOF',
+      totalRevenueByCurrency: {},
+    });
   });
 
   it('where clause scoped by userId', async () => {
@@ -134,12 +150,26 @@ describe('GET /api/clients', () => {
 
   it('totalRevenue sums PAID invoices scoped to userId, portfolio-wide (not limited to the page)', async () => {
     prismaMock.client.findMany.mockResolvedValue([] as never);
-    prismaMock.invoice.aggregate.mockResolvedValue({ _sum: { amount: 355000 } } as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { amount: 355000, currency: 'XOF', exchangeRateToDefault: null },
+    ] as never);
     const res = await GET(makeGet('http://test/api/clients?limit=1'));
     const body = await res.json();
     expect(body.totalRevenue).toBe(355000);
-    const aggArg = prismaMock.invoice.aggregate.mock.calls[0]?.[0];
-    expect(aggArg?.where).toEqual({ userId: 'user-1', docType: 'INVOICE', status: 'PAID' });
+    const findManyArg = prismaMock.invoice.findMany.mock.calls[0]?.[0];
+    expect(findManyArg?.where).toEqual({ userId: 'user-1', docType: 'INVOICE', status: 'PAID' });
+  });
+
+  it("converts a client's non-default-currency revenue using its frozen rate, and reports the raw breakdown", async () => {
+    prismaMock.client.findMany.mockResolvedValue([] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([
+      { amount: 1000, currency: 'XOF', exchangeRateToDefault: null },
+      { amount: 100, currency: 'EUR', exchangeRateToDefault: 655.957 },
+    ] as never);
+    const res = await GET(makeGet('http://test/api/clients'));
+    const body = await res.json();
+    expect(body.totalRevenue).toBe(1000 + Math.round(100 * 655.957));
+    expect(body.totalRevenueByCurrency).toEqual({ XOF: 1000, EUR: 100 });
   });
 });
 

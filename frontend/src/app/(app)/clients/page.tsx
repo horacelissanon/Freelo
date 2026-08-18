@@ -47,6 +47,7 @@ export default function ClientsPage() {
   const { data, loading, error, refresh } = useApi<{
     items: ClientApiRow[];
     totalRevenue: number;
+    totalRevenueCurrency: string;
   }>('/api/clients?limit=50');
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export default function ClientsPage() {
           <StatCard
             label="Chiffre d'affaires total"
             value={formatPrice(data?.totalRevenue ?? 0)}
-            unit="XOF"
+            unit={data?.totalRevenueCurrency ?? 'XOF'}
             icon="banknote"
           />
         </div>

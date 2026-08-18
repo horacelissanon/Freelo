@@ -13,8 +13,10 @@ vi.mock('@/lib/server/middleware', () => ({
   requireAuth: vi.fn(),
 }));
 
+const getCachedRates = vi.fn();
+vi.mock('@/lib/server/fx/rates', () => ({ getCachedRates }));
+
 import { requireAuth } from '@/lib/server/middleware';
-import { GET } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const authedCtx = { user: { sub: 'user-1', email: 'me@example.com' } };
@@ -23,21 +25,27 @@ function makeGet(): NextRequest {
   return new NextRequest('http://test/api/stats', { method: 'GET' });
 }
 
-// `invoice.groupBy`'s heavily-overloaded generic signature defeats
-// vitest-mock-extended's type inference for `.mockResolvedValue` — cast
-// through `Mock` (it's still the same underlying vi.fn at runtime).
-type AnyMock = ReturnType<typeof vi.fn>;
-function mockGroupBy(value: unknown): void {
-  (prismaMock.invoice.groupBy as unknown as AnyMock).mockResolvedValue(value);
+// Dynamic import (not a static top-level one) — './route' transitively pulls
+// in the mocked '@/lib/server/fx/rates', whose factory closes over the
+// module-scoped `getCachedRates` const above. A static import gets evaluated
+// before that const initializes (TDZ), so the module must load lazily here,
+// same pattern as dashboard/stats/route.test.ts.
+async function callGet(req: NextRequest) {
+  const { GET } = await import('./route');
+  return GET(req);
 }
 
 function stubDefaults() {
-  prismaMock.invoice.aggregate.mockResolvedValue({ _sum: { amount: 0 } } as never);
-  prismaMock.project.aggregate.mockResolvedValue({ _avg: { amount: null } } as never);
+  prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
+  getCachedRates.mockResolvedValue({
+    XOF: 655.957,
+    EUR: 1,
+    USD: 1.16,
+    fetchedAt: '2026-08-18T00:00:00Z',
+  });
+  prismaMock.invoice.findMany.mockResolvedValue([] as never);
   prismaMock.invoice.count.mockResolvedValue(0 as never);
   prismaMock.project.findMany.mockResolvedValue([] as never);
-  mockGroupBy([]);
-  prismaMock.invoice.findMany.mockResolvedValue([] as never);
   prismaMock.client.findMany.mockResolvedValue([] as never);
 }
 
@@ -53,16 +61,16 @@ describe('GET /api/stats', () => {
     mockRequireAuth.mockResolvedValueOnce(
       NextResponse.json({ error: 'Missing token' }, { status: 401 }),
     );
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     expect(res.status).toBe(401);
   });
 
   it('all-zero baseline -> zeroed overview, empty breakdowns, no suggestions', async () => {
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.overview).toEqual({
-      revenue: { amount: 0, currency: 'XOF', trendPercent: null },
+      revenue: { amount: 0, currency: 'XOF', amountsByCurrency: {}, trendPercent: null },
       avgProjectValue: null,
       overdueRate: null,
     });
@@ -76,28 +84,33 @@ describe('GET /api/stats', () => {
   });
 
   it('avgProjectValue rounds the DELIVERED-project average', async () => {
-    prismaMock.project.aggregate.mockResolvedValue({ _avg: { amount: 123456.7 } } as never);
-    const res = await GET(makeGet());
+    prismaMock.project.findMany.mockResolvedValue([
+      { type: 'LOGO', amount: 100000, currency: 'XOF', exchangeRateToDefault: null },
+      { type: 'LOGO', amount: 100000, currency: 'XOF', exchangeRateToDefault: null },
+      { type: 'LOGO', amount: 100002, currency: 'XOF', exchangeRateToDefault: null },
+    ] as never);
+    const res = await callGet(makeGet());
     const body = await res.json();
-    expect(body.overview.avgProjectValue).toEqual({ amount: 123457, currency: 'XOF' });
+    // (100000 + 100000 + 100002) / 3 = 100000.666... -> rounds to 100001
+    expect(body.overview.avgProjectValue).toEqual({ amount: 100001, currency: 'XOF' });
   });
 
   it('overdueRate = overdue count / non-draft count, rounded', async () => {
     prismaMock.invoice.count
       .mockResolvedValueOnce(4 as never) // non-draft (SENT+PAID+OVERDUE)
       .mockResolvedValueOnce(1 as never); // overdue
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.overview.overdueRate).toBe(25);
   });
 
   it('revenueByProjectType buckets DELIVERED projects by type with share percent', async () => {
     prismaMock.project.findMany.mockResolvedValue([
-      { type: 'LOGO', amount: 100000 },
-      { type: 'LOGO', amount: 50000 },
-      { type: 'UI_WEB', amount: 50000 },
+      { type: 'LOGO', amount: 100000, currency: 'XOF', exchangeRateToDefault: null },
+      { type: 'LOGO', amount: 50000, currency: 'XOF', exchangeRateToDefault: null },
+      { type: 'UI_WEB', amount: 50000, currency: 'XOF', exchangeRateToDefault: null },
     ] as never);
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.revenueByProjectType).toEqual([
       { type: 'LOGO', label: 'Logo', amount: 150000, count: 2, sharePercent: 75 },
@@ -105,16 +118,19 @@ describe('GET /api/stats', () => {
     ]);
   });
 
-  it('topClients resolves client names for the groupBy result, sorted by amount desc', async () => {
-    mockGroupBy([
-      { clientId: 'c-1', _sum: { amount: 90000 } },
-      { clientId: 'c-2', _sum: { amount: 40000 } },
-    ]);
+  it('topClients resolves client names for the paid-invoices ranking, sorted by amount desc', async () => {
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([] as never) // this month revenue
+      .mockResolvedValueOnce([] as never) // last month revenue
+      .mockResolvedValueOnce([
+        { clientId: 'c-1', amount: 90000, currency: 'XOF', exchangeRateToDefault: null },
+        { clientId: 'c-2', amount: 40000, currency: 'XOF', exchangeRateToDefault: null },
+      ] as never); // paid invoices for top-clients ranking
     prismaMock.client.findMany.mockResolvedValue([
       { id: 'c-1', name: 'Acme' },
       { id: 'c-2', name: 'Beta' },
     ] as never);
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.topClients).toEqual([
       { clientId: 'c-1', name: 'Acme', amount: 90000 },
@@ -122,11 +138,38 @@ describe('GET /api/stats', () => {
     ]);
   });
 
+  it("sums a single client's invoices across currencies using each row's frozen rate", async () => {
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([] as never) // this month revenue
+      .mockResolvedValueOnce([] as never) // last month revenue
+      .mockResolvedValueOnce([
+        { clientId: 'c-1', amount: 50000, currency: 'XOF', exchangeRateToDefault: null },
+        { clientId: 'c-1', amount: 100, currency: 'EUR', exchangeRateToDefault: 655.957 },
+      ] as never); // paid invoices for top-clients ranking
+    prismaMock.client.findMany.mockResolvedValue([{ id: 'c-1', name: 'Acme' }] as never);
+    const res = await callGet(makeGet());
+    const body = await res.json();
+    expect(body.topClients).toEqual([
+      { clientId: 'c-1', name: 'Acme', amount: 50000 + Math.round(100 * 655.957) },
+    ]);
+  });
+
+  it('overview.revenue converts a non-default-currency row using its frozen rate, and reports the raw breakdown', async () => {
+    prismaMock.invoice.findMany.mockResolvedValueOnce([
+      { amount: 1000, currency: 'XOF', exchangeRateToDefault: null },
+      { amount: 100, currency: 'EUR', exchangeRateToDefault: 655.957 },
+    ] as never); // this month
+    const res = await callGet(makeGet());
+    const body = await res.json();
+    expect(body.overview.revenue.amount).toBe(1000 + Math.round(100 * 655.957));
+    expect(body.overview.revenue.amountsByCurrency).toEqual({ XOF: 1000, EUR: 100 });
+  });
+
   it('suggests relance for overdue invoices (warning)', async () => {
     prismaMock.invoice.count
       .mockResolvedValueOnce(3 as never) // non-draft
       .mockResolvedValueOnce(2 as never); // overdue
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.suggestions).toContainEqual(
       expect.objectContaining({ severity: 'warning', message: expect.stringContaining('retard') }),
@@ -138,7 +181,7 @@ describe('GET /api/stats', () => {
       .mockResolvedValueOnce(0 as never) // non-draft
       .mockResolvedValueOnce(0 as never) // overdue
       .mockResolvedValueOnce(3 as never); // stale quotes
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.suggestions).toContainEqual(
       expect.objectContaining({ severity: 'warning', message: expect.stringContaining('devis') }),
@@ -146,10 +189,14 @@ describe('GET /api/stats', () => {
   });
 
   it('suggests on revenue drop vs last month (warning)', async () => {
-    prismaMock.invoice.aggregate
-      .mockResolvedValueOnce({ _sum: { amount: 50000 } } as never) // this month
-      .mockResolvedValueOnce({ _sum: { amount: 100000 } } as never); // last month
-    const res = await GET(makeGet());
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([
+        { amount: 50000, currency: 'XOF', exchangeRateToDefault: null },
+      ] as never) // this month
+      .mockResolvedValueOnce([
+        { amount: 100000, currency: 'XOF', exchangeRateToDefault: null },
+      ] as never); // last month
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.overview.revenue.trendPercent).toBe(-50);
     expect(body.suggestions).toContainEqual(
@@ -159,10 +206,10 @@ describe('GET /api/stats', () => {
 
   it('suggests dominant project type when share >= 50% (info)', async () => {
     prismaMock.project.findMany.mockResolvedValue([
-      { type: 'LOGO', amount: 80000 },
-      { type: 'UI_WEB', amount: 20000 },
+      { type: 'LOGO', amount: 80000, currency: 'XOF', exchangeRateToDefault: null },
+      { type: 'UI_WEB', amount: 20000, currency: 'XOF', exchangeRateToDefault: null },
     ] as never);
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     const body = await res.json();
     expect(body.suggestions).toContainEqual(
       expect.objectContaining({ severity: 'info', message: expect.stringContaining('Logo') }),
@@ -170,7 +217,7 @@ describe('GET /api/stats', () => {
   });
 
   it('response includes x-request-id header', async () => {
-    const res = await GET(makeGet());
+    const res = await callGet(makeGet());
     expect(res.headers.get('x-request-id')).toBeTruthy();
   });
 });

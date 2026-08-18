@@ -18,6 +18,9 @@ import {
   FREE_PLAN_LIMITS,
 } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { getDefaultCurrency } from '@/lib/server/fx/validateExchangeRate';
+import { getCachedRates } from '@/lib/server/fx/rates';
+import { sumConverted } from '@/lib/server/fx/convert';
 
 const Body = z.object({
   name: z.string().min(1).max(200),
@@ -80,13 +83,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // Portfolio-wide, not scoped to the current page/cursor slice — "how
     // much have I actually earned from my clients" is meant to answer that
     // question for the whole client base, not just the 50 most recent rows.
-    const revenueAgg = await prisma.invoice.aggregate({
-      where: { userId: auth.user.sub, docType: 'INVOICE', status: 'PAID' },
-      _sum: { amount: true },
-    });
+    const [defaultCurrency, liveRates, revenueRows] = await Promise.all([
+      getDefaultCurrency(prisma, auth.user.sub),
+      getCachedRates(),
+      prisma.invoice.findMany({
+        where: { userId: auth.user.sub, docType: 'INVOICE', status: 'PAID' },
+        select: { amount: true, currency: true, exchangeRateToDefault: true },
+      }),
+    ]);
+    // sumConverted takes a plain numeric rates record — CachedFxRates also
+    // carries `fetchedAt: string`, which isn't a rate.
+    const rates: Record<string, number> = {
+      XOF: liveRates.XOF,
+      EUR: liveRates.EUR,
+      USD: liveRates.USD,
+    };
+    const revenue = sumConverted(revenueRows, defaultCurrency, rates);
 
     return NextResponse.json(
-      { ...buildPage(rows, limit), totalRevenue: revenueAgg._sum.amount ?? 0 },
+      {
+        ...buildPage(rows, limit),
+        totalRevenue: revenue.amountDefault,
+        totalRevenueCurrency: defaultCurrency,
+        totalRevenueByCurrency: revenue.amountsByCurrency,
+      },
       { headers: { 'x-request-id': ctx.requestId } },
     );
   });
