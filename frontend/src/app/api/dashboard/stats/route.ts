@@ -17,6 +17,9 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { monthRange, percentTrend, monthBucketKey } from '@/lib/server/stats/helpers';
+import { getDefaultCurrency } from '@/lib/server/fx/validateExchangeRate';
+import { getCachedRates } from '@/lib/server/fx/rates';
+import { sumConverted, type ConvertibleRow } from '@/lib/server/fx/convert';
 
 const REVENUE_TREND_MONTHS = 6;
 
@@ -31,41 +34,47 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const lastMonth = monthRange(1);
     const trendStart = monthRange(REVENUE_TREND_MONTHS - 1).start;
 
+    const invoiceRowSelect = { amount: true, currency: true, exchangeRateToDefault: true } as const;
+
     const [
-      revenueThisMonthAgg,
-      revenueLastMonthAgg,
+      defaultCurrency,
+      liveRates,
+      revenueThisMonthRows,
+      revenueLastMonthRows,
       activeProjectsCount,
-      pendingInvoicesAgg,
+      pendingInvoicesRows,
       overdueInvoicesCount,
       newClientsThisMonthCount,
       newClientsLastMonthCount,
       revenueTrendRows,
     ] = await Promise.all([
-      prisma.invoice.aggregate({
+      getDefaultCurrency(prisma, userId),
+      getCachedRates(),
+      prisma.invoice.findMany({
         where: {
           userId,
           docType: 'INVOICE',
           status: 'PAID',
           issueDate: { gte: thisMonth.start, lt: thisMonth.end },
         },
-        _sum: { amount: true },
+        select: invoiceRowSelect,
       }),
-      prisma.invoice.aggregate({
+      prisma.invoice.findMany({
         where: {
           userId,
           docType: 'INVOICE',
           status: 'PAID',
           issueDate: { gte: lastMonth.start, lt: lastMonth.end },
         },
-        _sum: { amount: true },
+        select: invoiceRowSelect,
       }),
       prisma.project.count({ where: { userId, status: { notIn: ['DELIVERED', 'DRAFT'] } } }),
-      prisma.invoice.aggregate({
+      prisma.invoice.findMany({
         // docType: 'INVOICE' is required here — a devis (QUOTE) can also sit
         // at status SENT (see the devis lifecycle in lib/constants.ts), but
         // it isn't money owed yet, so it must never inflate this figure.
         where: { userId, docType: 'INVOICE', status: { in: ['SENT', 'OVERDUE'] } },
-        _sum: { amount: true },
+        select: invoiceRowSelect,
       }),
       prisma.invoice.count({ where: { userId, docType: 'INVOICE', status: 'OVERDUE' } }),
       prisma.client.count({
@@ -76,42 +85,55 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }),
       prisma.invoice.findMany({
         where: { userId, docType: 'INVOICE', status: 'PAID', issueDate: { gte: trendStart } },
-        select: { amount: true, issueDate: true },
+        select: { amount: true, currency: true, exchangeRateToDefault: true, issueDate: true },
       }),
     ]);
 
-    const revenueThisMonth = revenueThisMonthAgg._sum.amount ?? 0;
-    const revenueLastMonth = revenueLastMonthAgg._sum.amount ?? 0;
+    // sumConverted takes a plain numeric rates record — CachedFxRates also
+    // carries `fetchedAt: string`, which isn't a rate.
+    const rates: Record<string, number> = {
+      XOF: liveRates.XOF,
+      EUR: liveRates.EUR,
+      USD: liveRates.USD,
+    };
+
+    const revenueThisMonth = sumConverted(revenueThisMonthRows, defaultCurrency, rates);
+    const revenueLastMonth = sumConverted(revenueLastMonthRows, defaultCurrency, rates);
+    const pendingInvoices = sumConverted(pendingInvoicesRows, defaultCurrency, rates);
 
     // Bucket the raw PAID invoices into REVENUE_TREND_MONTHS calendar-month
     // buckets (oldest first) — a single findMany + in-memory grouping instead
-    // of N separate aggregate() round trips.
-    const buckets = new Map<string, number>();
+    // of N separate aggregate() round trips. Converted to defaultCurrency
+    // per row before bucketing (stable — uses each row's own frozen rate).
+    const buckets = new Map<string, ConvertibleRow[]>();
     for (let i = REVENUE_TREND_MONTHS - 1; i >= 0; i--) {
-      buckets.set(monthBucketKey(monthRange(i).start), 0);
+      buckets.set(monthBucketKey(monthRange(i).start), []);
     }
     for (const row of revenueTrendRows) {
       const key = monthBucketKey(new Date(row.issueDate));
-      if (buckets.has(key)) {
-        buckets.set(key, (buckets.get(key) ?? 0) + row.amount);
-      }
+      buckets.get(key)?.push(row);
     }
-    const revenueTrend = Array.from(buckets.entries()).map(([month, amount]) => ({
+    const revenueTrend = Array.from(buckets.entries()).map(([month, rows]) => ({
       month,
-      amount,
+      amount: sumConverted(rows, defaultCurrency, rates).amountDefault,
     }));
 
     return NextResponse.json(
       {
         revenue: {
-          amount: revenueThisMonth,
-          currency: 'XOF',
-          trendPercent: percentTrend(revenueThisMonth, revenueLastMonth),
+          amount: revenueThisMonth.amountDefault,
+          currency: defaultCurrency,
+          amountsByCurrency: revenueThisMonth.amountsByCurrency,
+          trendPercent: percentTrend(
+            revenueThisMonth.amountDefault,
+            revenueLastMonth.amountDefault,
+          ),
         },
         activeProjects: { count: activeProjectsCount },
         pendingInvoices: {
-          amount: pendingInvoicesAgg._sum.amount ?? 0,
-          currency: 'XOF',
+          amount: pendingInvoices.amountDefault,
+          currency: defaultCurrency,
+          amountsByCurrency: pendingInvoices.amountsByCurrency,
           overdueCount: overdueInvoicesCount,
         },
         newClients: {

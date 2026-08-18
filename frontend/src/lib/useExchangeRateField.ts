@@ -27,9 +27,12 @@ export function useExchangeRateField(
 
   useEffect(() => {
     if (!needsRate || touched || !fx) return;
+    // fx values are "units of X per 1 EUR" (open.er-api.com's EUR base) —
+    // converting 1 unit of `currency` into `defaultCurrency` is
+    // rate[defaultCurrency] / rate[currency], not the other way round.
     const from = fx[currency as keyof FxRates];
     const to = fx[defaultCurrency as keyof FxRates];
-    if (from && to) setRate(String(Number((from / to).toFixed(6))));
+    if (from && to) setRate(String(Number((to / from).toFixed(6))));
   }, [currency, defaultCurrency, needsRate, touched, fx]);
 
   return {
