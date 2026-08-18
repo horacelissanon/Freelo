@@ -24,7 +24,15 @@ export interface InvoiceRowData {
   balanceAmount?: number | null;
 }
 
-export function InvoiceRow({ invoice, index }: { invoice: InvoiceRowData; index?: number }) {
+export function InvoiceRow({
+  invoice,
+  index,
+  masked,
+}: {
+  invoice: InvoiceRowData;
+  index?: number;
+  masked?: boolean | undefined;
+}) {
   const colors = INVOICE_STATUS_COLORS[invoice.status];
   const docType = DOC_TYPE_LABELS[invoice.docType];
   return (
@@ -53,20 +61,27 @@ export function InvoiceRow({ invoice, index }: { invoice: InvoiceRowData; index?
       </div>
       <div className="flex-shrink-0 text-right">
         <p className="text-sm font-medium text-foreground">
-          {formatPrice(invoice.amount)}{' '}
-          <span className="text-xs font-normal text-muted-foreground">{invoice.currency}</span>
+          {masked ? (
+            '••••••'
+          ) : (
+            <>
+              {formatPrice(invoice.amount)}{' '}
+              <span className="text-xs font-normal text-muted-foreground">{invoice.currency}</span>
+            </>
+          )}
         </p>
         {invoice.dueDateLabel && (
           <p className="text-xs text-muted-foreground">Échéance {invoice.dueDateLabel}</p>
         )}
-        {invoice.docType === 'INVOICE' &&
+        {!masked &&
+          invoice.docType === 'INVOICE' &&
           invoice.depositAmount != null &&
           invoice.balanceAmount != null && (
             <p className="text-xs text-muted-foreground">
               Ac. {formatPrice(invoice.depositAmount)} · Sd. {formatPrice(invoice.balanceAmount)}
             </p>
           )}
-        {invoice.docType === 'QUOTE' && invoice.depositAmount != null && (
+        {!masked && invoice.docType === 'QUOTE' && invoice.depositAmount != null && (
           <p className="text-xs text-muted-foreground">
             Acompte prévu {formatPrice(invoice.depositAmount)}
           </p>

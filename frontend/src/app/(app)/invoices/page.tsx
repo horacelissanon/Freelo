@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '@/contexts/AuthContext';
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi } from '@/lib/useApi';
 import { InvoiceRow } from '@/components/invoices/InvoiceRow';
 import { InvoiceCard } from '@/components/invoices/InvoiceCard';
@@ -127,10 +128,12 @@ function InvoiceList({
   items,
   viewMode,
   onCreateEmpty,
+  masked,
 }: {
   items: InvoiceApiRow[];
   viewMode: ListViewMode;
   onCreateEmpty: () => void;
+  masked?: boolean;
 }) {
   if (items.length === 0) {
     return <InvoicesEmptyState onCreate={onCreateEmpty} />;
@@ -143,6 +146,7 @@ function InvoiceList({
           return (
             <InvoiceCard
               key={i.id}
+              masked={masked}
               invoice={{
                 id: i.id,
                 number: i.number,
@@ -172,6 +176,7 @@ function InvoiceList({
           <InvoiceRow
             key={i.id}
             index={idx}
+            masked={masked}
             invoice={{
               id: i.id,
               number: i.number,
@@ -287,6 +292,7 @@ function FacturesTab({
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   const { displayCurrency } = useDisplayCurrency();
+  const { moneyMasked } = useMoneyMask();
 
   // Converted per row via each invoice's own frozen exchangeRateToDefault
   // (or the live cache for legacy rows) before summing into defaultCurrency
@@ -336,18 +342,21 @@ function FacturesTab({
             value={formatPrice(totalPaid)}
             unit={displayCurrency}
             icon="check-circle"
+            masked={moneyMasked}
           />
           <StatCard
             label="En attente"
             value={formatPrice(totalPending)}
             unit={displayCurrency}
             icon="file-clock"
+            masked={moneyMasked}
           />
           <StatCard
             label="En retard"
             value={formatPrice(totalOverdue)}
             unit={displayCurrency}
             icon="alert-circle"
+            masked={moneyMasked}
           />
         </div>
       )}
@@ -371,7 +380,12 @@ function FacturesTab({
           description="Aucune facture ne correspond à ce filtre."
         />
       ) : (
-        <InvoiceList items={filtered} viewMode={viewMode} onCreateEmpty={onCreate} />
+        <InvoiceList
+          items={filtered}
+          viewMode={viewMode}
+          onCreateEmpty={onCreate}
+          masked={moneyMasked}
+        />
       )}
     </>
   );
@@ -426,6 +440,7 @@ function DevisTab({
   // numbers with speculative or already-lost devis. Still fully visible in
   // the list underneath via the status filter.
   const { displayCurrency } = useDisplayCurrency();
+  const { moneyMasked } = useMoneyMask();
   const pendingRows = dateScoped.filter((r) => r.status === 'SENT');
   const acceptedRows = dateScoped.filter((r) => r.status === 'ACCEPTED');
   // Converted per row via each devis's own frozen exchangeRateToDefault (or
@@ -476,6 +491,7 @@ function DevisTab({
             value={formatPrice(totalPending)}
             unit={displayCurrency}
             icon="file-clock"
+            masked={moneyMasked}
           />
           <StatCard label="Acceptés" value={String(acceptedRows.length)} icon="check-circle" />
           <StatCard
@@ -483,12 +499,14 @@ function DevisTab({
             value={formatPrice(depositExpected)}
             unit={displayCurrency}
             icon="banknote"
+            masked={moneyMasked}
           />
           <StatCard
             label="Acompte reçu"
             value={formatPrice(depositReceived)}
             unit={displayCurrency}
             icon="wallet"
+            masked={moneyMasked}
           />
         </div>
       )}
@@ -512,7 +530,12 @@ function DevisTab({
           description="Aucun devis ne correspond à ce filtre."
         />
       ) : (
-        <InvoiceList items={filtered} viewMode={viewMode} onCreateEmpty={onCreate} />
+        <InvoiceList
+          items={filtered}
+          viewMode={viewMode}
+          onCreateEmpty={onCreate}
+          masked={moneyMasked}
+        />
       )}
     </>
   );

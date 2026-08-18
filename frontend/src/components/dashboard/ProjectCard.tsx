@@ -32,7 +32,7 @@ export interface ProjectCardData {
   balance?: { amount: number; paid: boolean };
 }
 
-export function ProjectCard({ project }: { project: ProjectCardData }) {
+export function ProjectCard({ project, masked }: { project: ProjectCardData; masked?: boolean }) {
   const { toast } = useToast();
   const colors = PROJECT_STATUS_COLORS[project.status];
 
@@ -87,13 +87,21 @@ export function ProjectCard({ project }: { project: ProjectCardData }) {
       <div className="flex items-center justify-between border-t border-border pt-3">
         <div>
           <p className="text-sm font-semibold text-foreground">
-            {formatPrice(project.amount)}{' '}
-            <span className="text-xs font-normal text-muted-foreground">{project.currency}</span>
+            {masked ? (
+              '••••••'
+            ) : (
+              <>
+                {formatPrice(project.amount)}{' '}
+                <span className="text-xs font-normal text-muted-foreground">
+                  {project.currency}
+                </span>
+              </>
+            )}
           </p>
           {project.dueDateLabel && (
             <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>
           )}
-          {(project.deposit || project.balance) && (
+          {!masked && (project.deposit || project.balance) && (
             <p className="text-xs">
               {project.deposit && (
                 <span

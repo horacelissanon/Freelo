@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi } from '@/lib/useApi';
 import { displayAmount } from '@/lib/displayAmount';
 import { StatCard } from '@/components/dashboard/StatCard';
@@ -43,11 +44,17 @@ interface StatsResponse {
   };
   revenueByProjectType: ProjectTypeBreakdown[];
   topClients: TopClient[];
-  revenueTrend: RevenueTrendPoint[];
+  revenueTrend: (RevenueTrendPoint & { amountsByCurrency: Record<string, number> })[];
   suggestions: Suggestion[];
 }
 
-function ProjectTypeBreakdownCard({ items }: { items: ProjectTypeBreakdown[] }) {
+function ProjectTypeBreakdownCard({
+  items,
+  masked,
+}: {
+  items: ProjectTypeBreakdown[];
+  masked?: boolean;
+}) {
   return (
     <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
       <h2 className="mb-4 font-headings text-base font-semibold text-foreground">
@@ -66,7 +73,7 @@ function ProjectTypeBreakdownCard({ items }: { items: ProjectTypeBreakdown[] }) 
               <div className="flex items-center justify-between gap-2">
                 <span className="font-body text-sm font-medium text-foreground">{item.label}</span>
                 <span className="flex-shrink-0 font-body text-xs text-muted-foreground">
-                  {formatPrice(item.amount)} · {item.sharePercent}%
+                  {masked ? '••••••' : formatPrice(item.amount)} · {item.sharePercent}%
                 </span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -83,7 +90,7 @@ function ProjectTypeBreakdownCard({ items }: { items: ProjectTypeBreakdown[] }) 
   );
 }
 
-function TopClientsCard({ items }: { items: TopClient[] }) {
+function TopClientsCard({ items, masked }: { items: TopClient[]; masked?: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
       <h2 className="mb-4 font-headings text-base font-semibold text-foreground">
@@ -110,7 +117,7 @@ function TopClientsCard({ items }: { items: TopClient[] }) {
                 {c.name}
               </span>
               <span className="flex-shrink-0 font-body text-sm font-bold text-primary">
-                {formatPrice(c.amount)}
+                {masked ? '••••••' : formatPrice(c.amount)}
               </span>
             </Link>
           ))}
@@ -154,6 +161,7 @@ function SuggestionsCard({ items }: { items: Suggestion[] }) {
 export default function StatsPage() {
   const user = useUser();
   const { displayCurrency } = useDisplayCurrency();
+  const { moneyMasked } = useMoneyMask();
   const { data, loading, error, refresh } = useApi<StatsResponse>('/api/stats');
   const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
   const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
@@ -169,6 +177,18 @@ export default function StatsPage() {
         liveRates,
       })
     : 0;
+  const displayRevenueTrend = data
+    ? data.revenueTrend.map((point) => ({
+        month: point.month,
+        amount: displayAmount({
+          amountDefault: point.amount,
+          amountsByCurrency: point.amountsByCurrency,
+          displayCurrency,
+          defaultCurrency: data.overview.revenue.currency,
+          liveRates,
+        }),
+      }))
+    : [];
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -206,6 +226,7 @@ export default function StatsPage() {
                     }
                   : undefined
               }
+              masked={moneyMasked}
             />
             <StatCard
               label="Panier moyen / projet"
@@ -215,6 +236,7 @@ export default function StatsPage() {
                   : '—'
               }
               icon="briefcase"
+              masked={moneyMasked}
               {...(data.overview.avgProjectValue
                 ? { unit: data.overview.avgProjectValue.currency }
                 : {})}
@@ -227,14 +249,15 @@ export default function StatsPage() {
           </div>
 
           <RevenueTrendCard
-            data={data.revenueTrend}
+            data={displayRevenueTrend}
             title="Revenus (12 derniers mois)"
-            unit={data.overview.revenue.currency}
+            unit={displayCurrency}
+            masked={moneyMasked}
           />
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <ProjectTypeBreakdownCard items={data.revenueByProjectType} />
-            <TopClientsCard items={data.topClients} />
+            <ProjectTypeBreakdownCard items={data.revenueByProjectType} masked={moneyMasked} />
+            <TopClientsCard items={data.topClients} masked={moneyMasked} />
           </div>
         </div>
       )}

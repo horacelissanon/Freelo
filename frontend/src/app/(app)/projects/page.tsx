@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@/contexts/AuthContext';
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi } from '@/lib/useApi';
 import { ProjectCard } from '@/components/dashboard/ProjectCard';
 import { ProjectRow } from '@/components/dashboard/ProjectRow';
@@ -47,6 +48,7 @@ export default function ProjectsPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
   const { displayCurrency } = useDisplayCurrency();
+  const { moneyMasked } = useMoneyMask();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
@@ -187,24 +189,28 @@ export default function ProjectsPage() {
             value={formatPrice(totalAmount)}
             unit={displayCurrency}
             icon="banknote"
+            masked={moneyMasked}
           />
           <StatCard
             label="Chiffre d'affaires total"
             value={formatPrice(collectedAmount)}
             unit={displayCurrency}
             icon="wallet"
+            masked={moneyMasked}
           />
           <StatCard
             label="Acomptes en attente"
             value={formatPrice(depositsPending)}
             unit={displayCurrency}
             icon="file-clock"
+            masked={moneyMasked}
           />
           <StatCard
             label="Soldes en attente"
             value={formatPrice(balancesPending)}
             unit={displayCurrency}
             icon="file-clock"
+            masked={moneyMasked}
           />
           <StatCard label="Total projets" value={String(realItems.length)} icon="folder-open" />
           <StatCard label="Projets actifs" value={String(activeCount)} icon="clock" />
@@ -297,6 +303,7 @@ export default function ProjectsPage() {
                 deposit: p.deposit,
                 balance: p.balance,
               }}
+              masked={moneyMasked}
             />
           ))}
         </div>
@@ -306,6 +313,7 @@ export default function ProjectsPage() {
             <ProjectRow
               key={p.id}
               index={i}
+              masked={moneyMasked}
               project={{
                 id: p.id,
                 name: p.name,

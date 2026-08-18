@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@/contexts/AuthContext';
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi } from '@/lib/useApi';
 import { displayAmount } from '@/lib/displayAmount';
 import { ClientRow } from '@/components/clients/ClientRow';
@@ -43,6 +44,7 @@ export default function ClientsPage() {
   const user = useUser();
   const { openCreate } = useCreateMenu();
   const { displayCurrency } = useDisplayCurrency();
+  const { moneyMasked } = useMoneyMask();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(DEFAULT_DATE_FILTER);
@@ -152,6 +154,7 @@ export default function ClientsPage() {
             value={formatPrice(displayTotalRevenue)}
             unit={displayCurrency}
             icon="banknote"
+            masked={moneyMasked}
           />
         </div>
       )}

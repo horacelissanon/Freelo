@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/contexts/AuthContext';
 import { useCreateMenu } from '@/contexts/CreateMenuContext';
 import { useDisplayCurrency } from '@/contexts/DisplayCurrencyContext';
+import { useMoneyMask } from '@/contexts/MoneyMaskContext';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
 import { displayAmount } from '@/lib/displayAmount';
@@ -35,7 +35,7 @@ interface DashboardStats {
     overdueCount: number;
   };
   newClients: { count: number; trend: number };
-  revenueTrend: { month: string; amount: number }[];
+  revenueTrend: { month: string; amount: number; amountsByCurrency: Record<string, number> }[];
 }
 
 interface ProjectApiRow {
@@ -70,7 +70,6 @@ interface InvoiceApiRow {
 }
 
 const URGENT_WINDOW_DAYS = 7;
-const MONEY_MASK_KEY = 'merrudit-dashboard-money-masked';
 
 export default function DashboardPage() {
   const user = useUser();
@@ -107,34 +106,21 @@ export default function DashboardPage() {
         liveRates,
       })
     : 0;
+  const statsData = stats.data;
+  const displayRevenueTrend = statsData
+    ? statsData.revenueTrend.map((point) => ({
+        month: point.month,
+        amount: displayAmount({
+          amountDefault: point.amount,
+          amountsByCurrency: point.amountsByCurrency,
+          displayCurrency,
+          defaultCurrency: statsData.revenue.currency,
+          liveRates,
+        }),
+      }))
+    : [];
 
-  // Per-device preference, not a server setting — same pattern as
-  // sidebar-collapsed/bottom-nav-glass. Defaults to visible. The eye toggle
-  // lives on the "Factures en attente" card (not "Revenus") but masks every
-  // money figure on this page — both StatCards, the active-projects list,
-  // the unpaid-invoices panel, the revenue trend chart's bar labels, and
-  // the overdue-invoices alert banner.
-  const [moneyMasked, setMoneyMasked] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(MONEY_MASK_KEY) === '1') setMoneyMasked(true);
-    } catch {
-      // Storage unavailable — stays visible for this session.
-    }
-  }, []);
-
-  function toggleMoneyMasked() {
-    setMoneyMasked((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(MONEY_MASK_KEY, next ? '1' : '0');
-      } catch {
-        // Preference still applies for this session, just won't persist.
-      }
-      return next;
-    });
-  }
+  const { moneyMasked } = useMoneyMask();
 
   if (!user) return null;
 
@@ -277,7 +263,6 @@ export default function DashboardPage() {
                 : undefined
             }
             masked={moneyMasked}
-            onToggleMasked={toggleMoneyMasked}
           />
           <StatCard
             label="Nouveaux clients"
@@ -330,9 +315,9 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           {stats.data && (
             <RevenueTrendCard
-              data={stats.data.revenueTrend}
+              data={displayRevenueTrend}
               masked={moneyMasked}
-              unit={stats.data.revenue.currency}
+              unit={displayCurrency}
             />
           )}
         </div>

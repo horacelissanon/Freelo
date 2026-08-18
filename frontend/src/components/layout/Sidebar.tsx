@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
-import { ThemeToggle } from '@/components/ThemeToggle';
 import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
+import { MoneyMaskToggle } from '@/components/MoneyMaskToggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
@@ -117,8 +117,8 @@ function SidebarBody({
         </Link>
         {!collapsed && (
           <div className="flex items-center gap-1">
-            <ThemeToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
-            <DisplayCurrencyToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
+            <MoneyMaskToggle className="!text-sidebar-foreground/60 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
+            <DisplayCurrencyToggle className="!border-sidebar-foreground/20 !bg-sidebar-foreground/5 !text-sidebar-foreground/70 hover:!border-sidebar-foreground/35 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
           </div>
         )}
       </div>
