@@ -12,6 +12,11 @@ import {
   type ProjectStatus,
   type ProjectType,
 } from '@/lib/constants';
+import {
+  projectDeadlineUrgency,
+  DEADLINE_URGENCY_STYLE,
+  DEADLINE_URGENCY_LABEL,
+} from '@/lib/projectDeadline';
 
 // Card variant of ProjectRow, used only on the main /projects grid (per the
 // user's reference screenshots for that page). ProjectRow stays a compact
@@ -25,6 +30,9 @@ export interface ProjectCardData {
   progress: number;
   amount: number;
   currency: string;
+  /** Raw ISO date — drives the overdue/due-today urgency coloring below.
+   *  `dueDateLabel` stays the pre-formatted short display string. */
+  dueDate: string | null;
   dueDateLabel: string | null;
   publicToken: string;
   clientName?: string;
@@ -35,6 +43,7 @@ export interface ProjectCardData {
 export function ProjectCard({ project, masked }: { project: ProjectCardData; masked?: boolean }) {
   const { toast } = useToast();
   const colors = PROJECT_STATUS_COLORS[project.status];
+  const deadlineUrgency = projectDeadlineUrgency(project.dueDate, project.status);
 
   async function copyTrackingLink() {
     const url = `${window.location.origin}/suivi/${project.publicToken}`;
@@ -99,7 +108,13 @@ export function ProjectCard({ project, masked }: { project: ProjectCardData; mas
             )}
           </p>
           {project.dueDateLabel && (
-            <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>
+            <p
+              className={`text-xs ${deadlineUrgency ? DEADLINE_URGENCY_STYLE[deadlineUrgency] : 'text-muted-foreground'}`}
+            >
+              {deadlineUrgency
+                ? DEADLINE_URGENCY_LABEL[deadlineUrgency]
+                : `Échéance ${project.dueDateLabel}`}
+            </p>
           )}
           {!masked && (project.deposit || project.balance) && (
             <p className="text-xs">

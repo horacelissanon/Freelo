@@ -50,6 +50,7 @@ describe('sweepDeadlineAlerts', () => {
       quoteNotifications: 0,
       quoteReminderNotifications: 0,
       projectNotifications: 0,
+      projectOverdueNotifications: 0,
     });
   });
 
@@ -178,6 +179,26 @@ describe('sweepDeadlineAlerts', () => {
       }),
     );
     expect(result.projectNotifications).toBe(1);
+  });
+
+  it('notifies for a non-DELIVERED project whose dueDate has already passed', async () => {
+    const dueDate = new Date(NOW.getTime() - 2 * 24 * 60 * 60 * 1000);
+    prismaMock.project.findMany.mockResolvedValueOnce([
+      { id: 'p_2', userId: 'u_1', name: 'Site vitrine', dueDate },
+    ] as never);
+    prismaMock.notification.create.mockResolvedValueOnce({ id: 'n_6' } as never);
+
+    const result = await sweepDeadlineAlerts(prismaMock, NOW);
+
+    expect(prismaMock.notification.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          dedupeKey: `project-overdue:p_2:${TODAY_KEY}`,
+        }),
+      }),
+    );
+    expect(result.projectOverdueNotifications).toBe(1);
+    expect(result.projectNotifications).toBe(0);
   });
 
   it('does not double-count when createNotification dedupes (P2002)', async () => {

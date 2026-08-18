@@ -91,6 +91,29 @@ export function projectDeadlineSoon(
 }
 
 /**
+ * Dispatched by the deadline-alerts cron for a PROJECT whose dueDate has
+ * already passed without being DELIVERED — mirrors invoiceOverdue: no status
+ * field to flip (Project has no OVERDUE state), just a daily-keyed reminder
+ * that repeats for as long as the project stays undelivered past its date.
+ */
+export function projectOverdue(
+  userId: string,
+  projectId: string,
+  name: string,
+  dueDateIso: string,
+  todayKey: string,
+): CreateNotificationInput {
+  return {
+    userId,
+    type: 'project-overdue',
+    title: `${name} — échéance dépassée`,
+    body: `Livraison prévue le ${new Date(dueDateIso).toLocaleDateString('fr-FR')}, projet toujours non livré.`,
+    data: { projectId },
+    dedupeKey: `project-overdue:${projectId}:${todayKey}`,
+  };
+}
+
+/**
  * Dispatched by the deadline-alerts cron for a QUOTE (devis) whose dueDate
  * falls within the reminder window and is still awaiting a client decision.
  * Mirrors projectDeadlineSoon — deduped per (quote, todayKey), repeats

@@ -134,6 +134,7 @@ export default function DashboardPage() {
     amount: p.amount,
     currency: p.currency,
     step: p.step,
+    dueDate: p.dueDate,
     dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
     publicToken: p.publicToken,
   }));
@@ -161,7 +162,9 @@ export default function DashboardPage() {
       name: p.name,
       daysLeft: Math.ceil((new Date(p.dueDate as string).getTime() - Date.now()) / 86_400_000),
     }))
-    .filter((p) => p.daysLeft >= 0 && p.daysLeft <= UPCOMING_WINDOW_DAYS)
+    // No lower bound: an overdue project (negative daysLeft) needs this
+    // surfaced more than an upcoming one, not silently dropped.
+    .filter((p) => p.daysLeft <= UPCOMING_WINDOW_DAYS)
     .sort((a, b) => a.daysLeft - b.daysLeft)
     .slice(0, 3);
 
@@ -185,13 +188,16 @@ export default function DashboardPage() {
         ...p,
         daysLeft: Math.ceil((new Date(p.dueDate as string).getTime() - Date.now()) / 86_400_000),
       }))
-      .filter((p) => p.daysLeft >= 0 && p.daysLeft <= URGENT_WINDOW_DAYS)
+      // No lower bound: an already-overdue project outranks any upcoming
+      // one — it should win this banner slot, not be filtered out.
+      .filter((p) => p.daysLeft <= URGENT_WINDOW_DAYS)
       .sort((a, b) => a.daysLeft - b.daysLeft)[0];
     if (soonest) {
-      alert = {
-        text: `${soonest.name} — échéance dans ${soonest.daysLeft === 0 ? "moins d'un jour" : `${soonest.daysLeft} jour${soonest.daysLeft > 1 ? 's' : ''}`}`,
-        href: `/projects/${soonest.id}`,
-      };
+      const text =
+        soonest.daysLeft < 0
+          ? `${soonest.name} — échéance dépassée depuis ${Math.abs(soonest.daysLeft)} jour${Math.abs(soonest.daysLeft) > 1 ? 's' : ''}`
+          : `${soonest.name} — échéance dans ${soonest.daysLeft === 0 ? "moins d'un jour" : `${soonest.daysLeft} jour${soonest.daysLeft > 1 ? 's' : ''}`}`;
+      alert = { text, href: `/projects/${soonest.id}` };
     }
   }
 

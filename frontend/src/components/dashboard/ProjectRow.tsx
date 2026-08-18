@@ -5,6 +5,11 @@ import { Icon } from '@/components/ui/Icon';
 import { formatPrice } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import { PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS, type ProjectStatus } from '@/lib/constants';
+import {
+  projectDeadlineUrgency,
+  DEADLINE_URGENCY_STYLE,
+  DEADLINE_URGENCY_LABEL,
+} from '@/lib/projectDeadline';
 
 export interface ProjectRowData {
   id: string;
@@ -14,6 +19,9 @@ export interface ProjectRowData {
   amount: number;
   currency: string;
   step: string | null;
+  /** Raw ISO date — drives the overdue/due-today urgency coloring below.
+   *  `dueDateLabel` stays the pre-formatted short display string. */
+  dueDate: string | null;
   dueDateLabel: string | null;
   publicToken: string;
   clientName?: string;
@@ -33,6 +41,7 @@ export function ProjectRow({
 }) {
   const { toast } = useToast();
   const colors = PROJECT_STATUS_COLORS[project.status];
+  const deadlineUrgency = projectDeadlineUrgency(project.dueDate, project.status);
 
   async function copyTrackingLink() {
     const url = `${window.location.origin}/suivi/${project.publicToken}`;
@@ -86,7 +95,13 @@ export function ProjectRow({
             )}
           </p>
           {project.dueDateLabel && (
-            <p className="text-xs text-muted-foreground">Échéance {project.dueDateLabel}</p>
+            <p
+              className={`text-xs ${deadlineUrgency ? DEADLINE_URGENCY_STYLE[deadlineUrgency] : 'text-muted-foreground'}`}
+            >
+              {deadlineUrgency
+                ? DEADLINE_URGENCY_LABEL[deadlineUrgency]
+                : `Échéance ${project.dueDateLabel}`}
+            </p>
           )}
           {!masked && (project.deposit || project.balance) && (
             <p className="text-xs">

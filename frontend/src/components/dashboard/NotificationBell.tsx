@@ -29,6 +29,7 @@ const TYPE_STYLE: Record<string, { bg: string; fg: string; icon: string }> = {
   'quote-expired': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   'quote-expiring-soon': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
   'project-deadline': { bg: 'bg-tag-orange', fg: 'text-tag-orange-fg', icon: 'clock' },
+  'project-overdue': { bg: 'bg-tag-red', fg: 'text-tag-red-fg', icon: 'alert-circle' },
   WELCOME: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'star' },
   PAYMENT_RECEIVED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'credit-card' },
   SUBSCRIPTION_RENEWED: { bg: 'bg-tag-green', fg: 'text-tag-green-fg', icon: 'credit-card' },

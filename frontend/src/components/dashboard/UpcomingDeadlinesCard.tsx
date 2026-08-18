@@ -39,7 +39,11 @@ export function UpcomingDeadlinesCard({ items }: { items: UpcomingDeadlineItem[]
                   urgent ? 'bg-tag-red text-tag-red-fg' : 'bg-muted text-muted-foreground'
                 }`}
               >
-                {item.daysLeft === 0 ? "Aujourd'hui" : `${item.daysLeft} j`}
+                {item.daysLeft < 0
+                  ? `En retard (${Math.abs(item.daysLeft)} j)`
+                  : item.daysLeft === 0
+                    ? "Aujourd'hui"
+                    : `${item.daysLeft} j`}
               </span>
             </Link>
           );

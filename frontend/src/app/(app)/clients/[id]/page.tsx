@@ -303,6 +303,7 @@ export default function ClientDetailPage() {
                         amount: p.amount,
                         currency: p.currency,
                         step: p.step,
+                        dueDate: p.dueDate,
                         dueDateLabel: p.dueDate ? formatDate(p.dueDate) : null,
                         publicToken: p.publicToken,
                       }}

@@ -21,6 +21,7 @@ import { createNotification } from '../notifications/index';
 import {
   invoiceOverdue,
   projectDeadlineSoon,
+  projectOverdue,
   quoteExpired,
   quoteExpiringSoon,
 } from '../notifications/templates';
@@ -34,6 +35,7 @@ export interface SweepDeadlineAlertsResult {
   quoteNotifications: number;
   quoteReminderNotifications: number;
   projectNotifications: number;
+  projectOverdueNotifications: number;
 }
 
 export async function sweepDeadlineAlerts(
@@ -118,21 +120,36 @@ export async function sweepDeadlineAlerts(
     if (created) quoteReminderNotifications++;
   }
 
+  // Single query covering both "coming up soon" and "already passed" —
+  // branched in-memory by comparing each row's dueDate to `now`, same
+  // one-round-trip-then-bucket pattern as the revenue trend queries. Before
+  // this, only the soon-due half fired: a project whose dueDate slipped by
+  // (dueDate < now) fell out of the `gt: now` filter and got zero alert,
+  // forever, since Project has no OVERDUE status to flip like Invoice does.
   let projectNotifications = 0;
-  const upcomingProjects = await prisma.project.findMany({
+  let projectOverdueNotifications = 0;
+  const projectsNeedingAttention = await prisma.project.findMany({
     where: {
       status: { notIn: ['DELIVERED', 'DRAFT'] },
-      dueDate: { gt: now, lte: reminderCutoff },
+      dueDate: { lte: reminderCutoff },
     },
     select: { id: true, userId: true, name: true, dueDate: true },
   });
-  for (const p of upcomingProjects) {
+  for (const p of projectsNeedingAttention) {
     if (!p.dueDate) continue;
-    const created = await createNotification(
-      prisma,
-      projectDeadlineSoon(p.userId, p.id, p.name, p.dueDate.toISOString(), todayKey),
-    );
-    if (created) projectNotifications++;
+    if (p.dueDate < now) {
+      const created = await createNotification(
+        prisma,
+        projectOverdue(p.userId, p.id, p.name, p.dueDate.toISOString(), todayKey),
+      );
+      if (created) projectOverdueNotifications++;
+    } else {
+      const created = await createNotification(
+        prisma,
+        projectDeadlineSoon(p.userId, p.id, p.name, p.dueDate.toISOString(), todayKey),
+      );
+      if (created) projectNotifications++;
+    }
   }
 
   return {
@@ -142,5 +159,6 @@ export async function sweepDeadlineAlerts(
     quoteNotifications,
     quoteReminderNotifications,
     projectNotifications,
+    projectOverdueNotifications,
   };
 }
