@@ -18,6 +18,8 @@ export interface User {
   passwordChangedAt: string | null;
   /** Provider names already linked, e.g. ['google']. Empty for pure email/password accounts. */
   linkedProviders: string[];
+  /** App-wide role. Gates access to /admin — USER never sees the nav entry. */
+  role: 'USER' | 'ADMIN' | 'SUPERADMIN';
   name: string | null;
   avatarUrl: string | null;
   phone: string | null;

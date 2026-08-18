@@ -49,6 +49,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         passwordHash: true,
         passwordChangedAt: true,
         oauthAccounts: { select: { provider: true } },
+        role: true,
         name: true,
         avatarUrl: true,
         phone: true,
@@ -98,6 +99,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           : dbUser.passwordChangedAt
         : null,
       linkedProviders: (dbUser?.oauthAccounts ?? []).map((a) => a.provider),
+      // Read-only here — role changes only happen via the SUPERADMIN-gated
+      // PATCH /api/admin/users/[id]/role route, never through this endpoint.
+      role: (dbUser?.role ?? 'USER') as 'USER' | 'ADMIN' | 'SUPERADMIN',
       name: dbUser?.name ?? null,
       avatarUrl: dbUser?.avatarUrl ?? null,
       phone: dbUser?.phone ?? null,

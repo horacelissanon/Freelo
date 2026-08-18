@@ -198,6 +198,19 @@ function SidebarBody({
           <Icon i="settings" size={16} />
           {!collapsed && 'Paramètres'}
         </Link>
+        {user && user.role !== 'USER' && (
+          <Link
+            href="/admin"
+            onClick={onNavigate}
+            title={collapsed ? 'Administration' : undefined}
+            className={`flex items-center gap-3 ${itemShape} font-body text-sm text-sidebar-foreground/50 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground ${
+              collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
+            }`}
+          >
+            <Icon i="shield" size={16} />
+            {!collapsed && 'Administration'}
+          </Link>
+        )}
         {user && (
           <Link
             href="/settings?tab=compte"
