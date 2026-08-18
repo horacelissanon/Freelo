@@ -35,10 +35,16 @@ export function InvoiceRow({
 }) {
   const colors = INVOICE_STATUS_COLORS[invoice.status];
   const docType = DOC_TYPE_LABELS[invoice.docType];
+  // Same pastel tag color the status badge already uses (never a saturated
+  // pure red) — applied to the whole row so an overdue facture or expired
+  // devis stands out in the list, not just its small status chip.
+  const isUrgent = invoice.status === 'OVERDUE' || invoice.status === 'EXPIRED';
   return (
     <Link
       href={`/invoices/${invoice.id}`}
-      className="flex items-center gap-4 border-b border-border py-3.5 font-body last:border-b-0"
+      className={`flex items-center gap-4 border-b border-border py-3.5 font-body last:border-b-0 ${
+        isUrgent ? `-mx-2 rounded-md px-2 ${colors.bg}` : ''
+      }`}
     >
       {index !== undefined && (
         <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary font-body text-xs font-bold text-foreground">

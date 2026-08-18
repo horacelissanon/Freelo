@@ -27,6 +27,14 @@ export const DEADLINE_URGENCY_STYLE: Record<DeadlineUrgency, string> = {
   today: 'text-tag-orange-fg font-semibold',
 };
 
+/** Same pastel tokens the status badges already use (never a saturated
+ *  pure red/orange) — applied to the whole row so a late or due-today
+ *  project stands out in a list, not just its small date label. */
+export const DEADLINE_URGENCY_ROW_BG: Record<DeadlineUrgency, string> = {
+  overdue: 'bg-tag-red',
+  today: 'bg-tag-orange',
+};
+
 export const DEADLINE_URGENCY_LABEL: Record<DeadlineUrgency, string> = {
   overdue: 'Échéance dépassée',
   today: "Échéance aujourd'hui",

@@ -16,6 +16,7 @@ import {
   projectDeadlineUrgency,
   DEADLINE_URGENCY_STYLE,
   DEADLINE_URGENCY_LABEL,
+  DEADLINE_URGENCY_ROW_BG,
 } from '@/lib/projectDeadline';
 
 // Card variant of ProjectRow, used only on the main /projects grid (per the
@@ -52,7 +53,11 @@ export function ProjectCard({ project, masked }: { project: ProjectCardData; mas
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-canvas shadow-card p-4 font-body transition-shadow hover:shadow-md">
+    <div
+      className={`flex flex-col gap-3 rounded-xl border border-border p-4 font-body shadow-card transition-shadow hover:shadow-md ${
+        deadlineUrgency ? DEADLINE_URGENCY_ROW_BG[deadlineUrgency] : 'bg-canvas'
+      }`}
+    >
       <Link href={`/projects/${project.id}`} className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-secondary">

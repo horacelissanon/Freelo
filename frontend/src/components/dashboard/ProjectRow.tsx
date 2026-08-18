@@ -9,6 +9,7 @@ import {
   projectDeadlineUrgency,
   DEADLINE_URGENCY_STYLE,
   DEADLINE_URGENCY_LABEL,
+  DEADLINE_URGENCY_ROW_BG,
 } from '@/lib/projectDeadline';
 
 export interface ProjectRowData {
@@ -50,7 +51,11 @@ export function ProjectRow({
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-border py-3.5 font-body last:border-b-0">
+    <div
+      className={`flex items-center gap-2 border-b border-border py-3.5 font-body last:border-b-0 ${
+        deadlineUrgency ? `-mx-2 rounded-md px-2 ${DEADLINE_URGENCY_ROW_BG[deadlineUrgency]}` : ''
+      }`}
+    >
       <Link href={`/projects/${project.id}`} className="flex min-w-0 flex-1 items-center gap-4">
         {index !== undefined && (
           <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-secondary font-body text-xs font-bold text-foreground">
