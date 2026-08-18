@@ -327,7 +327,7 @@ export default function InvoiceDetailPage() {
                 <p className="mt-1 font-body text-xs text-muted-foreground">
                   Émise le {formatLongDate(invoice.issueDate)}
                 </p>
-                {invoice.dueDate && (
+                {invoice.docType === 'QUOTE' && invoice.dueDate && (
                   <p className="font-body text-xs text-muted-foreground">
                     Échéance {formatLongDate(invoice.dueDate)}
                   </p>

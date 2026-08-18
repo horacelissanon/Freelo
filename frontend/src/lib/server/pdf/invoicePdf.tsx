@@ -286,7 +286,7 @@ function InvoiceDocument({
             <Text style={[styles.muted, { textAlign: 'right', marginTop: 4 }]}>
               Émis le {formatLongDate(data.issueDate)}
             </Text>
-            {data.dueDate && (
+            {isQuote && data.dueDate && (
               <Text style={[styles.muted, { textAlign: 'right' }]}>
                 Échéance {formatLongDate(data.dueDate)}
               </Text>

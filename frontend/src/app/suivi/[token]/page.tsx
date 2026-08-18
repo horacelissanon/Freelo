@@ -1393,7 +1393,7 @@ function QuoteInvoiceDetail({
           <span className="rounded-full bg-white/15 px-2.5 py-1 font-body text-xs font-medium text-white backdrop-blur-sm">
             Émis le {formatDate(invoice.issueDate)}
           </span>
-          {invoice.dueDate && (
+          {isQuote && invoice.dueDate && (
             <span className="rounded-full bg-white/15 px-2.5 py-1 font-body text-xs font-medium text-white backdrop-blur-sm">
               Échéance {formatDate(invoice.dueDate)}
             </span>
