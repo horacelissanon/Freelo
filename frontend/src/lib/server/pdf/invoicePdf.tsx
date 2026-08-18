@@ -108,8 +108,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
-  headerSide: { flexGrow: 1, flexBasis: 0 },
-  headerCenter: { flexGrow: 1, flexBasis: 0, alignItems: 'center' },
   providerName: { fontSize: 13, fontWeight: 700, marginBottom: 3 },
   muted: { color: '#6b6b6b', fontSize: 9 },
   // Neutral, not brand-colored — mirrors the on-screen preview's "FACTURE"
@@ -206,8 +204,33 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: '#ffffff',
   },
-  qrImage: { width: 54, height: 54 },
-  qrCaption: { fontSize: 7, color: '#9a9a9a', marginTop: 2, textAlign: 'right' },
+  // Modern "scan me" card — sits in the Prestataire/Client row's third
+  // column (the empty space next to Client) instead of the plain
+  // QR-floating-in-the-header look this replaced.
+  qrCard: {
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    borderRadius: 12,
+    backgroundColor: '#fafafa',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignSelf: 'flex-start',
+  },
+  qrCardInner: {
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
+    padding: 6,
+  },
+  qrImage: { width: 52, height: 52 },
+  qrCaption: {
+    fontSize: 6.5,
+    color: '#9a9a9a',
+    marginTop: 6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 });
 
 function LineItemsTable({ items, currency }: { items: PdfLineItem[]; currency: string }) {
@@ -270,17 +293,11 @@ function InvoiceDocument({
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <View style={styles.headerSide}>
+          <View>
             <Text style={styles.providerName}>{data.provider.name}</Text>
             {data.provider.slogan && <Text style={styles.muted}>{data.provider.slogan}</Text>}
           </View>
-          {qrCodeDataUrl && (
-            <View style={styles.headerCenter}>
-              <Image src={qrCodeDataUrl} style={styles.qrImage} />
-              <Text style={styles.qrCaption}>Scannez pour suivre en ligne</Text>
-            </View>
-          )}
-          <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>
+          <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.docTitle}>{DOC_LABELS[data.docType]}</Text>
             <Text style={[styles.docNumber, { color: accent }]}>{data.number}</Text>
             <Text style={[styles.muted, { textAlign: 'right', marginTop: 4 }]}>
@@ -318,6 +335,16 @@ function InvoiceDocument({
             {data.client.email && <Text style={styles.muted}>{data.client.email}</Text>}
             {data.client.phone && <Text style={styles.muted}>{data.client.phone}</Text>}
           </View>
+          {qrCodeDataUrl && (
+            <View style={styles.partyBlock}>
+              <View style={styles.qrCard}>
+                <View style={styles.qrCardInner}>
+                  <Image src={qrCodeDataUrl} style={styles.qrImage} />
+                </View>
+                <Text style={styles.qrCaption}>Scanner pour suivre</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         {data.description && (
