@@ -11,6 +11,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { Toggle } from '@/components/ui/Toggle';
+import { useApi } from '@/lib/useApi';
 import { formatPrice } from '@/lib/utils';
 
 const MONTHLY_PRICE = 3500;
@@ -21,22 +22,19 @@ const CURRENCIES = ['FCFA', 'EUR', 'USD'] as const;
 type Currency = (typeof CURRENCIES)[number];
 
 // EUR rate is the real, treaty-fixed XOF/EUR peg (1 EUR = 655.957 FCFA) —
-// stated as fact, not an estimate. USD floats, so its rate is explicitly
-// flagged approximate in the UI. Freelo's own Pro subscription is still
-// billed in FCFA — this is a display conversion for visitors thinking in
-// another currency, not a claim that Merrudit bills in EUR/USD.
-const FX: Record<Currency, { perFcfa: number; symbol: string }> = {
+// stated as fact, never a network call. USD floats, so its rate is fetched
+// live from GET /api/fx-rates (public, cached daily — see
+// lib/server/fx/rates.ts) and only falls back to this hardcoded constant if
+// that fetch hasn't resolved yet or fails — same "degrade, never block"
+// philosophy as the app's other optional providers. Freelo's own Pro
+// subscription is still billed in FCFA — this is a display conversion for
+// visitors thinking in another currency, not a claim that Merrudit bills in
+// EUR/USD.
+const FALLBACK_FX: Record<Currency, { perFcfa: number; symbol: string }> = {
   FCFA: { perFcfa: 1, symbol: 'FCFA' },
   EUR: { perFcfa: 1 / 655.957, symbol: '€' },
   USD: { perFcfa: 1 / 610, symbol: '$' },
 };
-
-function formatAmount(amountFcfa: number, currency: Currency): string {
-  const { perFcfa, symbol } = FX[currency];
-  if (currency === 'FCFA') return formatPrice(amountFcfa, symbol);
-  const converted = Math.round(amountFcfa * perFcfa);
-  return `≈ ${converted.toLocaleString('fr-FR')} ${symbol}`;
-}
 
 const cardClass = 'rounded-2xl p-6 shadow-card';
 
@@ -75,6 +73,20 @@ export function PricingToggle({
 }) {
   const [annual, setAnnual] = useState(false);
   const [currency, setCurrency] = useState<Currency>('FCFA');
+  const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  // fx values are "units of X per 1 EUR" (open.er-api.com's EUR base) —
+  // USD per 1 FCFA is (USD per EUR) / (XOF per EUR). XOF/EUR themselves stay
+  // the fallback constant's legally pegged 655.957 either way.
+  const FX: Record<Currency, { perFcfa: number; symbol: string }> = fx
+    ? { ...FALLBACK_FX, USD: { perFcfa: fx.USD / fx.XOF, symbol: '$' } }
+    : FALLBACK_FX;
+
+  function formatAmount(amountFcfa: number, curr: Currency): string {
+    const { perFcfa, symbol } = FX[curr];
+    if (curr === 'FCFA') return formatPrice(amountFcfa, symbol);
+    const converted = Math.round(amountFcfa * perFcfa);
+    return `≈ ${converted.toLocaleString('fr-FR')} ${symbol}`;
+  }
 
   return (
     <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-5">
