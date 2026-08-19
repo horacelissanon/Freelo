@@ -84,7 +84,7 @@ export default function AdminTransactionsPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-headings text-2xl font-bold text-slate-900">Transactions</h1>
+        <h1 className="font-headings text-2xl font-bold text-slate-900">Facturation</h1>
         <p className="font-body text-sm text-slate-500">
           Paiements d&apos;abonnement Pro reçus par la plateforme.
         </p>

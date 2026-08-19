@@ -25,7 +25,7 @@ const GENERAL_NAV: NavItem[] = [
   { href: '/admin', label: "Vue d'ensemble", icon: 'layout-dashboard' },
   { href: '/admin/users', label: 'Utilisateurs', icon: 'users' },
   { href: '/admin/subscriptions', label: 'Abonnements', icon: 'credit-card' },
-  { href: '/admin/transactions', label: 'Transactions', icon: 'banknote' },
+  { href: '/admin/transactions', label: 'Facturation', icon: 'banknote' },
   { href: '/admin/support', label: 'Support', icon: 'message-circle' },
 ];
 

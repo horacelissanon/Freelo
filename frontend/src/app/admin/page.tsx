@@ -451,7 +451,7 @@ export default function AdminOverviewPage() {
                 href="/admin/transactions"
                 className="mt-3 flex items-center gap-1.5 font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
               >
-                Voir toutes les transactions
+                Voir la facturation
                 <Icon i="chevron-right" size={12} />
               </Link>
             </div>
