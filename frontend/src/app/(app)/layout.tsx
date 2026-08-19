@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { MobileDrawer } from '@/components/layout/MobileDrawer';
-import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 import { MoneyMaskToggle } from '@/components/MoneyMaskToggle';
@@ -35,10 +34,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const notifications = useApi<{ items: NotificationBellItem[] }>('/api/notifications?limit=8');
   const notifCount = useApi<{ count: number }>('/api/notifications/count');
+  const router = useRouter();
 
   useEffect(() => {
     if (localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1') setCollapsed(true);
   }, []);
+
+  // ADMIN/SUPERADMIN accounts are a separate persona from the freelance
+  // workspace (see admin/layout.tsx's identical note) — without this guard
+  // a Super Admin who navigates to a freelance URL would see the ordinary
+  // workspace UI instead, which reads as "there's a second, different
+  // account" even though it's the same login. Mirrors admin/layout.tsx's
+  // own reverse redirect (non-admins bounced out of /admin).
+  useEffect(() => {
+    if (user && user.role !== 'USER') {
+      router.replace('/admin');
+    }
+  }, [user, router]);
 
   async function markAllNotificationsRead() {
     await api('/api/notifications', { method: 'PATCH', body: { ids: 'all' } });
@@ -58,7 +70,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     });
   }
 
-  if (!user) {
+  if (!user || user.role !== 'USER') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="font-body text-sm text-muted-foreground">Chargement…</p>
@@ -72,7 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <CreateMenuProvider>
           <div className="min-h-screen bg-background lg:flex">
             {/* Desktop sidebar — fixed, lg and up, collapsible to icon-only.
-            Shape is a user preference (Paramètres → Espace → Forme du
+            Shape is a user preference (Mon compte → Affichage → Forme du
             menu): 'classic' sits flush against the viewport edge like a
             bordered column; 'capsule'/'dock' get a p-4 inset so they float
             off the edges instead — 'dock' additionally centers vertically
@@ -93,11 +105,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Mobile top bar */}
-            <div className="border-b border-border bg-sidebar lg:hidden">
+            {/* Mobile top bar — sticky so it stays visible while the page
+            content scrolls underneath (z-30: above regular content, below
+            BottomNav's popup/drawer overlays at z-40/z-50). */}
+            <div className="sticky top-0 z-30 border-b border-border bg-sidebar lg:hidden">
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-2">
-                  {/* Hamburger only shown in 'drawer' mode (Paramètres → Espace →
+                  {/* Hamburger only shown in 'drawer' mode (Mon compte → Affichage →
                   Navigation mobile) — in the default 'bottom' mode, BottomNav
                   is the way to reach navigation, so there's nothing for this
                   button to open. */}
@@ -129,16 +143,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     onMarkAllRead={() => void markAllNotificationsRead()}
                     onMarkRead={(id) => void markNotificationRead(id)}
                   />
-                  <Link
-                    href="/settings?tab=compte"
-                    className="flex items-center gap-2 rounded-full border border-sidebar-foreground/20 bg-sidebar-foreground/5 py-1 pr-1 pl-2.5 text-sidebar-foreground/70 hover:border-sidebar-foreground/35 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground"
-                  >
-                    <span className="font-body text-xs font-medium">Mon compte</span>
-                    <Avatar
-                      name={user.name || user.email}
-                      className="h-8 w-8 flex-shrink-0 text-xs"
-                    />
-                  </Link>
                   <button
                     type="button"
                     onClick={() => void logout()}

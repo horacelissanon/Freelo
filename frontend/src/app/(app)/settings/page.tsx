@@ -12,17 +12,26 @@ import { SupportTab } from '@/components/settings/SupportTab';
 
 type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement' | 'support';
 type SettingsTabKey = Exclude<TabKey, 'compte'>;
+type AccountTabKey = TabKey;
 
 const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement', 'support'];
 
-// "Compte" is deliberately NOT in this tab bar — it has its own dedicated
-// entry point (the "Mon compte" sidebar link, ?tab=compte) rendered below
-// as a single-purpose page with no tab chrome, so profile data doesn't sit
-// redundantly alongside workspace/security/billing settings. Abonnement is
-// still reachable from both here and its own permanently-amber Sidebar
-// entry — keeps its own amber/orange identity here too, matching
-// FacturationTab's "don't blend into the rest of the workspace" styling.
+// Legacy Paramètres tab bar — no longer linked from any nav (the Sidebar's
+// "Paramètres" entry was removed once Mon compte grew its own Affichage
+// tab below), kept only so bookmarked/typed ?tab=espace|securite|support
+// URLs still resolve instead of 404ing.
 const SETTINGS_TABS: { key: SettingsTabKey; label: string; icon: string }[] = [
+  { key: 'espace', label: 'Affichage', icon: 'palette' },
+  { key: 'securite', label: 'Sécurité', icon: 'shield' },
+  { key: 'support', label: 'Support', icon: 'message-circle' },
+  { key: 'abonnement', label: 'Abonnement', icon: 'credit-card' },
+];
+
+// "Mon compte" is the single settings hub: Compte plus every tab that used
+// to live only under the separate Paramètres nav entry (Affichage included
+// — it's not a distinct destination anymore).
+const ACCOUNT_TABS: { key: AccountTabKey; label: string; icon: string }[] = [
+  { key: 'compte', label: 'Compte', icon: 'user' },
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
   { key: 'support', label: 'Support', icon: 'message-circle' },
@@ -41,6 +50,7 @@ function SettingsPageInner() {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>(
     isTabKey(initialTab) && initialTab !== 'compte' ? initialTab : 'espace',
   );
+  const [activeAccountTab, setActiveAccountTab] = useState<AccountTabKey>('compte');
 
   if (!user) return null;
 
@@ -55,7 +65,34 @@ function SettingsPageInner() {
             Connecté en tant que {user.email}
           </p>
         </header>
-        <CompteTab user={user} />
+
+        <div className="mb-6 flex items-center gap-1 overflow-x-auto border-b border-border font-body">
+          {ACCOUNT_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveAccountTab(tab.key)}
+              className={`flex flex-shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                tab.key === 'abonnement'
+                  ? `text-amber-500 dark:text-amber-400 ${
+                      activeAccountTab === tab.key ? 'border-amber-500' : 'border-transparent'
+                    }`
+                  : activeAccountTab === tab.key
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground'
+              }`}
+            >
+              <Icon i={tab.icon} size={15} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeAccountTab === 'compte' && <CompteTab user={user} />}
+        {activeAccountTab === 'espace' && <EspaceTab user={user} />}
+        {activeAccountTab === 'securite' && <SecuriteTab user={user} />}
+        {activeAccountTab === 'support' && <SupportTab />}
+        {activeAccountTab === 'abonnement' && <FacturationTab />}
       </div>
     );
   }

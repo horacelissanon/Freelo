@@ -30,12 +30,12 @@ interface SidebarProps {
   onToggleCollapsed?: () => void;
   /** 'classic' = flush edge-to-edge rail (default). 'capsule' = full-height
    *  floating pill. 'dock' = compact floating pill, vertically centered
-   *  instead of stretched. Opt-in via Paramètres → Espace → Forme du menu. */
+   *  instead of stretched. Opt-in via Mon compte → Affichage → Forme du menu. */
   shape?: SidebarShape;
 }
 
 // Glass background, shared with BottomNav's GLASS_NAV_CLASS — the single
-// "Menu liquid glass" setting in Paramètres → Espace drives both surfaces
+// "Menu liquid glass" setting in Mon compte → Affichage drives both surfaces
 // from the same value, so toggling it there changes desktop AND mobile.
 // 'off' keeps the solid, user-customizable --color-sidebar token untouched.
 const GLASS_SIDEBAR_CLASS: Record<BottomNavGlass, string> = {
@@ -197,17 +197,6 @@ function SidebarBody({
         >
           <Icon i="credit-card" size={16} />
           {!collapsed && 'Abonnement'}
-        </Link>
-        <Link
-          href="/settings?tab=espace"
-          onClick={onNavigate}
-          title={collapsed ? 'Paramètres' : undefined}
-          className={`flex items-center gap-3 ${itemShape} font-body text-sm text-sidebar-foreground/50 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground ${
-            collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
-          }`}
-        >
-          <Icon i="settings" size={16} />
-          {!collapsed && 'Paramètres'}
         </Link>
         {user && (
           <Link

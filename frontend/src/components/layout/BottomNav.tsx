@@ -4,6 +4,8 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Icon } from '@/components/ui/Icon';
+import { Avatar } from '@/components/ui/Avatar';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 import { isNavItemActive } from '@/lib/navActive';
@@ -24,8 +26,8 @@ const GLASS_NAV_CLASS: Record<BottomNavGlass, string> = {
   tinted: 'border-white/20 bg-primary/60 backdrop-blur-2xl backdrop-saturate-150',
 };
 
-// Pairs the desktop sidebar's shape choice (Paramètres → Espace → Forme du
-// menu) with a matching mobile silhouette, so switching breakpoints reads
+// Pairs the desktop sidebar's shape choice (Mon compte → Affichage → Forme
+// du menu) with a matching mobile silhouette, so switching breakpoints reads
 // as the same pick, not a different nav entirely. 'classic' mirrors the
 // original flush edge-to-edge bar; 'capsule' is the full-width floating
 // pill (the shipped default look); 'dock' is a compact, centered floating
@@ -46,18 +48,20 @@ const LEFT_ITEMS = [
   { icon: 'folder-open', label: 'Projets', href: '/projects' },
 ] as const;
 
-const RIGHT_ITEMS = [
-  { icon: 'users', label: 'Clients', href: '/clients' },
-  { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
-] as const;
+const RIGHT_ITEMS = [{ icon: 'users', label: 'Clients', href: '/clients' }] as const;
+
+const ACCOUNT_HREF = '/settings?tab=compte';
 
 // Plain navigation links only — sections with no dedicated slot among the 4
 // fixed LEFT_ITEMS/RIGHT_ITEMS, so they ride the central FAB's popup instead
 // of forcing a 5th/6th fixed icon onto the bar. Quick-create actions
 // (Nouveau projet/client/devis) live on the Dashboard instead, so they don't
-// duplicate here. Paramètres/Abonnement live here too — on mobile there's no
-// separate sidebar to hold them, and "Mon compte" (top bar avatar) only
-// covers the Compte tab now, not the rest of Paramètres.
+// duplicate here. Factures sits right after Devis, its normal pairing (same
+// order as the desktop Sidebar) — it lost its fixed RIGHT_ITEMS slot to Mon
+// compte. Abonnement lives here too — on mobile there's no separate sidebar
+// to hold its permanently-amber entry. No separate Paramètres entry:
+// Affichage/Sécurité/Support/Abonnement are all tabs inside "Mon compte" now,
+// which is the single settings hub.
 interface QuickMenuItem {
   icon: string;
   label: string;
@@ -67,9 +71,9 @@ interface QuickMenuItem {
 
 const QUICK_MENU: QuickMenuItem[] = [
   { icon: 'file-text', label: 'Devis', href: '/invoices?tab=devis' },
+  { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
   { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
-  { icon: 'settings', label: 'Paramètres', href: '/settings?tab=espace' },
   { icon: 'credit-card', label: 'Abonnement', href: '/settings?tab=abonnement', amber: true },
 ];
 
@@ -104,6 +108,47 @@ function NavItem({
   );
 }
 
+// "Mon compte" gets the freelance's own avatar instead of a generic
+// icon+label, same idea as the desktop Sidebar/mobile top bar — the photo
+// (or initials fallback) already says "this is you" without spelling it out.
+// The avatar alone read as a bare floating image next to its icon+label
+// siblings, so it's wrapped in the same bg-sidebar-muted/40 chip as the
+// desktop Sidebar's own "Mon compte" row — the mobile top bar's /5 version
+// is nearly invisible once the pill is as small/round as the avatar itself.
+function AccountNavItem({
+  href,
+  active,
+  name,
+  avatarUrl,
+  glass,
+}: {
+  href: string;
+  active: boolean;
+  name: string;
+  avatarUrl: string | null;
+  glass: BottomNavGlass;
+}) {
+  const pillClass =
+    active && glass === 'off'
+      ? 'border-primary bg-primary/15'
+      : active
+        ? 'border-white/70 bg-white/15'
+        : 'border-transparent bg-sidebar-muted/40 hover:bg-sidebar-muted';
+  return (
+    <Link href={href} className="flex flex-1 items-center justify-center py-2">
+      <span
+        className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border transition-colors ${pillClass}`}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="h-7 w-7 flex-shrink-0 rounded-full object-cover" />
+        ) : (
+          <Avatar name={name} className="h-7 w-7 flex-shrink-0 text-[11px]" />
+        )}
+      </span>
+    </Link>
+  );
+}
+
 // useSearchParams() opts a subtree out of static rendering unless wrapped in
 // Suspense — same reasoning as Sidebar.tsx's identical wrapper.
 export function BottomNav() {
@@ -121,6 +166,7 @@ function BottomNavWithTab() {
 
 function BottomNavBody({ activeTab }: { activeTab: string | null }) {
   const pathname = usePathname();
+  const { user } = useAuth();
   const { glass } = useBottomNavStyle();
   const { shape } = useSidebarShape();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -194,6 +240,15 @@ function BottomNavBody({ activeTab }: { activeTab: string | null }) {
               glass={glass}
             />
           ))}
+          {user && (
+            <AccountNavItem
+              href={ACCOUNT_HREF}
+              active={isNavItemActive(pathname, activeTab, ACCOUNT_HREF)}
+              name={user.name || user.email}
+              avatarUrl={user.avatarUrl}
+              glass={glass}
+            />
+          )}
         </div>
       </nav>
     </>
