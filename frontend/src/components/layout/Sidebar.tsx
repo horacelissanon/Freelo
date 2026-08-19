@@ -9,8 +9,10 @@ import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 import { MoneyMaskToggle } from '@/components/MoneyMaskToggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
+import { useSidebarColor } from '@/contexts/SidebarColorContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
 import { isNavItemActive } from '@/lib/navActive';
+import { isLightColor } from '@/lib/color';
 
 const NAV_ITEMS = [
   { icon: 'layout-dashboard', label: 'Tableau de bord', href: '/dashboard' },
@@ -78,8 +80,15 @@ function SidebarBody({
   const pathname = usePathname();
   const { user, logout, loggingOut } = useAuth();
   const { glass } = useBottomNavStyle();
+  const { sidebarColor } = useSidebarColor();
+  // A light menu background (freelance picked a pale/white "Couleur du
+  // menu") automatically swaps the solid active-item fill for a soft
+  // pastel-tinted pill instead — same read as the "sobre et pro" look,
+  // derived entirely from the existing background/accent settings rather
+  // than a new dedicated toggle.
+  const sober = isLightColor(sidebarColor);
   const floating = shape === 'capsule' || shape === 'dock';
-  const itemShape = floating ? 'rounded-full' : 'rounded-lg';
+  const itemShape = floating || sober ? 'rounded-full' : 'rounded-lg';
   const outerRadius = floating ? (collapsed ? 'rounded-full' : 'rounded-[28px]') : 'rounded-r-2xl';
 
   const containerClass = [
@@ -157,7 +166,9 @@ function SidebarBody({
                 collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
               } ${
                 active
-                  ? 'bg-primary text-primary-foreground'
+                  ? sober
+                    ? 'bg-primary/15 text-primary'
+                    : 'bg-primary text-primary-foreground'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-muted/60 hover:text-sidebar-foreground'
               }`}
             >

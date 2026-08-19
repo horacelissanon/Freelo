@@ -48,6 +48,14 @@ const COLOR_DUOS: { name: string; sidebar: string; accent: AccentPreset }[] = [
   { name: 'Prune', sidebar: '#3b0e3f', accent: 'rose' },
 ];
 
+// A light "Couleur du menu" automatically switches the sidebar's active-item
+// look from a solid fill to a soft pastel-tinted pill (see Sidebar.tsx's
+// `sober` derivation) — this preset is just a one-click shortcut into that
+// look. Unlike COLOR_DUOS it never touches the accent: the pill's color
+// stays whichever accent the freelance already picked, per their request
+// that "la couleur de sélection varie selon la couleur du thème choisi".
+const LIGHT_SIDEBAR_HEX = '#f8fafc';
+
 // Purely indicative — never blocks the freelance's choice, just flags when
 // the active-nav-item accent risks blending into the menu background.
 const HARMONY_THRESHOLD = 2.2;
@@ -400,6 +408,23 @@ export function EspaceTab({ user }: { user: User }) {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarColor(LIGHT_SIDEBAR_HEX);
+                toast('Palette « Sobre & clair » appliquée.', 'success');
+              }}
+              aria-pressed={sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX}
+              title="Sobre & clair"
+              className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX
+                  ? 'ring-foreground'
+                  : 'ring-transparent'
+              }`}
+            >
+              <DuoSwatch sidebar={LIGHT_SIDEBAR_HEX} accent={accentHex} />
+              <span className="font-body text-[11px] text-muted-foreground">Sobre &amp; clair</span>
+            </button>
           </div>
 
           <p className="mt-5 mb-2 font-body text-xs font-medium text-foreground">

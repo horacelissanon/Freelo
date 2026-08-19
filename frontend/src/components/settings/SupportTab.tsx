@@ -14,6 +14,18 @@ import { formatLongDate } from '@/lib/utils';
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH';
 type Status = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
+// Predefined reason categories for the "Sujet" dropdown — covers the
+// support-request shapes we actually see, with a trailing "Autre" that
+// reveals a free-text field so nothing is ever forced into the wrong box.
+const SUBJECT_MOTIFS = [
+  'Facturation & paiements',
+  'Problème technique / bug',
+  'Question sur mon abonnement',
+  'Compte & sécurité',
+  "Suggestion d'amélioration",
+] as const;
+const OTHER_MOTIF = '__other__';
+
 interface TicketRow {
   id: string;
   subject: string;
@@ -40,21 +52,24 @@ const inputClass =
 export function SupportTab() {
   const { toast } = useToast();
   const { data, loading } = useApi<{ items: TicketRow[] }>('/api/support-tickets');
-  const [subject, setSubject] = useState('');
+  const [subjectMotif, setSubjectMotif] = useState<string>(SUBJECT_MOTIFS[0]);
+  const [customSubject, setCustomSubject] = useState('');
   const [message, setMessage] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [submitting, setSubmitting] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const subject = subjectMotif === OTHER_MOTIF ? customSubject.trim() : subjectMotif;
     setSubmitting(true);
     try {
       await api('/api/support-tickets', {
         method: 'POST',
-        body: { subject: subject.trim(), message: message.trim(), priority },
+        body: { subject, message: message.trim(), priority },
       });
       toast('Ticket envoyé — notre équipe vous répondra rapidement.');
-      setSubject('');
+      setSubjectMotif(SUBJECT_MOTIFS[0]);
+      setCustomSubject('');
       setMessage('');
       setPriority('MEDIUM');
       invalidateCache('/api/support-tickets');
@@ -81,17 +96,35 @@ export function SupportTab() {
         </div>
         <label className="flex flex-col gap-1.5">
           <span className="font-body text-sm font-medium text-foreground">Sujet</span>
-          <input
-            type="text"
+          <select
             required
-            minLength={3}
-            maxLength={200}
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Ex : Facture non envoyée au client"
+            value={subjectMotif}
+            onChange={(e) => setSubjectMotif(e.target.value)}
             className={inputClass}
-          />
+          >
+            {SUBJECT_MOTIFS.map((motif) => (
+              <option key={motif} value={motif}>
+                {motif}
+              </option>
+            ))}
+            <option value={OTHER_MOTIF}>Autre</option>
+          </select>
         </label>
+        {subjectMotif === OTHER_MOTIF && (
+          <label className="flex flex-col gap-1.5">
+            <span className="font-body text-sm font-medium text-foreground">Précisez le sujet</span>
+            <input
+              type="text"
+              required
+              minLength={3}
+              maxLength={200}
+              value={customSubject}
+              onChange={(e) => setCustomSubject(e.target.value)}
+              placeholder="Ex : Facture non envoyée au client"
+              className={inputClass}
+            />
+          </label>
+        )}
         <label className="flex flex-col gap-1.5">
           <span className="font-body text-sm font-medium text-foreground">Message</span>
           <textarea

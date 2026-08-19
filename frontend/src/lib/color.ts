@@ -39,6 +39,11 @@ export function readableForeground(bg: string): string {
   return contrastRatio(bg, '#ffffff') >= contrastRatio(bg, '#0a0a0a') ? '#ffffff' : '#0a0a0a';
 }
 
+/** True when `bg` is light enough that near-black text reads better than white. */
+export function isLightColor(bg: string): boolean {
+  return readableForeground(bg) === '#0a0a0a';
+}
+
 /** Blends `hex` toward `target` by `amount` (0-1) — used for hover/muted shades. */
 export function mixHex(hex: string, target: string, amount: number): string {
   const [r1, g1, b1] = hexToRgb(hex);

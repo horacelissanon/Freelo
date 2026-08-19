@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
@@ -147,6 +147,8 @@ function MrrChart({
 }) {
   const width = 600;
   const height = 160;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const max = Math.max(1, ...points.map((p) => p.amount));
   const stepX = width / Math.max(1, points.length - 1);
   const coords = points.map((p, i) => ({
@@ -156,10 +158,53 @@ function MrrChart({
   }));
   const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
   const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+  // No hover → default to the latest point, so the card always leads with
+  // an at-a-glance current value instead of an empty header.
+  const lastIdx = coords.length - 1;
+  const activeIdx = hoverIdx ?? lastIdx;
+  const active = coords[activeIdx];
+
+  function handleMove(e: MouseEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (!svg || coords.length === 0) return;
+    const rect = svg.getBoundingClientRect();
+    const fraction = (e.clientX - rect.left) / rect.width;
+    const x = fraction * width;
+    let nearest = 0;
+    let nearestDist = Infinity;
+    coords.forEach((c, i) => {
+      const dist = Math.abs(c.x - x);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = i;
+      }
+    });
+    setHoverIdx(nearest);
+  }
 
   return (
     <div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full overflow-visible">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <p className="font-headings text-sm font-semibold text-slate-900">MRR — 6 derniers mois</p>
+        {active && (
+          <div className="text-right">
+            <p className="font-headings text-lg leading-tight font-bold text-emerald-600">
+              {formatPrice(active.amount, currency)}
+            </p>
+            <p className="font-body text-[11px] text-slate-400 capitalize">
+              {active.label}
+              {hoverIdx === null ? ' · dernier mois' : ''}
+            </p>
+          </div>
+        )}
+      </div>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-40 w-full cursor-crosshair overflow-visible"
+        onMouseMove={handleMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
         <defs>
           <linearGradient id="mrr-area" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
@@ -168,15 +213,38 @@ function MrrChart({
         </defs>
         <path d={areaPath} fill="url(#mrr-area)" />
         <path d={linePath} fill="none" stroke="#10b981" strokeWidth="2.5" />
-        {coords.map((c) => (
-          <circle key={c.label} cx={c.x} cy={c.y} r="4" fill="#10b981">
-            <title>{formatPrice(c.amount, currency)}</title>
-          </circle>
+        {active && (
+          <line
+            x1={active.x}
+            y1={0}
+            x2={active.x}
+            y2={height}
+            stroke="#10b981"
+            strokeOpacity="0.3"
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
+          />
+        )}
+        {coords.map((c, i) => (
+          <circle
+            key={c.label}
+            cx={c.x}
+            cy={c.y}
+            r={i === activeIdx ? 6 : 4}
+            fill="#10b981"
+            stroke="#fff"
+            strokeWidth={i === activeIdx ? 2 : 0}
+          />
         ))}
       </svg>
       <div className="mt-2 flex justify-between">
-        {points.map((p) => (
-          <span key={p.label} className="font-body text-xs text-slate-400 capitalize">
+        {points.map((p, i) => (
+          <span
+            key={p.label}
+            className={`font-body text-xs capitalize ${
+              i === activeIdx ? 'font-semibold text-emerald-600' : 'text-slate-400'
+            }`}
+          >
             {p.label}
           </span>
         ))}
@@ -257,9 +325,6 @@ export default function AdminOverviewPage() {
 
           <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className={`${cardClass} lg:col-span-2`}>
-              <p className="mb-4 font-headings text-sm font-semibold text-slate-900">
-                MRR — 6 derniers mois
-              </p>
               <MrrChart points={data.revenueTrend} currency={data.mrrCurrency} />
             </div>
 
