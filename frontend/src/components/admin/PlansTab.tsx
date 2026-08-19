@@ -33,9 +33,9 @@ interface PlansResponse {
 }
 
 const PLANS_PATH = '/api/admin/plans';
-const cardClass = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+const cardClass = 'rounded-xl border border-border bg-canvas shadow-card';
 const inputClass =
-  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
+  'rounded-md border border-border bg-canvas px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
 
 // Local editable copy of a plan's features array — plain text inputs with
 // add/remove, no reordering. Kept generic so both cards share one editor.
@@ -48,7 +48,7 @@ function FeatureListEditor({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="font-body text-xs font-medium text-slate-500">Fonctionnalités</span>
+      <span className="font-body text-xs font-medium text-muted-foreground">Fonctionnalités</span>
       {features.map((feature, i) => (
         <div key={i} className="flex items-center gap-2">
           <input
@@ -66,7 +66,7 @@ function FeatureListEditor({
             type="button"
             aria-label="Supprimer cette fonctionnalité"
             onClick={() => onChange(features.filter((_, idx) => idx !== i))}
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-50 hover:text-red-600"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-red-600"
           >
             <Icon i="trash" size={14} />
           </button>
@@ -76,7 +76,7 @@ function FeatureListEditor({
         <button
           type="button"
           onClick={() => onChange([...features, ''])}
-          className="self-start rounded-md border border-slate-200 px-3 py-1.5 font-body text-xs font-medium text-slate-700 hover:bg-slate-50"
+          className="self-start rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-foreground hover:bg-secondary"
         >
           + Ajouter une fonctionnalité
         </button>
@@ -89,7 +89,7 @@ function FeatureList({ features }: { features: string[] }) {
   return (
     <ul className="flex flex-col gap-2">
       {features.map((feature) => (
-        <li key={feature} className="flex items-start gap-2 font-body text-sm text-slate-700">
+        <li key={feature} className="flex items-start gap-2 font-body text-sm text-foreground">
           <Icon i="check-circle" size={15} className="mt-0.5 flex-shrink-0 text-emerald-500" />
           {feature}
         </li>
@@ -159,26 +159,26 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
         <div className={`${cardClass} flex flex-col gap-4 p-5`}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-headings text-base font-semibold text-slate-900">Gratuit</p>
-              <p className="mt-1 font-headings text-2xl font-bold text-slate-900">0 FCFA</p>
+              <p className="font-headings text-base font-semibold text-foreground">Gratuit</p>
+              <p className="mt-1 font-headings text-2xl font-bold text-foreground">0 FCFA</p>
             </div>
             {canEdit && (
               <button
                 type="button"
                 onClick={() => openEdit('FREE', data.free)}
-                className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
               >
                 Modifier
               </button>
             )}
           </div>
-          <div className="flex gap-4 font-body text-sm text-slate-600">
+          <div className="flex gap-4 font-body text-sm text-foreground">
             <span>
-              <span className="font-semibold text-slate-900">{data.free.maxClients ?? '∞'}</span>{' '}
+              <span className="font-semibold text-foreground">{data.free.maxClients ?? '∞'}</span>{' '}
               client(s)
             </span>
             <span>
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-foreground">
                 {data.free.maxActiveProjects ?? '∞'}
               </span>{' '}
               projet(s) actif(s)
@@ -190,12 +190,14 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
         <div className={`${cardClass} flex flex-col gap-4 p-5`}>
           <div className="flex items-start justify-between">
             <div>
-              <p className="font-headings text-base font-semibold text-slate-900">Pro</p>
-              <p className="mt-1 font-headings text-2xl font-bold text-slate-900">
+              <p className="font-headings text-base font-semibold text-foreground">Pro</p>
+              <p className="mt-1 font-headings text-2xl font-bold text-foreground">
                 {formatPrice(data.pro.monthlyAmount ?? 0, data.pro.currency)}
-                <span className="ml-1 font-body text-xs font-normal text-slate-400">/mois</span>
+                <span className="ml-1 font-body text-xs font-normal text-muted-foreground">
+                  /mois
+                </span>
               </p>
-              <p className="font-body text-xs text-slate-400">
+              <p className="font-body text-xs text-muted-foreground">
                 ou {formatPrice(data.pro.yearlyAmount ?? 0, data.pro.currency)}/an
               </p>
             </div>
@@ -203,7 +205,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
               <button
                 type="button"
                 onClick={() => openEdit('PRO', data.pro)}
-                className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
               >
                 Modifier
               </button>
@@ -222,7 +224,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
             {editing === 'FREE' ? (
               <>
                 <label className="flex flex-col gap-1">
-                  <span className="font-body text-xs font-medium text-slate-500">
+                  <span className="font-body text-xs font-medium text-muted-foreground">
                     Nombre maximum de clients
                   </span>
                   <input
@@ -234,7 +236,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
                   />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="font-body text-xs font-medium text-slate-500">
+                  <span className="font-body text-xs font-medium text-muted-foreground">
                     Nombre maximum de projets actifs
                   </span>
                   <input
@@ -249,7 +251,9 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
             ) : (
               <>
                 <label className="flex flex-col gap-1">
-                  <span className="font-body text-xs font-medium text-slate-500">Prix mensuel</span>
+                  <span className="font-body text-xs font-medium text-muted-foreground">
+                    Prix mensuel
+                  </span>
                   <input
                     type="number"
                     min={1}
@@ -259,7 +263,9 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
                   />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="font-body text-xs font-medium text-slate-500">Prix annuel</span>
+                  <span className="font-body text-xs font-medium text-muted-foreground">
+                    Prix annuel
+                  </span>
                   <input
                     type="number"
                     min={1}
@@ -269,7 +275,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
                   />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="font-body text-xs font-medium text-slate-500">
+                  <span className="font-body text-xs font-medium text-muted-foreground">
                     Devise (code à 3 lettres)
                   </span>
                   <input
@@ -288,7 +294,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
             <button
               type="button"
               onClick={closeEdit}
-              className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700"
+              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
             >
               Annuler
             </button>

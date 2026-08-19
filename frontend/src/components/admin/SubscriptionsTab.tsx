@@ -53,15 +53,15 @@ const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PENDING: 'En attente',
 };
 const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
-  PAID: 'bg-emerald-50 text-emerald-700',
-  FAILED: 'bg-red-50 text-red-700',
-  PENDING: 'bg-amber-50 text-amber-700',
+  PAID: 'bg-tag-green text-tag-green-fg',
+  FAILED: 'bg-tag-red text-tag-red-fg',
+  PENDING: 'bg-tag-orange text-tag-orange-fg',
 };
 
 const PLAN_LABELS: Record<Plan, string> = { FREE: 'Gratuit', PRO: 'Pro' };
 const PLAN_COLORS: Record<Plan, string> = {
-  FREE: 'bg-slate-100 text-slate-500',
-  PRO: 'bg-emerald-50 text-emerald-700',
+  FREE: 'bg-muted text-muted-foreground',
+  PRO: 'bg-tag-green text-tag-green-fg',
 };
 
 const STATUS_LABELS: Record<SubStatus, string> = {
@@ -72,15 +72,15 @@ const STATUS_LABELS: Record<SubStatus, string> = {
 };
 
 const STATUS_COLORS: Record<SubStatus, string> = {
-  ACTIVE: 'bg-emerald-50 text-emerald-700',
-  PAST_DUE: 'bg-amber-50 text-amber-700',
-  CANCELED: 'bg-slate-100 text-slate-500',
-  EXPIRED: 'bg-red-50 text-red-700',
+  ACTIVE: 'bg-tag-green text-tag-green-fg',
+  PAST_DUE: 'bg-tag-orange text-tag-orange-fg',
+  CANCELED: 'bg-muted text-muted-foreground',
+  EXPIRED: 'bg-tag-red text-tag-red-fg',
 };
 
 const inputClass =
-  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
-const cardClass = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+  'rounded-md border border-border bg-canvas px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
+const cardClass = 'rounded-xl border border-border bg-canvas shadow-card';
 
 // HTML <input type="date"> only speaks "YYYY-MM-DD" — the API wants a full
 // ISO 8601 datetime, midnight UTC is an arbitrary but stable convention.
@@ -192,32 +192,34 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
       {kpis && (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <div className={`${cardClass} p-4`}>
-            <p className="font-body text-xs text-slate-500">MRR</p>
-            <p className="mt-1 font-headings text-xl font-bold text-slate-900">
+            <p className="font-body text-xs text-muted-foreground">MRR</p>
+            <p className="mt-1 font-headings text-xl font-bold text-foreground">
               {formatPrice(kpis.mrr, kpis.mrrCurrency)}
             </p>
           </div>
           <div className={`${cardClass} p-4`}>
-            <p className="font-body text-xs text-slate-500">Abonnés Pro actifs</p>
-            <p className="mt-1 font-headings text-xl font-bold text-slate-900">
+            <p className="font-body text-xs text-muted-foreground">Abonnés Pro actifs</p>
+            <p className="mt-1 font-headings text-xl font-bold text-foreground">
               {kpis.activeSubscribers}
             </p>
           </div>
           <div className={`${cardClass} p-4`}>
-            <p className="font-body text-xs text-slate-500">Comptes gratuits</p>
-            <p className="mt-1 font-headings text-xl font-bold text-slate-900">
+            <p className="font-body text-xs text-muted-foreground">Comptes gratuits</p>
+            <p className="mt-1 font-headings text-xl font-bold text-foreground">
               {kpis.planDistribution.free}
             </p>
           </div>
           <div className={`${cardClass} p-4`}>
-            <p className="font-body text-xs text-slate-500">Total comptes</p>
-            <p className="mt-1 font-headings text-xl font-bold text-slate-900">
+            <p className="font-body text-xs text-muted-foreground">Total comptes</p>
+            <p className="mt-1 font-headings text-xl font-bold text-foreground">
               {kpis.planDistribution.free + kpis.planDistribution.pro}
             </p>
           </div>
           <div className={`${cardClass} p-4`}>
-            <p className="font-body text-xs text-slate-500">Taux de churn</p>
-            <p className="mt-1 font-headings text-xl font-bold text-slate-900">{kpis.churnRate}%</p>
+            <p className="font-body text-xs text-muted-foreground">Taux de churn</p>
+            <p className="mt-1 font-headings text-xl font-bold text-foreground">
+              {kpis.churnRate}%
+            </p>
           </div>
         </div>
       )}
@@ -261,13 +263,13 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
             {items.map((s) => (
               <div
                 key={s.id}
-                className="flex flex-wrap items-center gap-3 border-b border-slate-100 py-3.5 last:border-b-0"
+                className="flex flex-wrap items-center gap-3 border-b border-border py-3.5 last:border-b-0"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-slate-800">
+                  <p className="truncate text-sm font-medium text-foreground">
                     {s.user.name || s.user.email}
                   </p>
-                  <p className="truncate text-xs text-slate-400">{s.user.email}</p>
+                  <p className="truncate text-xs text-muted-foreground">{s.user.email}</p>
                 </div>
                 <span
                   className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${PLAN_COLORS[s.plan]}`}
@@ -280,7 +282,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                   {STATUS_LABELS[s.status]}
                 </span>
                 {s.billingCycle && plans && (
-                  <span className="flex-shrink-0 font-body text-sm font-semibold text-slate-800">
+                  <span className="flex-shrink-0 font-body text-sm font-semibold text-foreground">
                     {s.billingCycle === 'MONTHLY'
                       ? formatPrice(plans.pro.monthlyAmount ?? 0, `${plans.pro.currency}/mois`)
                       : formatPrice(plans.pro.yearlyAmount ?? 0, `${plans.pro.currency}/an`)}
@@ -293,7 +295,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                     {PAYMENT_STATUS_LABELS[s.transactions[0].status]}
                   </span>
                 )}
-                <span className="flex-shrink-0 font-body text-xs text-slate-400">
+                <span className="flex-shrink-0 font-body text-xs text-muted-foreground">
                   {s.currentPeriodEnd
                     ? `${s.cancelAtPeriodEnd ? 'Se termine' : 'Renouvelle'} le ${formatLongDate(s.currentPeriodEnd)}`
                     : '—'}
@@ -302,7 +304,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                   <button
                     type="button"
                     onClick={() => openEdit(s)}
-                    className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
                   >
                     Modifier
                   </button>
@@ -317,7 +319,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                 type="button"
                 disabled={loadingMore}
                 onClick={() => void load(false, nextCursor)}
-                className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
               >
                 {loadingMore ? 'Chargement…' : 'Charger plus'}
               </button>
@@ -328,12 +330,12 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
 
       {editing && (
         <Modal title="Modifier l'abonnement" onClose={closeEdit}>
-          <p className="mb-4 font-body text-sm text-slate-700">
+          <p className="mb-4 font-body text-sm text-foreground">
             Compte : <span className="font-medium">{editing.user.name || editing.user.email}</span>
           </p>
           <div className="mb-4 flex flex-col gap-3">
             <label className="flex flex-col gap-1">
-              <span className="font-body text-xs font-medium text-slate-500">Plan</span>
+              <span className="font-body text-xs font-medium text-muted-foreground">Plan</span>
               <select
                 value={formPlan}
                 onChange={(e) => setFormPlan(e.target.value as Plan)}
@@ -344,7 +346,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
               </select>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="font-body text-xs font-medium text-slate-500">Statut</span>
+              <span className="font-body text-xs font-medium text-muted-foreground">Statut</span>
               <select
                 value={formStatus}
                 onChange={(e) => setFormStatus(e.target.value as SubStatus)}
@@ -357,7 +359,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
               </select>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="font-body text-xs font-medium text-slate-500">
+              <span className="font-body text-xs font-medium text-muted-foreground">
                 Fin de période (optionnel)
               </span>
               <input
@@ -372,7 +374,7 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
             <button
               type="button"
               onClick={closeEdit}
-              className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700"
+              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground"
             >
               Annuler
             </button>

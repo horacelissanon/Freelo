@@ -4,10 +4,12 @@
 // PATCH /api/auth/me endpoint the freelance workspace's CompteTab uses (it
 // already works for any authenticated user, SUPERADMIN included) — only the
 // `name` field is relevant here, everything else on that endpoint
-// (studioName, taxId, brandColor…) is freelance-workspace-specific. Styled
-// like SubscriptionsTab.tsx: hardcoded slate/emerald, not the Freelo
-// workspace theme tokens — reusing CompteTab.tsx directly would leak a
-// freelancer's theme personalization into this console (see admin/layout.tsx).
+// (studioName, taxId, brandColor…) is freelance-workspace-specific.
+//
+// Uses the shared canvas/foreground/border theme tokens (not literal
+// slate-*) so it responds to the Affichage tab's Thème toggle, but the
+// "Super Admin" brand accent stays literal emerald — consistent with
+// admin/layout.tsx's fixed console identity (see AdminAffichageTab.tsx).
 import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
@@ -15,8 +17,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { formatLongDate } from '@/lib/utils';
 
 const inputClass =
-  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
-const cardClass = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+  'rounded-md border border-border bg-canvas px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
+const cardClass = 'rounded-xl border border-border bg-canvas shadow-card';
 
 const ROLE_LABELS: Record<string, string> = {
   SUPERADMIN: 'Super Admin',
@@ -49,7 +51,7 @@ export function AdminProfileTab({ user }: { user: User }) {
           {(user.name || user.email).slice(0, 2).toUpperCase()}
         </div>
         <div>
-          <p className="font-headings text-base font-semibold text-slate-900">
+          <p className="font-headings text-base font-semibold text-foreground">
             {user.name || user.email}
           </p>
           <span className="mt-0.5 inline-flex rounded-full bg-emerald-50 px-2.5 py-0.5 font-body text-xs font-medium text-emerald-700">
@@ -59,7 +61,7 @@ export function AdminProfileTab({ user }: { user: User }) {
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="font-body text-xs font-medium text-slate-500">Nom</span>
+        <span className="font-body text-xs font-medium text-muted-foreground">Nom</span>
         <input
           type="text"
           value={name}
@@ -70,17 +72,17 @@ export function AdminProfileTab({ user }: { user: User }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="font-body text-xs font-medium text-slate-500">Email</span>
+        <span className="font-body text-xs font-medium text-muted-foreground">Email</span>
         <input
           type="text"
           value={user.email}
           disabled
-          className={`${inputClass} max-w-sm bg-slate-50 text-slate-400`}
+          className={`${inputClass} max-w-sm bg-secondary text-muted-foreground`}
         />
       </label>
 
       {user.createdAt && (
-        <p className="font-body text-xs text-slate-400">
+        <p className="font-body text-xs text-muted-foreground">
           Membre depuis {formatLongDate(user.createdAt)}
         </p>
       )}

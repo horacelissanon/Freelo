@@ -9,8 +9,8 @@ export default function AdminPlansPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-headings text-2xl font-bold text-slate-900">Plans</h1>
-        <p className="font-body text-sm text-slate-500">
+        <h1 className="font-headings text-2xl font-bold text-foreground">Plans</h1>
+        <p className="font-body text-sm text-muted-foreground">
           Prix, limites du plan Gratuit et fonctionnalités affichées sur chaque offre —
           s&apos;applique instantanément à tout le SaaS (landing, Paramètres → Abonnement,
           facturation).

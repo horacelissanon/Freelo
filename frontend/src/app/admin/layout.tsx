@@ -189,7 +189,7 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   const role = user.role as 'ADMIN' | 'SUPERADMIN';
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] lg:flex">
+    <div className="min-h-screen bg-background lg:flex">
       {/* Mobile top bar — the fixed desktop <aside> below is hidden under lg,
           so small screens need their own entry point into the same nav. */}
       <div className="flex items-center justify-between bg-[#12141a] px-4 py-3 lg:hidden">

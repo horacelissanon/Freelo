@@ -2,9 +2,9 @@
 
 // Super Admin → Paramètres → Sécurité. Same UX and endpoints as the
 // freelance workspace's SecuriteTab.tsx (change/set password, active
-// sessions, Google link status) — re-skinned in the admin console's
-// hardcoded slate/emerald so it doesn't inherit a freelancer's theme
-// personalization (see admin/layout.tsx's styling note).
+// sessions, Google link status) — uses the shared canvas/foreground/border
+// theme tokens (see AdminAffichageTab.tsx) so it responds to the Affichage
+// tab's Thème toggle; the "Super Admin" brand accent stays literal emerald.
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useAuth, type User } from '@/contexts/AuthContext';
@@ -14,8 +14,8 @@ import { Icon } from '@/components/ui/Icon';
 import { formatLongDate } from '@/lib/utils';
 
 const inputClass =
-  'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
-const cardClass = 'rounded-xl border border-slate-200 bg-white shadow-sm';
+  'rounded-md border border-border bg-canvas px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
+const cardClass = 'rounded-xl border border-border bg-canvas shadow-card';
 
 interface SessionRow {
   id: string;
@@ -87,28 +87,28 @@ function SessionsSection() {
   return (
     <section className={`flex flex-col gap-3 p-5 ${cardClass}`}>
       <div>
-        <h2 className="font-headings text-base font-semibold text-slate-900">Sessions actives</h2>
-        <p className="font-body text-sm text-slate-500">
+        <h2 className="font-headings text-base font-semibold text-foreground">Sessions actives</h2>
+        <p className="font-body text-sm text-muted-foreground">
           Les appareils actuellement connectés à ce compte.
         </p>
       </div>
       {loading ? (
-        <p className="font-body text-sm text-slate-500">Chargement…</p>
+        <p className="font-body text-sm text-muted-foreground">Chargement…</p>
       ) : sessions.length === 0 ? (
-        <p className="font-body text-sm text-slate-500">Aucune session active détectée.</p>
+        <p className="font-body text-sm text-muted-foreground">Aucune session active détectée.</p>
       ) : (
-        <div className="flex flex-col divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200">
+        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
           {sessions.map((s) => (
             <div
               key={s.id}
               className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3"
             >
               <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-100">
-                  <Icon i="smartphone" size={14} className="text-slate-500" />
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted">
+                  <Icon i="smartphone" size={14} className="text-muted-foreground" />
                 </div>
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 font-body text-sm font-medium text-slate-800">
+                  <span className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
                     <span className="truncate">{describeDevice(s.userAgent)}</span>
                     {s.current && (
                       <span className="flex-shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 font-body text-[11px] font-medium text-emerald-700">
@@ -116,7 +116,7 @@ function SessionsSection() {
                       </span>
                     )}
                   </span>
-                  <span className="font-body text-xs text-slate-400">
+                  <span className="font-body text-xs text-muted-foreground">
                     {s.ip ? `${s.ip} · ` : ''}Actif {formatLongDate(s.lastSeenAt)}
                   </span>
                 </div>
@@ -126,7 +126,7 @@ function SessionsSection() {
                   type="button"
                   onClick={() => revokeOne(s.id)}
                   disabled={pendingId === s.id}
-                  className="flex-shrink-0 rounded-md border border-slate-200 px-3 py-1.5 font-body text-xs font-medium text-red-600 disabled:opacity-50"
+                  className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-red-600 disabled:opacity-50"
                 >
                   {pendingId === s.id ? 'Déconnexion…' : 'Fermer'}
                 </button>
@@ -218,17 +218,17 @@ export function AdminSecurityTab({ user }: { user: User }) {
   return (
     <div className="flex flex-col gap-4">
       <section className={`flex flex-col gap-3 p-5 ${cardClass}`}>
-        <h2 className="font-headings text-base font-semibold text-slate-900">
+        <h2 className="font-headings text-base font-semibold text-foreground">
           {hasPassword ? 'Changer le mot de passe' : 'Définir un mot de passe'}
         </h2>
-        <p className="font-body text-sm text-slate-500">
+        <p className="font-body text-sm text-muted-foreground">
           {hasPassword
             ? 'Les autres sessions seront déconnectées après ce changement.'
             : 'Ce compte a été créé via Google. Définis un mot de passe pour pouvoir aussi te connecter par email.'}
         </p>
         <form onSubmit={onSubmitPassword} className="mt-2 flex max-w-sm flex-col gap-4">
           {hasPassword && (
-            <label className="flex flex-col gap-1 font-body text-sm text-slate-700">
+            <label className="flex flex-col gap-1 font-body text-sm text-foreground">
               Mot de passe actuel
               <input
                 type="password"
@@ -240,7 +240,7 @@ export function AdminSecurityTab({ user }: { user: User }) {
               />
             </label>
           )}
-          <label className="flex flex-col gap-1 font-body text-sm text-slate-700">
+          <label className="flex flex-col gap-1 font-body text-sm text-foreground">
             Nouveau mot de passe
             <input
               type="password"
@@ -251,7 +251,7 @@ export function AdminSecurityTab({ user }: { user: User }) {
               className={inputClass}
             />
           </label>
-          <label className="flex flex-col gap-1 font-body text-sm text-slate-700">
+          <label className="flex flex-col gap-1 font-body text-sm text-foreground">
             Confirmer le nouveau mot de passe
             <input
               type="password"
@@ -280,7 +280,7 @@ export function AdminSecurityTab({ user }: { user: User }) {
           </button>
         </form>
         {hasPassword && user.passwordChangedAt && (
-          <p className="font-body text-xs text-slate-400">
+          <p className="font-body text-xs text-muted-foreground">
             Dernière modification : {formatLongDate(user.passwordChangedAt)}
           </p>
         )}
@@ -289,11 +289,11 @@ export function AdminSecurityTab({ user }: { user: User }) {
       <SessionsSection />
 
       <section className={`flex flex-col gap-3 p-5 ${cardClass}`}>
-        <h2 className="font-headings text-base font-semibold text-slate-900">Comptes liés</h2>
+        <h2 className="font-headings text-base font-semibold text-foreground">Comptes liés</h2>
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col">
-            <span className="font-body text-sm font-medium text-slate-800">Google</span>
-            <span className="font-body text-xs text-slate-500">
+            <span className="font-body text-sm font-medium text-foreground">Google</span>
+            <span className="font-body text-xs text-muted-foreground">
               {googleLinked
                 ? 'Connexion via Google possible.'
                 : 'Lie ce compte Google pour te connecter en un clic.'}
@@ -306,7 +306,7 @@ export function AdminSecurityTab({ user }: { user: User }) {
           ) : (
             <a
               href="/api/auth/oauth/google/start?next=/admin/settings?tab=securite"
-              className="rounded-md border border-slate-200 px-4 py-2 font-body text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-border px-4 py-2 font-body text-sm font-medium text-foreground hover:bg-secondary"
             >
               Lier Google
             </a>

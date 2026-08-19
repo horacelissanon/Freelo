@@ -9,8 +9,10 @@ export default function AdminSubscriptionsPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-headings text-2xl font-bold text-slate-900">Abonnements</h1>
-        <p className="font-body text-sm text-slate-500">Qui est sur quel plan, et depuis quand.</p>
+        <h1 className="font-headings text-2xl font-bold text-foreground">Abonnements</h1>
+        <p className="font-body text-sm text-muted-foreground">
+          Qui est sur quel plan, et depuis quand.
+        </p>
       </header>
       <SubscriptionsTab canOverride={user?.role === 'SUPERADMIN'} />
     </div>

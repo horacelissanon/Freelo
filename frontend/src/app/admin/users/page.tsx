@@ -10,8 +10,8 @@ export default function AdminUsersPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-headings text-2xl font-bold text-slate-900">Utilisateurs</h1>
-        <p className="font-body text-sm text-slate-500">
+        <h1 className="font-headings text-2xl font-bold text-foreground">Utilisateurs</h1>
+        <p className="font-body text-sm text-muted-foreground">
           Recherche, rôles et statut de tous les comptes de la plateforme.
         </p>
       </header>
