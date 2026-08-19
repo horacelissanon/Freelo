@@ -2,8 +2,9 @@
 // Admin "Vue d'ensemble" landing page.
 //
 // Every number here is a real aggregate — nothing fabricated:
-//   - mrr sums ACTIVE PRO subscriptions via PRO_PRICING (billing/subscription.ts),
-//     normalizing YEARLY to a monthly-equivalent (amount / 12).
+//   - mrr sums ACTIVE PRO subscriptions via the live, Super Admin-editable
+//     PlanConfig (billing/plans.ts's getPlanConfig), normalizing YEARLY to a
+//     monthly-equivalent (amount / 12).
 //   - mrrTrendDelta compares the last two buckets of revenueTrend (real paid
 //     SubscriptionTransaction sums) — % change month-over-month.
 //   - dau counts distinct Session.userId with lastSeenAt in the last 24h and
@@ -40,12 +41,7 @@ import { prisma } from '@/lib/server/prisma';
 import { redis } from '@/lib/server/redis';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { PRO_PRICING } from '@/lib/server/billing/subscription';
-
-const MONTHLY_EQUIVALENT: Record<string, number> = {
-  MONTHLY: PRO_PRICING.MONTHLY.amount,
-  YEARLY: Math.round(PRO_PRICING.YEARLY.amount / 12),
-};
+import { getPlanConfig } from '@/lib/server/billing/plans';
 
 const LOCKOUT_HARD_CAP = 1000;
 
@@ -158,8 +154,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const openTicketsCount = openTickets.length;
     const urgentOpenTicketsCount = openTickets.filter((t) => t.priority === 'HIGH').length;
 
+    const proConfig = await getPlanConfig(prisma, 'PRO');
+    const monthlyEquivalent: Record<string, number> = {
+      MONTHLY: proConfig.monthlyAmount ?? 0,
+      YEARLY: Math.round((proConfig.yearlyAmount ?? 0) / 12),
+    };
     const mrr = activeSubs.reduce(
-      (sum, s) => sum + (MONTHLY_EQUIVALENT[s.billingCycle ?? 'MONTHLY'] ?? 0),
+      (sum, s) => sum + (monthlyEquivalent[s.billingCycle ?? 'MONTHLY'] ?? 0),
       0,
     );
 
@@ -203,7 +204,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           pro: activeSubs.length,
         },
         mrr,
-        mrrCurrency: 'XOF',
+        mrrCurrency: proConfig.currency,
         mrrTrendDelta,
         churnRate,
         dau: dauRows.length,

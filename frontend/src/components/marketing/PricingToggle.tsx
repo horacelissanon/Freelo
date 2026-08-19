@@ -14,9 +14,30 @@ import { Toggle } from '@/components/ui/Toggle';
 import { useApi } from '@/lib/useApi';
 import { formatPrice } from '@/lib/utils';
 
-const MONTHLY_PRICE = 3500;
-const ANNUAL_PRICE = 35000;
-const ANNUAL_SAVINGS = MONTHLY_PRICE * 12 - ANNUAL_PRICE;
+// Real, live figures from GET /api/plans (public — see that route's
+// header), Super Admin-editable via Super Admin → Plans. The constants
+// below are only a fallback shown before that fetch resolves — same
+// "degrade, never block" philosophy as FALLBACK_FX below, and the same real
+// numbers that shipped as hardcoded defaults before this became editable.
+const FALLBACK_FREE_FEATURES = [
+  '1 client',
+  '2 projets actifs',
+  'Devis & factures en FCFA',
+  'Lien de suivi en lecture seule',
+];
+const FALLBACK_PRO_FEATURES = [
+  'Clients & projets illimités',
+  'Devis & factures en FCFA, EUR, USD',
+  'Lien de suivi interactif avec tes moyens de paiement indiqués',
+  'Sans filigrane sur les documents',
+];
+const FALLBACK_MONTHLY_PRICE = 3500;
+const FALLBACK_ANNUAL_PRICE = 35000;
+
+interface PlansResponse {
+  free: { features: string[] };
+  pro: { monthlyAmount: number | null; yearlyAmount: number | null; features: string[] };
+}
 
 const CURRENCIES = ['FCFA', 'EUR', 'USD'] as const;
 type Currency = (typeof CURRENCIES)[number];
@@ -64,22 +85,23 @@ function FeatureList({
   );
 }
 
-export function PricingToggle({
-  freeFeatures,
-  proFeatures,
-}: {
-  freeFeatures: string[];
-  proFeatures: string[];
-}) {
+export function PricingToggle() {
   const [annual, setAnnual] = useState(false);
   const [currency, setCurrency] = useState<Currency>('FCFA');
   const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
+  const { data: plans } = useApi<PlansResponse>('/api/plans');
   // fx values are "units of X per 1 EUR" (open.er-api.com's EUR base) —
   // USD per 1 FCFA is (USD per EUR) / (XOF per EUR). XOF/EUR themselves stay
   // the fallback constant's legally pegged 655.957 either way.
   const FX: Record<Currency, { perFcfa: number; symbol: string }> = fx
     ? { ...FALLBACK_FX, USD: { perFcfa: fx.USD / fx.XOF, symbol: '$' } }
     : FALLBACK_FX;
+
+  const freeFeatures = plans?.free.features ?? FALLBACK_FREE_FEATURES;
+  const proFeatures = plans?.pro.features ?? FALLBACK_PRO_FEATURES;
+  const MONTHLY_PRICE = plans?.pro.monthlyAmount ?? FALLBACK_MONTHLY_PRICE;
+  const ANNUAL_PRICE = plans?.pro.yearlyAmount ?? FALLBACK_ANNUAL_PRICE;
+  const ANNUAL_SAVINGS = MONTHLY_PRICE * 12 - ANNUAL_PRICE;
 
   function formatAmount(amountFcfa: number, curr: Currency): string {
     const { perFcfa, symbol } = FX[curr];

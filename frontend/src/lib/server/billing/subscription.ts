@@ -2,20 +2,14 @@
 // distinct from Order (an end CLIENT paying the freelancer). No row means
 // implicit FREE plan; getOrCreateSubscription lazily creates one on first
 // read, mirroring the NotificationPreferences upsert-on-read pattern.
+//
+// Pricing and FREE-tier limits used to live here as PRO_PRICING/
+// FREE_PLAN_LIMITS constants — moved to plans.ts's DB-backed getPlanConfig
+// so a Super Admin can edit them without a deploy (see plans.ts's header).
 import 'server-only';
 import type { PrismaClient, Subscription } from '@prisma/client';
 
-export const FREE_PLAN_LIMITS = {
-  maxClients: 1,
-  maxActiveProjects: 2,
-} as const;
-
-export const PRO_PRICING = {
-  MONTHLY: { amount: 3500, currency: 'XOF' },
-  YEARLY: { amount: 35000, currency: 'XOF' },
-} as const;
-
-export type BillingCycle = keyof typeof PRO_PRICING;
+export type BillingCycle = 'MONTHLY' | 'YEARLY';
 
 export async function getOrCreateSubscription(
   prisma: PrismaClient,

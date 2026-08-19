@@ -22,18 +22,21 @@ import { Modal } from '@/components/ui/Modal';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
 import { formatPrice, formatLongDate } from '@/lib/utils';
 
-// Mirrors lib/server/billing/subscription.ts's PRO_PRICING — duplicated
-// here (not imported) because that module is `server-only` and this is a
-// client component. Same duplication precedent as the landing page's
-// #tarifs section.
-const PRO_PRICING = {
-  MONTHLY: { amount: 3500 },
-  YEARLY: { amount: 35000 },
-} as const;
+type BillingCycle = 'MONTHLY' | 'YEARLY';
 
-const YEARLY_SAVINGS = PRO_PRICING.MONTHLY.amount * 12 - PRO_PRICING.YEARLY.amount;
+interface PlanConfig {
+  monthlyAmount: number | null;
+  yearlyAmount: number | null;
+  currency: string;
+  features: string[];
+}
 
-type BillingCycle = keyof typeof PRO_PRICING;
+interface PlansResponse {
+  free: PlanConfig;
+  pro: PlanConfig;
+}
+
+const PLANS_PATH = '/api/plans';
 
 interface SubscriptionData {
   subscription: {
@@ -106,6 +109,11 @@ function UsageBar({ label, value, max }: { label: string; value: number; max: nu
 
 export function FacturationTab() {
   const { data, loading, error, refresh } = useApi<SubscriptionData>(SUBSCRIPTION_PATH);
+  const {
+    data: plans,
+    loading: plansLoading,
+    error: plansError,
+  } = useApi<PlansResponse>(PLANS_PATH);
   const { toast } = useToast();
   const [pendingCycle, setPendingCycle] = useState<BillingCycle | null>(null);
   const [canceling, setCanceling] = useState(false);
@@ -146,12 +154,16 @@ export function FacturationTab() {
     }
   }
 
-  if (loading) return <LoadingState />;
+  if (loading || plansLoading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={refresh} />;
-  if (!data) return null;
+  if (plansError) return <ErrorState message={plansError} onRetry={refresh} />;
+  if (!data || !plans) return null;
 
   const { subscription, usage, transactions } = data;
   const isPro = subscription.isProActive;
+  const proMonthly = plans.pro.monthlyAmount ?? 0;
+  const proYearly = plans.pro.yearlyAmount ?? 0;
+  const yearlySavings = proMonthly * 12 - proYearly;
 
   return (
     <div className="flex flex-col gap-6">
@@ -250,12 +262,7 @@ export function FacturationTab() {
               </p>
             </div>
             <ul className="flex flex-col gap-2">
-              {[
-                `${usage.limits.maxClients} client`,
-                `${usage.limits.maxActiveProjects} projets actifs`,
-                'Devis & factures en FCFA uniquement',
-                'Lien de suivi client en lecture seule',
-              ].map((feature) => (
+              {plans.free.features.map((feature) => (
                 <li
                   key={feature}
                   className="flex items-start gap-2 font-body text-sm text-foreground"
@@ -292,7 +299,7 @@ export function FacturationTab() {
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="font-headings text-2xl font-bold text-foreground">
-                  {formatPrice(PRO_PRICING.MONTHLY.amount)}
+                  {formatPrice(proMonthly)}
                 </span>
                 <span className="font-body text-xs text-muted-foreground">FCFA / mois</span>
               </div>
@@ -301,12 +308,7 @@ export function FacturationTab() {
               </p>
             </div>
             <ul className="flex flex-col gap-2">
-              {[
-                'Clients & projets illimités',
-                'Devis & factures en EUR / USD',
-                'Lien de suivi interactif (commentaires, paiement en ligne)',
-                'Sans filigrane sur les documents',
-              ].map((feature) => (
+              {plans.pro.features.map((feature) => (
                 <li
                   key={feature}
                   className="flex items-start gap-2 font-body text-sm text-foreground"
@@ -357,21 +359,16 @@ export function FacturationTab() {
               </span>
               <div className="flex items-baseline gap-1.5">
                 <span className="font-headings text-2xl font-bold text-foreground">
-                  {formatPrice(PRO_PRICING.YEARLY.amount)}
+                  {formatPrice(proYearly)}
                 </span>
                 <span className="font-body text-xs text-muted-foreground">FCFA / an</span>
               </div>
               <p className="font-body text-xs font-medium text-amber-600">
-                Économise {formatPrice(YEARLY_SAVINGS)} FCFA par an vs mensuel
+                Économise {formatPrice(yearlySavings)} FCFA par an vs mensuel
               </p>
             </div>
             <ul className="flex flex-col gap-2">
-              {[
-                'Clients & projets illimités',
-                'Devis & factures en EUR / USD',
-                'Lien de suivi interactif (commentaires, paiement en ligne)',
-                'Sans filigrane sur les documents',
-              ].map((feature) => (
+              {plans.pro.features.map((feature) => (
                 <li
                   key={feature}
                   className="flex items-start gap-2 font-body text-sm text-foreground"

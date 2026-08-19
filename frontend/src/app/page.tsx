@@ -221,20 +221,6 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
   },
 ];
 
-const FREE_FEATURES = [
-  '1 client',
-  '2 projets actifs',
-  'Devis & factures en FCFA',
-  'Lien de suivi en lecture seule',
-];
-
-const PRO_FEATURES = [
-  'Clients & projets illimités',
-  'Devis & factures en FCFA, EUR, USD',
-  'Lien de suivi interactif avec tes moyens de paiement indiqués',
-  'Sans filigrane sur les documents',
-];
-
 const FAQS: { question: string; answer: string }[] = [
   {
     question: 'Freelo est-il vraiment gratuit ?',
@@ -767,7 +753,7 @@ export default function Home() {
                 Commence gratuitement. Passe en Pro quand ton activité grandit.
               </p>
             </div>
-            <PricingToggle freeFeatures={FREE_FEATURES} proFeatures={PRO_FEATURES} />
+            <PricingToggle />
             <p className="mt-8 text-center font-body text-xs text-muted-foreground">
               Crée ton compte gratuitement — aucun paiement requis pour démarrer.
             </p>

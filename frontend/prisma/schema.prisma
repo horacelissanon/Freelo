@@ -817,3 +817,15 @@ model SubscriptionTransaction {
   @@index([subscriptionId, createdAt])
   @@index([status])
 }
+
+model PlanConfig {
+  id                String   @id @default(cuid())
+  plan              String   @unique // FREE | PRO
+  monthlyAmount     Int? // smallest currency unit; null for FREE
+  yearlyAmount      Int? // null for FREE
+  currency          String   @default("XOF")
+  maxClients        Int? // FREE-tier limit; null = unlimited (PRO)
+  maxActiveProjects Int? // FREE-tier limit; null = unlimited (PRO)
+  features          String[] // marketing bullet list shown on pricing cards
+  updatedAt         DateTime @updatedAt
+}

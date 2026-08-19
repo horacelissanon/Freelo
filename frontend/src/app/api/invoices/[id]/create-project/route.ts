@@ -18,11 +18,8 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { createProject } from '@/lib/server/projects/createProject';
 import { theoreticalDepositAmount } from '@/lib/server/projects/depositBalance';
-import {
-  getOrCreateSubscription,
-  isProActive,
-  FREE_PLAN_LIMITS,
-} from '@/lib/server/billing/subscription';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { PROJECT_TYPE_VALUES, PAYMENT_METHOD_LABELS } from '@/lib/constants';
 import {
@@ -187,14 +184,16 @@ export async function POST(
           { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
         );
       }
+      const freeConfig = await getPlanConfig(prisma, 'FREE');
+      const maxActiveProjects = freeConfig.maxActiveProjects ?? Infinity;
       const activeProjectCount = await prisma.project.count({
         where: { userId: auth.user.sub, status: { notIn: ['DELIVERED', 'DRAFT'] } },
       });
-      if (activeProjectCount >= FREE_PLAN_LIMITS.maxActiveProjects) {
+      if (activeProjectCount >= maxActiveProjects) {
         return NextResponse.json(
           {
             error: 'PLAN_LIMIT_PROJECTS',
-            message: `Le plan Gratuit est limité à ${FREE_PLAN_LIMITS.maxActiveProjects} projets actifs. Passe en Pro pour en créer davantage.`,
+            message: `Le plan Gratuit est limité à ${maxActiveProjects} projets actifs. Passe en Pro pour en créer davantage.`,
           },
           { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
         );

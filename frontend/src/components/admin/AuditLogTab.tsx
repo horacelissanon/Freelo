@@ -36,6 +36,7 @@ const ACTION_LABELS: Record<string, string> = {
   'user.restore': 'Réactivation de compte',
   'withdrawal.cancel': 'Annulation de retrait',
   'subscription.override': "Modification d'abonnement",
+  'plan.update': 'Modification de plan',
   'outbox.requeue': "Relance d'événement",
   'email.requeue': "Relance d'email",
   'support.status_change': 'Changement de statut de ticket',
@@ -62,6 +63,22 @@ function describeAction(action: string, metadata: Record<string, unknown> | null
       const from = m.from as Record<string, unknown> | undefined;
       const to = m.to as Record<string, unknown> | undefined;
       return `Plan ${str(from?.plan)} → ${str(to?.plan)}, statut ${str(from?.status)} → ${str(to?.status)}`;
+    }
+    case 'plan.update': {
+      const from = m.from as Record<string, unknown> | undefined;
+      const to = m.to as Record<string, unknown> | undefined;
+      const FIELD_LABELS: Record<string, string> = {
+        monthlyAmount: 'Prix mensuel',
+        yearlyAmount: 'Prix annuel',
+        currency: 'Devise',
+        maxClients: 'Limite clients',
+        maxActiveProjects: 'Limite projets actifs',
+        features: 'Fonctionnalités',
+      };
+      const changes = Object.keys(to ?? {}).map(
+        (key) => `${FIELD_LABELS[key] ?? key} : ${str(from?.[key])} → ${str(to?.[key])}`,
+      );
+      return changes.length > 0 ? changes.join(', ') : null;
     }
     case 'outbox.requeue':
     case 'email.requeue':
@@ -148,6 +165,7 @@ export function AuditLogTab() {
           <option value="OutboxEvent">Événement</option>
           <option value="EmailJob">Email</option>
           <option value="SupportTicket">Ticket support</option>
+          <option value="PlanConfig">Plan</option>
         </select>
       </div>
 

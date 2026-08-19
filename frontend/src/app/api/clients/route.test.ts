@@ -87,6 +87,17 @@ beforeEach(() => {
   prismaMock.subscription.findUnique.mockResolvedValue(subscription() as never);
   prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
   prismaMock.invoice.findMany.mockResolvedValue([] as never);
+  prismaMock.planConfig.findUnique.mockResolvedValue({
+    id: 'plan-free',
+    plan: 'FREE',
+    monthlyAmount: null,
+    yearlyAmount: null,
+    currency: 'XOF',
+    maxClients: 1,
+    maxActiveProjects: 2,
+    features: [],
+    updatedAt: new Date('2026-05-01T00:00:00Z'),
+  } as never);
 });
 
 describe('GET /api/clients', () => {

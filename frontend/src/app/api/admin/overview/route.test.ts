@@ -84,6 +84,17 @@ function wireHappyPathPrisma(): void {
     { priority: 'LOW' },
     { priority: 'LOW' },
   ] as never); // 4 open, 1 urgent (HIGH)
+  prismaMock.planConfig.findUnique.mockResolvedValue({
+    id: 'plan-pro',
+    plan: 'PRO',
+    monthlyAmount: 3500,
+    yearlyAmount: 35000,
+    currency: 'XOF',
+    maxClients: null,
+    maxActiveProjects: null,
+    features: [],
+    updatedAt: new Date(),
+  } as never);
 }
 
 beforeEach(() => {

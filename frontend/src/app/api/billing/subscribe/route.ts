@@ -20,11 +20,8 @@ import {
   getFedapayCredentials,
   FedapayProviderUnconfiguredError,
 } from '@/lib/server/payments/fedapay-singleton';
-import {
-  getOrCreateSubscription,
-  computeNextPeriodEnd,
-  PRO_PRICING,
-} from '@/lib/server/billing/subscription';
+import { getOrCreateSubscription, computeNextPeriodEnd } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const IDEM_KEY_MAX_LEN = 200;
@@ -131,7 +128,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
-    const { amount, currency } = PRO_PRICING[billingCycle];
+    const proConfig = await getPlanConfig(prisma, 'PRO');
+    const amount = billingCycle === 'MONTHLY' ? proConfig.monthlyAmount : proConfig.yearlyAmount;
+    if (amount === null) {
+      return NextResponse.json(
+        { error: 'PAYMENT_PROVIDER_UNCONFIGURED', message: 'Pro pricing is not configured' },
+        { status: 503, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+    const currency = proConfig.currency;
     const periodEnd = computeNextPeriodEnd(billingCycle, subscription.currentPeriodEnd);
     const periodStart = subscription.currentPeriodEnd ?? new Date();
 

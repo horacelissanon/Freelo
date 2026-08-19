@@ -25,6 +25,7 @@ const GENERAL_NAV: NavItem[] = [
   { href: '/admin', label: "Vue d'ensemble", icon: 'layout-dashboard' },
   { href: '/admin/users', label: 'Utilisateurs', icon: 'users' },
   { href: '/admin/subscriptions', label: 'Abonnements', icon: 'credit-card' },
+  { href: '/admin/plans', label: 'Plans', icon: 'layers' },
   { href: '/admin/transactions', label: 'Facturation', icon: 'banknote' },
   { href: '/admin/support', label: 'Support', icon: 'message-circle' },
 ];
@@ -32,6 +33,7 @@ const GENERAL_NAV: NavItem[] = [
 const SYSTEM_NAV: NavItem[] = [
   { href: '/admin/performance', label: 'Performances', icon: 'bar-chart' },
   { href: '/admin/audit-log', label: "Journal d'audit", icon: 'file-clock' },
+  { href: '/admin/settings', label: 'Paramètres', icon: 'settings' },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -129,15 +131,21 @@ function SidebarContent({
           Retour à Freelo
         </Link>
         <div className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 font-headings text-xs font-bold text-white">
-            {(user.name || user.email).slice(0, 2).toUpperCase()}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-body text-sm font-medium text-white">
-              {user.role === 'SUPERADMIN' ? 'Super Admin' : 'Admin'}
-            </p>
-            <p className="truncate font-body text-xs text-white/40">{user.email}</p>
-          </div>
+          <Link
+            href="/admin/settings"
+            onClick={onNavigate}
+            className="flex min-w-0 flex-1 items-center gap-3"
+          >
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500 font-headings text-xs font-bold text-white">
+              {(user.name || user.email).slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-body text-sm font-medium text-white">
+                {user.role === 'SUPERADMIN' ? 'Super Admin' : 'Admin'}
+              </p>
+              <p className="truncate font-body text-xs text-white/40">{user.email}</p>
+            </div>
+          </Link>
           <button
             type="button"
             onClick={() => logout()}

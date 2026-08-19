@@ -1,6 +1,6 @@
 // Inline upgrade nudge shown when a mutation is rejected by plan-tier
-// gating (lib/server/billing/subscription.ts's FREE_PLAN_LIMITS, enforced
-// in /api/clients, /api/projects, /api/invoices). Forms check
+// gating (lib/server/billing/plans.ts's getPlanConfig, enforced in
+// /api/clients, /api/projects, /api/invoices). Forms check
 // `isPlanLimitCode(err.code)` and render this instead of the generic
 // error line so the dead-end (403) becomes an actionable upsell.
 import Link from 'next/link';

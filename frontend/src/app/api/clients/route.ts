@@ -12,11 +12,8 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/pagination/paginate';
-import {
-  getOrCreateSubscription,
-  isProActive,
-  FREE_PLAN_LIMITS,
-} from '@/lib/server/billing/subscription';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { getDefaultCurrency } from '@/lib/server/fx/validateExchangeRate';
 import { getCachedRates } from '@/lib/server/fx/rates';
@@ -135,12 +132,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
     if (!isProActive(subscription)) {
+      const freeConfig = await getPlanConfig(prisma, 'FREE');
+      const maxClients = freeConfig.maxClients ?? Infinity;
       const clientCount = await prisma.client.count({ where: { userId: auth.user.sub } });
-      if (clientCount >= FREE_PLAN_LIMITS.maxClients) {
+      if (clientCount >= maxClients) {
         return NextResponse.json(
           {
             error: 'PLAN_LIMIT_CLIENTS',
-            message: `Le plan Gratuit est limité à ${FREE_PLAN_LIMITS.maxClients} client. Passe en Pro pour en ajouter davantage.`,
+            message: `Le plan Gratuit est limité à ${maxClients} client. Passe en Pro pour en ajouter davantage.`,
           },
           { status: 403, headers: { 'x-request-id': ctx.requestId } },
         );

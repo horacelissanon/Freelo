@@ -7,11 +7,8 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
-import {
-  getOrCreateSubscription,
-  isProActive,
-  FREE_PLAN_LIMITS,
-} from '@/lib/server/billing/subscription';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -43,6 +40,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       },
     });
 
+    const freeConfig = await getPlanConfig(prisma, 'FREE');
+
     return NextResponse.json(
       {
         subscription: {
@@ -56,7 +55,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         usage: {
           clients: clientCount,
           activeProjects: activeProjectCount,
-          limits: FREE_PLAN_LIMITS,
+          limits: {
+            maxClients: freeConfig.maxClients,
+            maxActiveProjects: freeConfig.maxActiveProjects,
+          },
         },
         transactions,
       },

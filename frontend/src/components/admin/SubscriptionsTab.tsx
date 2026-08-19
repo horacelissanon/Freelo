@@ -43,6 +43,10 @@ interface OverviewKpis {
   churnRate: number;
 }
 
+interface PlansResponse {
+  pro: { monthlyAmount: number | null; yearlyAmount: number | null; currency: string };
+}
+
 const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   PAID: 'À jour',
   FAILED: 'Échoué',
@@ -90,6 +94,7 @@ function toDateOnly(iso: string | null): string {
 export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
   const { toast } = useToast();
   const { data: kpis } = useApi<OverviewKpis>('/api/admin/overview');
+  const { data: plans } = useApi<PlansResponse>('/api/plans');
   const [planFilter, setPlanFilter] = useState<'all' | Plan>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | SubStatus>('all');
   const [items, setItems] = useState<SubscriptionRow[]>([]);
@@ -274,11 +279,11 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                 >
                   {STATUS_LABELS[s.status]}
                 </span>
-                {s.billingCycle && (
+                {s.billingCycle && plans && (
                   <span className="flex-shrink-0 font-body text-sm font-semibold text-slate-800">
                     {s.billingCycle === 'MONTHLY'
-                      ? formatPrice(3500, 'XOF/mois')
-                      : formatPrice(35000, 'XOF/an')}
+                      ? formatPrice(plans.pro.monthlyAmount ?? 0, `${plans.pro.currency}/mois`)
+                      : formatPrice(plans.pro.yearlyAmount ?? 0, `${plans.pro.currency}/an`)}
                   </span>
                 )}
                 {s.transactions[0] && (
