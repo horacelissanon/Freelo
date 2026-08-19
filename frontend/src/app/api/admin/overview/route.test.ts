@@ -39,33 +39,51 @@ function makeGet(url: string = 'http://test/api/admin/overview'): NextRequest {
 }
 
 function wireHappyPathPrisma(): void {
-  // Call order matches the route's Promise.all array: totalUsers first,
-  // then newUsersThisMonth.
-  prismaMock.user.count.mockResolvedValueOnce(42).mockResolvedValueOnce(5);
+  // Call order matches the route's sequential awaits.
+  prismaMock.user.count.mockResolvedValueOnce(42).mockResolvedValueOnce(5); // totalUsers, newUsersThisMonth
   prismaMock.subscription.findMany.mockResolvedValue([
     { billingCycle: 'MONTHLY' },
     { billingCycle: 'YEARLY' },
   ] as never);
   prismaMock.session.findMany.mockResolvedValue([{ userId: 'u1' }, { userId: 'u2' }] as never);
-  // Call order matches the route's Promise.all array: PENDING count first,
-  // then DEAD count, for both outboxEvent and emailJob.
-  prismaMock.outboxEvent.count.mockResolvedValueOnce(3).mockResolvedValueOnce(1);
-  prismaMock.emailJob.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
-  prismaMock.subscriptionTransaction.findMany.mockResolvedValue([
-    { amount: 3500, createdAt: new Date() },
+  vi.mocked(prismaMock.outboxEvent.groupBy).mockResolvedValue([
+    { status: 'PENDING', _count: 3 },
+    { status: 'DEAD', _count: 1 },
   ] as never);
+  vi.mocked(prismaMock.emailJob.groupBy).mockResolvedValue([
+    { status: 'PENDING', _count: 2 },
+    { status: 'DEAD', _count: 0 },
+  ] as never);
+  prismaMock.subscriptionTransaction.findMany
+    .mockResolvedValueOnce([{ amount: 3500, createdAt: new Date() }] as never) // revenueRows (PAID)
+    .mockResolvedValueOnce([
+      {
+        id: 'tx-fail-1',
+        amount: 3500,
+        currency: 'XOF',
+        provider: 'fedapay',
+        createdAt: new Date(),
+        subscription: { user: { email: 'freelancer@test.local', name: 'Freelancer' } },
+      },
+    ] as never); // recentFailedPayments (FAILED)
   prismaMock.user.findMany.mockResolvedValue([
-    { id: 'u1', email: 'new@test.local', name: null, role: 'USER', createdAt: new Date() },
-  ] as never);
-  prismaMock.order.findMany.mockResolvedValue([
     {
-      id: 'order-1',
-      customerEmail: 'client@test.local',
-      amount: 15000,
-      currency: 'XOF',
+      id: 'u1',
+      email: 'new@test.local',
+      name: null,
+      role: 'USER',
+      status: 'ACTIVE',
       createdAt: new Date(),
+      subscription: { plan: 'PRO' },
     },
   ] as never);
+  prismaMock.subscription.count.mockResolvedValueOnce(1).mockResolvedValueOnce(10); // churnedThisMonth, everProBeforeThisMonth
+  prismaMock.supportTicket.findMany.mockResolvedValue([
+    { priority: 'HIGH' },
+    { priority: 'MEDIUM' },
+    { priority: 'LOW' },
+    { priority: 'LOW' },
+  ] as never); // 4 open, 1 urgent (HIGH)
 }
 
 beforeEach(() => {
@@ -94,6 +112,8 @@ describe('/api/admin/overview', () => {
     expect(body.mrrCurrency).toBe('XOF');
     expect(body.dau).toBe(2);
     expect(body.revenueTrend).toHaveLength(6);
+    // churnRate = 1 / max(1, 10) * 100, rounded to 1 decimal = 10
+    expect(body.churnRate).toBe(10);
     expect(body.systemHealth).toEqual({
       outboxPending: 3,
       outboxDead: 1,
@@ -101,10 +121,15 @@ describe('/api/admin/overview', () => {
       emailDead: 0,
       lockoutCount: 1,
     });
+    expect(body.support).toEqual({ openTickets: 4, urgentOpenTickets: 1 });
     expect(body.recentUsers).toHaveLength(1);
-    expect(body.recentUsers[0]).toMatchObject({ id: 'u1', email: 'new@test.local' });
-    expect(body.recentFailedOrders).toHaveLength(1);
-    expect(body.recentFailedOrders[0]).toMatchObject({ id: 'order-1', amount: 15000 });
+    expect(body.recentUsers[0]).toMatchObject({ id: 'u1', email: 'new@test.local', plan: 'PRO' });
+    expect(body.recentFailedPayments).toHaveLength(1);
+    expect(body.recentFailedPayments[0]).toMatchObject({
+      id: 'tx-fail-1',
+      amount: 3500,
+      user: { email: 'freelancer@test.local' },
+    });
   });
 
   it('GET returns lockoutCount 0 (no crash) when redis is not configured', async () => {

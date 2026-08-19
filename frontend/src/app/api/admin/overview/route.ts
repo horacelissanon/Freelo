@@ -4,15 +4,33 @@
 // Every number here is a real aggregate — nothing fabricated:
 //   - mrr sums ACTIVE PRO subscriptions via PRO_PRICING (billing/subscription.ts),
 //     normalizing YEARLY to a monthly-equivalent (amount / 12).
+//   - mrrTrendDelta compares the last two buckets of revenueTrend (real paid
+//     SubscriptionTransaction sums) — % change month-over-month.
 //   - dau counts distinct Session.userId with lastSeenAt in the last 24h and
 //     no revokedAt (Session is the only activity-timestamped model available).
+//   - churnRate = Subscriptions that flipped to CANCELED/EXPIRED this month
+//     (via `updatedAt`, the closest proxy available — there's no status-
+//     change history table yet) / Subscriptions that were ever PRO and
+//     existed before this month. A real but approximate definition; documented
+//     here rather than silently precise-looking.
 //   - revenueTrend groups PAID SubscriptionTransaction rows by calendar month
 //     for the trailing 6 months (real Merrudit SaaS revenue, not Order/
 //     Withdrawal — those are end-client payments to freelancers, a different
-//     money flow, surfaced separately on /api/admin/{orders,withdrawals}).
+//     money flow, not surfaced anywhere in the admin console).
+//   - recentFailedPayments mirrors what /admin/transactions shows in full —
+//     same SubscriptionTransaction model, status=FAILED.
 //   - systemHealth mirrors the same pending/dead counts the Outbox and
 //     Email-queue admin list endpoints expose in full, plus an active-lockout
 //     count from the same Redis prefix /api/admin/rate-limits scans.
+//
+// Queries run SEQUENTIALLY, not Promise.all — this dev DB's connection pool
+// caps at connection_limit=1 (Neon), and firing a dozen-plus queries at once
+// queues them all for the single connection simultaneously, blowing past the
+// pool's 15s acquire timeout (P2024) well before any of them even start.
+// Sequential awaits mean each query only ever waits on the one before it.
+// Also collapsed pairs of same-model counts (outbox/email pending+dead,
+// ticket open+urgent) into a single groupBy/findMany each, to cut the total
+// query count regardless of pool size.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -61,52 +79,84 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     sixMonthsAgo.setDate(1);
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
-    const [
-      totalUsers,
-      newUsersThisMonth,
-      activeSubs,
-      dauRows,
-      outboxPending,
-      outboxDead,
-      emailPending,
-      emailDead,
-      lockoutCount,
-      revenueRows,
-      recentUsers,
-      recentFailedOrders,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { createdAt: { gte: startOfMonth } } }),
-      prisma.subscription.findMany({
-        where: { plan: 'PRO', status: 'ACTIVE' },
-        select: { billingCycle: true },
-      }),
-      prisma.session.findMany({
-        where: { lastSeenAt: { gte: dayAgo }, revokedAt: null },
-        select: { userId: true },
-        distinct: ['userId'],
-      }),
-      prisma.outboxEvent.count({ where: { status: 'PENDING' } }),
-      prisma.outboxEvent.count({ where: { status: 'DEAD' } }),
-      prisma.emailJob.count({ where: { status: 'PENDING' } }),
-      prisma.emailJob.count({ where: { status: 'DEAD' } }),
-      countLockouts(),
-      prisma.subscriptionTransaction.findMany({
-        where: { status: 'PAID', createdAt: { gte: sixMonthsAgo } },
-        select: { amount: true, createdAt: true },
-      }),
-      prisma.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: { id: true, email: true, name: true, role: true, createdAt: true },
-      }),
-      prisma.order.findMany({
-        where: { status: 'FAILED' },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: { id: true, customerEmail: true, amount: true, currency: true, createdAt: true },
-      }),
-    ]);
+    const totalUsers = await prisma.user.count();
+    const newUsersThisMonth = await prisma.user.count({
+      where: { createdAt: { gte: startOfMonth } },
+    });
+    const activeSubs = await prisma.subscription.findMany({
+      where: { plan: 'PRO', status: 'ACTIVE' },
+      select: { billingCycle: true },
+    });
+    const dauRows = await prisma.session.findMany({
+      where: { lastSeenAt: { gte: dayAgo }, revokedAt: null },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    const outboxGroups = await prisma.outboxEvent.groupBy({
+      by: ['status'],
+      where: { status: { in: ['PENDING', 'DEAD'] } },
+      _count: true,
+    });
+    const outboxPending = outboxGroups.find((g) => g.status === 'PENDING')?._count ?? 0;
+    const outboxDead = outboxGroups.find((g) => g.status === 'DEAD')?._count ?? 0;
+
+    const emailGroups = await prisma.emailJob.groupBy({
+      by: ['status'],
+      where: { status: { in: ['PENDING', 'DEAD'] } },
+      _count: true,
+    });
+    const emailPending = emailGroups.find((g) => g.status === 'PENDING')?._count ?? 0;
+    const emailDead = emailGroups.find((g) => g.status === 'DEAD')?._count ?? 0;
+
+    const lockoutCount = await countLockouts();
+
+    const revenueRows = await prisma.subscriptionTransaction.findMany({
+      where: { status: 'PAID', createdAt: { gte: sixMonthsAgo } },
+      select: { amount: true, createdAt: true },
+    });
+
+    const recentUsers = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        status: true,
+        subscription: { select: { plan: true } },
+      },
+    });
+
+    const recentFailedPayments = await prisma.subscriptionTransaction.findMany({
+      where: { status: 'FAILED' },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        provider: true,
+        createdAt: true,
+        subscription: { select: { user: { select: { email: true, name: true } } } },
+      },
+    });
+
+    const churnedThisMonth = await prisma.subscription.count({
+      where: { status: { in: ['CANCELED', 'EXPIRED'] }, updatedAt: { gte: startOfMonth } },
+    });
+    const everProBeforeThisMonth = await prisma.subscription.count({
+      where: { plan: 'PRO', createdAt: { lt: startOfMonth } },
+    });
+
+    const openTickets = await prisma.supportTicket.findMany({
+      where: { status: 'OPEN' },
+      select: { priority: true },
+    });
+    const openTicketsCount = openTickets.length;
+    const urgentOpenTicketsCount = openTickets.filter((t) => t.priority === 'HIGH').length;
 
     const mrr = activeSubs.reduce(
       (sum, s) => sum + (MONTHLY_EQUIVALENT[s.billingCycle ?? 'MONTHLY'] ?? 0),
@@ -131,6 +181,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       if (bucket) bucket.amount += row.amount;
     }
 
+    const lastMonth = months[months.length - 2];
+    const thisMonth = months[months.length - 1];
+    const mrrTrendDelta =
+      lastMonth && thisMonth && lastMonth.amount > 0
+        ? Math.round(((thisMonth.amount - lastMonth.amount) / lastMonth.amount) * 1000) / 10
+        : null;
+
+    const churnRate =
+      Math.round((churnedThisMonth / Math.max(1, everProBeforeThisMonth)) * 1000) / 10;
+
     return NextResponse.json(
       {
         totalUsers,
@@ -144,22 +204,28 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         },
         mrr,
         mrrCurrency: 'XOF',
+        mrrTrendDelta,
+        churnRate,
         dau: dauRows.length,
         revenueTrend: months.map(({ label, amount }) => ({ label, amount })),
         systemHealth: { outboxPending, outboxDead, emailPending, emailDead, lockoutCount },
+        support: { openTickets: openTicketsCount, urgentOpenTickets: urgentOpenTicketsCount },
         recentUsers: recentUsers.map((u) => ({
           id: u.id,
           email: u.email,
           name: u.name,
           role: u.role,
+          accountStatus: u.status,
+          plan: u.subscription?.plan ?? 'FREE',
           createdAt: u.createdAt.toISOString(),
         })),
-        recentFailedOrders: recentFailedOrders.map((o) => ({
-          id: o.id,
-          customerEmail: o.customerEmail,
-          amount: o.amount,
-          currency: o.currency,
-          createdAt: o.createdAt.toISOString(),
+        recentFailedPayments: recentFailedPayments.map((p) => ({
+          id: p.id,
+          amount: p.amount,
+          currency: p.currency,
+          provider: p.provider,
+          createdAt: p.createdAt.toISOString(),
+          user: p.subscription.user,
         })),
       },
       { headers: { 'x-request-id': ctx.requestId } },

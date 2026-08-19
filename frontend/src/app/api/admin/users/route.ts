@@ -34,6 +34,12 @@ const USER_SELECT = {
   status: true,
   emailVerifiedAt: true,
   createdAt: true,
+  subscription: { select: { plan: true } },
+  sessions: {
+    orderBy: { lastSeenAt: 'desc' },
+    take: 1,
+    select: { lastSeenAt: true },
+  },
 } as const satisfies Prisma.UserSelect;
 
 const Q_MAX = 200;

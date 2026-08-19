@@ -1,7 +1,9 @@
-// ADMIN-09 — GET /api/admin/subscriptions (list with plan/status filters,
-// cursor pagination). Mirrors the users-list pattern (ADMIN-01) and joins
-// the owning User's identity fields so the Super Admin UI doesn't need a
-// second round-trip per row.
+// ADMIN-11 — GET /api/admin/subscription-transactions (list with status
+// filter, cursor pagination). This is the SaaS's OWN revenue — a freelancer
+// paying Merrudit for their Pro subscription — distinct from Order (an end
+// CLIENT paying a freelancer, surfaced separately on /api/admin/orders,
+// which is no longer wired to any admin page). Mirrors the
+// subscriptions-list pattern (ADMIN-09).
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -13,24 +15,18 @@ import { clampLimit, cursorWhere, buildPage, decodeCursor } from '@/lib/server/p
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const SUBSCRIPTION_SELECT = {
+const SUBSCRIPTION_TRANSACTION_SELECT = {
   id: true,
-  userId: true,
-  plan: true,
-  status: true,
+  amount: true,
+  currency: true,
   billingCycle: true,
-  currentPeriodEnd: true,
-  cancelAtPeriodEnd: true,
+  status: true,
+  provider: true,
+  periodStart: true,
+  periodEnd: true,
   createdAt: true,
-  user: { select: { email: true, name: true } },
-  // Latest payment attempt, used to derive a "Statut paiement" column
-  // (PAID -> "À jour", FAILED -> "Échoué") without a second round-trip.
-  transactions: {
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-    select: { status: true },
-  },
-} as const satisfies Prisma.SubscriptionSelect;
+  subscription: { select: { user: { select: { email: true, name: true } } } },
+} as const satisfies Prisma.SubscriptionTransactionSelect;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -43,21 +39,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const url = req.nextUrl;
     const limit = clampLimit(url.searchParams.get('limit'));
-    const plan = url.searchParams.get('plan');
     const status = url.searchParams.get('status');
     const cursor = decodeCursor(url.searchParams.get('cursor'));
 
-    const where: Prisma.SubscriptionWhereInput = {
-      ...(plan ? { plan } : {}),
+    const where: Prisma.SubscriptionTransactionWhereInput = {
       ...(status ? { status } : {}),
       ...cursorWhere(cursor),
     };
 
-    const rows = await prisma.subscription.findMany({
+    const rows = await prisma.subscriptionTransaction.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
-      select: SUBSCRIPTION_SELECT,
+      select: SUBSCRIPTION_TRANSACTION_SELECT,
     });
 
     const page = buildPage(rows, limit);

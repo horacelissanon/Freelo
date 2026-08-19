@@ -11,9 +11,11 @@ import { formatLongDate } from '@/lib/utils';
 interface AuditLogRow {
   id: string;
   actorId: string;
+  actor: { email: string; name: string | null } | null;
   action: string;
   targetType: string | null;
   targetId: string | null;
+  targetLabel: string | null;
   metadata: Record<string, unknown> | null;
   ip: string | null;
   userAgent: string | null;
@@ -36,8 +38,44 @@ const ACTION_LABELS: Record<string, string> = {
   'subscription.override': "Modification d'abonnement",
   'outbox.requeue': "Relance d'événement",
   'email.requeue': "Relance d'email",
+  'support.status_change': 'Changement de statut de ticket',
   BOOTSTRAP_SUPERADMIN: 'Bootstrap super-administrateur',
 };
+
+// Turns raw metadata into a human sentence, per action type — this is the
+// concrete fix for "je ne comprends pas le journal d'audit": a JSON blob of
+// {from, to} tells a human nothing without knowing the schema by heart.
+// Unrecognized action types fall back to the raw JSON dump below, nothing
+// is ever hidden — just improved for the types we know about.
+function describeAction(action: string, metadata: Record<string, unknown> | null): string | null {
+  if (!metadata) return null;
+  const m = metadata as Record<string, unknown>;
+  const str = (v: unknown): string => (typeof v === 'string' ? v : JSON.stringify(v));
+
+  switch (action) {
+    case 'user.role_change':
+      return `Rôle changé de ${str(m.from)} à ${str(m.to)}`;
+    case 'user.suspend':
+    case 'user.restore':
+      return `Statut changé de ${str(m.from)} à ${str(m.to)}${m.reason ? ` — ${str(m.reason)}` : ''}`;
+    case 'subscription.override': {
+      const from = m.from as Record<string, unknown> | undefined;
+      const to = m.to as Record<string, unknown> | undefined;
+      return `Plan ${str(from?.plan)} → ${str(to?.plan)}, statut ${str(from?.status)} → ${str(to?.status)}`;
+    }
+    case 'outbox.requeue':
+    case 'email.requeue':
+      return `Relancé (était ${str(m.previousStatus)}, ${str(m.previousAttempts)} tentative(s))`;
+    case 'withdrawal.cancel':
+      return `Retrait annulé : ${str(m.reason)}`;
+    case 'support.status_change':
+      return `Statut du ticket changé de ${str(m.from)} à ${str(m.to)}`;
+    case 'BOOTSTRAP_SUPERADMIN':
+      return 'Promu super-administrateur via script CLI';
+    default:
+      return null;
+  }
+}
 
 const inputClass =
   'rounded-md border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none';
@@ -109,6 +147,7 @@ export function AuditLogTab() {
           <option value="Subscription">Abonnement</option>
           <option value="OutboxEvent">Événement</option>
           <option value="EmailJob">Email</option>
+          <option value="SupportTicket">Ticket support</option>
         </select>
       </div>
 
@@ -125,34 +164,47 @@ export function AuditLogTab() {
       ) : (
         <>
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            {items.map((entry) => (
-              <div key={entry.id} className="border-b border-slate-100 py-3.5 last:border-b-0">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-800">
-                    {ACTION_LABELS[entry.action] ?? entry.action}
+            {items.map((entry) => {
+              const sentence = describeAction(entry.action, entry.metadata);
+              const targetDisplay =
+                entry.targetLabel ?? (entry.targetId ? `#${entry.targetId.slice(0, 8)}` : null);
+              return (
+                <div key={entry.id} className="border-b border-slate-100 py-3.5 last:border-b-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-slate-800">
+                      {ACTION_LABELS[entry.action] ?? entry.action}
+                    </p>
+                    <p className="text-xs text-slate-400">{formatLongDate(entry.createdAt)}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {entry.targetType && (
+                      <>
+                        Cible : {entry.targetType === 'User' ? '' : `${entry.targetType} `}
+                        <span className={entry.targetLabel ? '' : 'font-mono'}>
+                          {targetDisplay}
+                        </span>
+                        {' · '}
+                      </>
+                    )}
+                    Par :{' '}
+                    <span className={entry.actor ? '' : 'font-mono'}>
+                      {entry.actor ? entry.actor.name || entry.actor.email : entry.actorId}
+                    </span>
+                    {entry.ip && <> · {entry.ip}</>}
                   </p>
-                  <p className="text-xs text-slate-400">{formatLongDate(entry.createdAt)}</p>
-                </div>
-                <p className="mt-1 text-xs text-slate-400">
-                  {entry.targetType && (
-                    <>
-                      Cible : <span className="font-mono">{entry.targetType}</span>
-                      {entry.targetId && (
-                        <span className="font-mono"> #{entry.targetId.slice(0, 8)}</span>
-                      )}
-                      {' · '}
-                    </>
+                  {sentence ? (
+                    <p className="mt-2 text-sm text-slate-600">{sentence}</p>
+                  ) : (
+                    entry.metadata &&
+                    Object.keys(entry.metadata).length > 0 && (
+                      <pre className="mt-2 overflow-x-auto rounded-md bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">
+                        {JSON.stringify(entry.metadata, null, 2)}
+                      </pre>
+                    )
                   )}
-                  Par : <span className="font-mono">{entry.actorId}</span>
-                  {entry.ip && <> · {entry.ip}</>}
-                </p>
-                {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                  <pre className="mt-2 overflow-x-auto rounded-md bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500">
-                    {JSON.stringify(entry.metadata, null, 2)}
-                  </pre>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
 
           {nextCursor && (

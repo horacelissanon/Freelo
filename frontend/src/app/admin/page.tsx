@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApi } from '@/lib/useApi';
@@ -13,6 +14,8 @@ interface OverviewResponse {
   planDistribution: { free: number; pro: number };
   mrr: number;
   mrrCurrency: string;
+  mrrTrendDelta: number | null;
+  churnRate: number;
   dau: number;
   revenueTrend: { label: string; amount: number }[];
   systemHealth: {
@@ -22,34 +25,84 @@ interface OverviewResponse {
     emailDead: number;
     lockoutCount: number;
   };
+  support: { openTickets: number; urgentOpenTickets: number };
   recentUsers: {
     id: string;
     email: string;
     name: string | null;
     role: string;
+    accountStatus: string;
+    plan: 'FREE' | 'PRO';
     createdAt: string;
   }[];
-  recentFailedOrders: {
+  recentFailedPayments: {
     id: string;
-    customerEmail: string | null;
     amount: number;
     currency: string;
+    provider: string;
     createdAt: string;
+    user: { email: string; name: string | null };
   }[];
 }
 
+interface RecentTicket {
+  id: string;
+  subject: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  createdAt: string;
+  user: { email: string; name: string | null };
+}
+
 const cardClass = 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm';
+
+const PRIORITY_LABELS: Record<RecentTicket['priority'], string> = {
+  LOW: 'Basse',
+  MEDIUM: 'Moyenne',
+  HIGH: 'Haute',
+};
+const PRIORITY_COLORS: Record<RecentTicket['priority'], string> = {
+  LOW: 'bg-slate-100 text-slate-500',
+  MEDIUM: 'bg-amber-50 text-amber-700',
+  HIGH: 'bg-red-50 text-red-700',
+};
+const TICKET_STATUS_LABELS: Record<RecentTicket['status'], string> = {
+  OPEN: 'Ouvert',
+  IN_PROGRESS: 'En cours',
+  RESOLVED: 'Résolu',
+};
+const TICKET_STATUS_COLORS: Record<RecentTicket['status'], string> = {
+  OPEN: 'bg-red-50 text-red-700',
+  IN_PROGRESS: 'bg-amber-50 text-amber-700',
+  RESOLVED: 'bg-emerald-50 text-emerald-700',
+};
+
+function Trend({ value, invert = false }: { value: number | null; invert?: boolean }) {
+  if (value === null) return null;
+  const positive = invert ? value <= 0 : value >= 0;
+  return (
+    <p
+      className={`mt-1 flex items-center gap-1 font-body text-xs font-medium ${
+        positive ? 'text-emerald-600' : 'text-red-600'
+      }`}
+    >
+      <Icon i={value >= 0 ? 'trending-up' : 'trending-down'} size={12} />
+      {value >= 0 ? '+' : ''}
+      {value}% ce mois
+    </p>
+  );
+}
 
 function StatCard({
   label,
   value,
   icon,
-  trend,
+  children,
 }: {
   label: string;
   value: string;
   icon: string;
-  trend?: string;
+  children?: ReactNode;
 }) {
   return (
     <div className={cardClass}>
@@ -60,7 +113,7 @@ function StatCard({
         </div>
       </div>
       <p className="mt-2 font-headings text-2xl font-bold text-slate-900">{value}</p>
-      {trend && <p className="mt-1 font-body text-xs font-medium text-emerald-600">{trend}</p>}
+      {children}
     </div>
   );
 }
@@ -83,28 +136,78 @@ function HealthRow({ label, ok, detail }: { label: string; ok: boolean; detail: 
   );
 }
 
+// Pure-SVG line + area chart — no charting dependency. `points` are already
+// normalized month buckets; we just map them into a 0..100 viewBox.
+function MrrChart({
+  points,
+  currency,
+}: {
+  points: { label: string; amount: number }[];
+  currency: string;
+}) {
+  const width = 600;
+  const height = 160;
+  const max = Math.max(1, ...points.map((p) => p.amount));
+  const stepX = width / Math.max(1, points.length - 1);
+  const coords = points.map((p, i) => ({
+    x: i * stepX,
+    y: height - (p.amount / max) * (height - 20) - 10,
+    ...p,
+  }));
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full overflow-visible">
+        <defs>
+          <linearGradient id="mrr-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#mrr-area)" />
+        <path d={linePath} fill="none" stroke="#10b981" strokeWidth="2.5" />
+        {coords.map((c) => (
+          <circle key={c.label} cx={c.x} cy={c.y} r="4" fill="#10b981">
+            <title>{formatPrice(c.amount, currency)}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="mt-2 flex justify-between">
+        {points.map((p) => (
+          <span key={p.label} className="font-body text-xs text-slate-400 capitalize">
+            {p.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOverviewPage() {
   const { user } = useAuth();
   const { data, loading, error } = useApi<OverviewResponse>('/api/admin/overview');
+  const { data: recentTickets } = useApi<{ items: RecentTicket[] }>(
+    '/api/admin/support-tickets?limit=5',
+  );
 
-  const maxAmount = data ? Math.max(1, ...data.revenueTrend.map((m) => m.amount)) : 1;
   const totalPlans = data ? Math.max(1, data.planDistribution.free + data.planDistribution.pro) : 1;
 
   return (
     <div>
-      <header className="mb-6">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide text-emerald-700 uppercase">
-            Console Admin
-          </span>
-        </div>
-        <h1 className="font-headings text-2xl font-bold text-slate-900">Vue d&apos;ensemble</h1>
-        <p className="font-body text-sm text-slate-500">
+      <div className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 p-6 text-white shadow-lg">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide uppercase">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          Console Admin
+        </span>
+        <h1 className="mt-3 font-headings text-2xl font-bold">Pilotage de la plateforme</h1>
+        <p className="mt-1 font-body text-sm text-white/60">
           {data
             ? `${data.totalUsers} comptes · ${formatPrice(data.mrr, data.mrrCurrency)} de MRR ce mois-ci`
             : `Connecté en tant que ${user?.email}`}
         </p>
-      </header>
+      </div>
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -122,91 +225,44 @@ export default function AdminOverviewPage() {
         <>
           <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatCard
-              label="Utilisateurs totaux"
-              value={String(data.totalUsers)}
-              icon="users"
-              {...(data.newUsersThisMonth > 0
-                ? { trend: `+${data.newUsersThisMonth} ce mois` }
-                : {})}
-            />
-            <StatCard
-              label="MRR (revenu mensuel)"
+              label="MRR ce mois-ci"
               value={formatPrice(data.mrr, data.mrrCurrency)}
               icon="banknote"
-            />
+            >
+              <Trend value={data.mrrTrendDelta} />
+            </StatCard>
+            <StatCard label="Comptes actifs" value={String(data.totalUsers)} icon="users">
+              {data.newUsersThisMonth > 0 && (
+                <p className="mt-1 font-body text-xs font-medium text-emerald-600">
+                  +{data.newUsersThisMonth} ce mois
+                </p>
+              )}
+            </StatCard>
+            <StatCard label="Taux de churn" value={`${data.churnRate}%`} icon="trending-down">
+              <Trend value={data.churnRate} invert />
+            </StatCard>
             <StatCard
-              label="Abonnés Premium"
-              value={String(data.activeSubscribers)}
-              icon="credit-card"
-            />
-            <StatCard label="Utilisateurs actifs (24h)" value={String(data.dau)} icon="bar-chart" />
+              label="Tickets support ouverts"
+              value={String(data.support.openTickets)}
+              icon="message-circle"
+            >
+              {data.support.urgentOpenTickets > 0 && (
+                <p className="mt-1 font-body text-xs font-medium text-red-600">
+                  dont {data.support.urgentOpenTickets} urgent
+                  {data.support.urgentOpenTickets !== 1 ? 's' : ''}
+                </p>
+              )}
+            </StatCard>
           </div>
 
           <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className={`${cardClass} lg:col-span-2`}>
               <p className="mb-4 font-headings text-sm font-semibold text-slate-900">
-                Croissance des revenus (MRR) — 6 derniers mois
+                MRR — 6 derniers mois
               </p>
-              <div className="flex h-40 items-end gap-3">
-                {data.revenueTrend.map((m) => (
-                  <div key={m.label} className="flex flex-1 flex-col items-center gap-2">
-                    <div className="flex h-32 w-full items-end">
-                      <div
-                        className="w-full rounded-t-md bg-emerald-500"
-                        style={{ height: `${Math.max(4, (m.amount / maxAmount) * 100)}%` }}
-                        title={formatPrice(m.amount, data.mrrCurrency)}
-                      />
-                    </div>
-                    <span className="font-body text-xs text-slate-400 capitalize">{m.label}</span>
-                  </div>
-                ))}
-              </div>
+              <MrrChart points={data.revenueTrend} currency={data.mrrCurrency} />
             </div>
 
-            <div className={cardClass}>
-              <p className="mb-1 font-headings text-sm font-semibold text-slate-900">
-                État du système
-              </p>
-              <div className="divide-y divide-slate-100">
-                <HealthRow
-                  label="File d'événements"
-                  ok={data.systemHealth.outboxDead === 0}
-                  detail={
-                    data.systemHealth.outboxDead > 0
-                      ? `${data.systemHealth.outboxDead} en échec`
-                      : `${data.systemHealth.outboxPending} en attente`
-                  }
-                />
-                <HealthRow
-                  label="Envoi d'emails"
-                  ok={data.systemHealth.emailDead === 0}
-                  detail={
-                    data.systemHealth.emailDead > 0
-                      ? `${data.systemHealth.emailDead} en échec`
-                      : `${data.systemHealth.emailPending} en attente`
-                  }
-                />
-                <HealthRow
-                  label="Verrous d'authentification"
-                  ok={data.systemHealth.lockoutCount === 0}
-                  detail={
-                    data.systemHealth.lockoutCount > 0
-                      ? `${data.systemHealth.lockoutCount} compte(s) verrouillé(s)`
-                      : 'Aucun'
-                  }
-                />
-              </div>
-              <Link
-                href="/admin/performance"
-                className="mt-3 flex items-center gap-1.5 font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
-              >
-                Voir le détail
-                <Icon i="chevron-right" size={12} />
-              </Link>
-            </div>
-          </div>
-
-          <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className={cardClass}>
               <p className="mb-3 font-headings text-sm font-semibold text-slate-900">
                 Répartition des plans
@@ -217,7 +273,7 @@ export default function AdminOverviewPage() {
                   style={{ width: `${(data.planDistribution.free / totalPlans) * 100}%` }}
                 />
                 <div
-                  className="h-full bg-emerald-500"
+                  className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600"
                   style={{ width: `${(data.planDistribution.pro / totalPlans) * 100}%` }}
                 />
               </div>
@@ -245,30 +301,83 @@ export default function AdminOverviewPage() {
                 <Icon i="chevron-right" size={12} />
               </Link>
             </div>
+          </div>
 
-            <div className={`${cardClass} lg:col-span-2`}>
+          <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className={cardClass}>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-headings text-sm font-semibold text-slate-900">
+                  Derniers comptes inscrits
+                </p>
+                <Link
+                  href="/admin/users"
+                  className="font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
+                >
+                  Tout voir
+                </Link>
+              </div>
+              {data.recentUsers.length === 0 ? (
+                <p className="font-body text-sm text-slate-400">
+                  Aucun utilisateur pour l&apos;instant.
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {data.recentUsers.map((u) => {
+                    // Two distinct badges on purpose — Plan (Gratuit/Pro) and
+                    // Statut (Actif/Suspendu) are independent axes, don't fold
+                    // one into the other or a Free+Active row reads as a
+                    // confusing "Gratuit / Gratuit" duplicate.
+                    const statusLabel = u.accountStatus === 'SUSPENDED' ? 'Suspendu' : 'Actif';
+                    const statusColor =
+                      u.accountStatus === 'SUSPENDED'
+                        ? 'bg-red-50 text-red-700'
+                        : 'bg-emerald-50 text-emerald-700';
+                    return (
+                      <div key={u.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-body text-sm font-medium text-slate-800">
+                            {u.name || u.email}
+                          </p>
+                          <p className="truncate font-body text-xs text-slate-400">
+                            {formatLongDate(u.createdAt)}
+                          </p>
+                        </div>
+                        <span className="flex-shrink-0 rounded-full bg-slate-100 px-2.5 py-1 font-body text-xs font-medium text-slate-600">
+                          {u.plan === 'PRO' ? 'Pro' : 'Gratuit'}
+                        </span>
+                        <span
+                          className={`flex-shrink-0 rounded-full px-2.5 py-1 font-body text-xs font-medium ${statusColor}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className={cardClass}>
               <p className="mb-3 font-headings text-sm font-semibold text-slate-900">
                 Paiements en échec récents
               </p>
-              {data.recentFailedOrders.length === 0 ? (
+              {data.recentFailedPayments.length === 0 ? (
                 <p className="font-body text-sm text-slate-400">
                   Aucun paiement en échec récemment.
                 </p>
               ) : (
                 <div className="divide-y divide-slate-100">
-                  {data.recentFailedOrders.map((o) => (
-                    <div key={o.id} className="flex items-center justify-between gap-3 py-2.5">
-                      <div className="min-w-0">
+                  {data.recentFailedPayments.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 py-2.5">
+                      <Icon i="alert-circle" size={16} className="flex-shrink-0 text-red-500" />
+                      <div className="min-w-0 flex-1">
                         <p className="truncate font-body text-sm font-medium text-slate-800">
-                          {o.customerEmail || 'Client anonyme'}
+                          {p.user.name || p.user.email} — {formatPrice(p.amount, p.currency)}
                         </p>
                         <p className="truncate font-body text-xs text-slate-400">
-                          {formatLongDate(o.createdAt)}
+                          {p.provider} · {formatLongDate(p.createdAt)}
                         </p>
                       </div>
-                      <span className="flex-shrink-0 rounded-full bg-red-50 px-2.5 py-1 font-body text-xs font-medium text-red-700">
-                        {formatPrice(o.amount, o.currency)}
-                      </span>
                     </div>
                   ))}
                 </div>
@@ -286,36 +395,85 @@ export default function AdminOverviewPage() {
           <div className={cardClass}>
             <div className="mb-3 flex items-center justify-between">
               <p className="font-headings text-sm font-semibold text-slate-900">
-                Nouveaux utilisateurs récents
+                Tickets support récents
               </p>
               <Link
-                href="/admin/users"
+                href="/admin/support"
                 className="font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
               >
-                Voir tout
+                Tout voir
               </Link>
             </div>
-            {data.recentUsers.length === 0 ? (
-              <p className="font-body text-sm text-slate-400">
-                Aucun utilisateur pour l&apos;instant.
-              </p>
+            {!recentTickets || recentTickets.items.length === 0 ? (
+              <p className="font-body text-sm text-slate-400">Aucun ticket pour l&apos;instant.</p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {data.recentUsers.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
+                {recentTickets.items.map((t) => (
+                  <div key={t.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate font-body text-sm font-medium text-slate-800">
-                        {u.name || u.email}
+                        {t.subject}
                       </p>
-                      <p className="truncate font-body text-xs text-slate-400">{u.email}</p>
+                      <p className="truncate font-body text-xs text-slate-400">
+                        {t.user.name || t.user.email}
+                      </p>
                     </div>
-                    <p className="flex-shrink-0 font-body text-xs text-slate-400">
-                      {formatLongDate(u.createdAt)}
-                    </p>
+                    <span
+                      className={`flex-shrink-0 rounded-full px-2.5 py-1 font-body text-xs font-medium ${PRIORITY_COLORS[t.priority]}`}
+                    >
+                      {PRIORITY_LABELS[t.priority]}
+                    </span>
+                    <span
+                      className={`flex-shrink-0 rounded-full px-2.5 py-1 font-body text-xs font-medium ${TICKET_STATUS_COLORS[t.status]}`}
+                    >
+                      {TICKET_STATUS_LABELS[t.status]}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+
+          <div className={`${cardClass} mt-4`}>
+            <p className="mb-1 font-headings text-sm font-semibold text-slate-900">
+              État du système
+            </p>
+            <div className="divide-y divide-slate-100">
+              <HealthRow
+                label="File d'événements"
+                ok={data.systemHealth.outboxDead === 0}
+                detail={
+                  data.systemHealth.outboxDead > 0
+                    ? `${data.systemHealth.outboxDead} en échec`
+                    : `${data.systemHealth.outboxPending} en attente`
+                }
+              />
+              <HealthRow
+                label="Envoi d'emails"
+                ok={data.systemHealth.emailDead === 0}
+                detail={
+                  data.systemHealth.emailDead > 0
+                    ? `${data.systemHealth.emailDead} en échec`
+                    : `${data.systemHealth.emailPending} en attente`
+                }
+              />
+              <HealthRow
+                label="Verrous d'authentification"
+                ok={data.systemHealth.lockoutCount === 0}
+                detail={
+                  data.systemHealth.lockoutCount > 0
+                    ? `${data.systemHealth.lockoutCount} compte(s) verrouillé(s)`
+                    : 'Aucun'
+                }
+              />
+            </div>
+            <Link
+              href="/admin/performance"
+              className="mt-3 flex items-center gap-1.5 font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              Voir le détail
+              <Icon i="chevron-right" size={12} />
+            </Link>
           </div>
         </>
       )}

@@ -11,10 +11,11 @@ import { useToast } from '@/contexts/ToastContext';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
-import { formatLongDate } from '@/lib/utils';
+import { formatLongDate, relativeTime } from '@/lib/utils';
 
 type Role = 'USER' | 'ADMIN' | 'SUPERADMIN';
 type Status = 'ACTIVE' | 'SUSPENDED';
+type Plan = 'FREE' | 'PRO';
 
 interface AdminUserRow {
   id: string;
@@ -25,7 +26,14 @@ interface AdminUserRow {
   status: Status;
   emailVerifiedAt: string | null;
   createdAt: string;
+  subscription: { plan: Plan } | null;
+  sessions: { lastSeenAt: string }[];
 }
+
+const PLAN_COLORS: Record<Plan, string> = {
+  FREE: 'bg-slate-100 text-slate-500',
+  PRO: 'bg-emerald-50 text-emerald-700',
+};
 
 interface UsersPage {
   items: AdminUserRow[];
@@ -238,6 +246,14 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                     }`}
                   >
                     {u.status === 'ACTIVE' ? 'Actif' : 'Suspendu'}
+                  </span>
+                  <span
+                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${PLAN_COLORS[u.subscription?.plan ?? 'FREE']}`}
+                  >
+                    {u.subscription?.plan === 'PRO' ? 'Pro' : 'Gratuit'}
+                  </span>
+                  <span className="flex-shrink-0 font-body text-xs text-slate-400">
+                    {u.sessions[0] ? relativeTime(u.sessions[0].lastSeenAt) : 'Jamais connecté'}
                   </span>
                   {canChangeRole && (
                     <select

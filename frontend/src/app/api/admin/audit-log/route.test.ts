@@ -109,6 +109,7 @@ describe('GET /api/admin/audit-log [Wave 1]', () => {
       }),
     );
     prismaMock.adminAction.findMany.mockResolvedValue(rows as never);
+    prismaMock.user.findMany.mockResolvedValue([] as never);
     const res = await GET(makeGet('http://test/api/admin/audit-log?limit=10'));
     const body = await res.json();
     expect(body.items.length).toBe(10);
@@ -217,7 +218,34 @@ describe('GET /api/admin/audit-log [Wave 1]', () => {
       ip: true,
       userAgent: true,
       createdAt: true,
+      actor: { select: { email: true, name: true } },
     });
+  });
+
+  it('GET resolves targetLabel for User targets via a batched follow-up lookup', async () => {
+    prismaMock.adminAction.findMany.mockResolvedValue([
+      row({ id: 'a-1', targetType: 'User', targetId: 'user-target-1' }),
+    ] as never);
+    prismaMock.user.findMany.mockResolvedValue([
+      { id: 'user-target-1', email: 'target@test.local', name: 'Target User' },
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/admin/audit-log'));
+    const body = await res.json();
+    expect(body.items[0].targetLabel).toBe('Target User');
+    const findManyArgs = prismaMock.user.findMany.mock.calls[0]?.[0];
+    expect(findManyArgs?.where?.id).toEqual({ in: ['user-target-1'] });
+  });
+
+  it('GET leaves targetLabel null when the target is not a User (or has none)', async () => {
+    prismaMock.adminAction.findMany.mockResolvedValue([
+      row({ id: 'a-1', targetType: 'Withdrawal', targetId: 'w-1' }),
+    ] as never);
+
+    const res = await GET(makeGet('http://test/api/admin/audit-log'));
+    const body = await res.json();
+    expect(body.items[0].targetLabel).toBeNull();
+    expect(prismaMock.user.findMany).not.toHaveBeenCalled();
   });
 
   it('GET response includes x-request-id header', async () => {

@@ -1,7 +1,6 @@
-// ADMIN-09 — GET /api/admin/subscriptions (list with plan/status filters,
-// cursor pagination). Mirrors the users-list pattern (ADMIN-01) and joins
-// the owning User's identity fields so the Super Admin UI doesn't need a
-// second round-trip per row.
+// ADMIN-10 — GET /api/admin/support-tickets (list with status/priority
+// filters, cursor pagination). Mirrors the subscriptions-list pattern
+// (ADMIN-09); joins the submitting freelancer's identity.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -13,24 +12,16 @@ import { clampLimit, cursorWhere, buildPage, decodeCursor } from '@/lib/server/p
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
-const SUBSCRIPTION_SELECT = {
+const SUPPORT_TICKET_SELECT = {
   id: true,
   userId: true,
-  plan: true,
+  subject: true,
+  message: true,
+  priority: true,
   status: true,
-  billingCycle: true,
-  currentPeriodEnd: true,
-  cancelAtPeriodEnd: true,
   createdAt: true,
   user: { select: { email: true, name: true } },
-  // Latest payment attempt, used to derive a "Statut paiement" column
-  // (PAID -> "À jour", FAILED -> "Échoué") without a second round-trip.
-  transactions: {
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-    select: { status: true },
-  },
-} as const satisfies Prisma.SubscriptionSelect;
+} as const satisfies Prisma.SupportTicketSelect;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -43,21 +34,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const url = req.nextUrl;
     const limit = clampLimit(url.searchParams.get('limit'));
-    const plan = url.searchParams.get('plan');
     const status = url.searchParams.get('status');
+    const priority = url.searchParams.get('priority');
     const cursor = decodeCursor(url.searchParams.get('cursor'));
 
-    const where: Prisma.SubscriptionWhereInput = {
-      ...(plan ? { plan } : {}),
+    const where: Prisma.SupportTicketWhereInput = {
       ...(status ? { status } : {}),
+      ...(priority ? { priority } : {}),
       ...cursorWhere(cursor),
     };
 
-    const rows = await prisma.subscription.findMany({
+    const rows = await prisma.supportTicket.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
-      select: SUBSCRIPTION_SELECT,
+      select: SUPPORT_TICKET_SELECT,
     });
 
     const page = buildPage(rows, limit);

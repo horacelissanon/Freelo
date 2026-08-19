@@ -8,11 +8,12 @@ import { CompteTab } from '@/components/settings/CompteTab';
 import { EspaceTab } from '@/components/settings/EspaceTab';
 import { SecuriteTab } from '@/components/settings/SecuriteTab';
 import { FacturationTab } from '@/components/settings/FacturationTab';
+import { SupportTab } from '@/components/settings/SupportTab';
 
-type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement';
+type TabKey = 'compte' | 'espace' | 'securite' | 'abonnement' | 'support';
 type SettingsTabKey = Exclude<TabKey, 'compte'>;
 
-const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement'];
+const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonnement', 'support'];
 
 // "Compte" is deliberately NOT in this tab bar — it has its own dedicated
 // entry point (the "Mon compte" sidebar link, ?tab=compte) rendered below
@@ -24,6 +25,7 @@ const ALL_TAB_KEYS: readonly TabKey[] = ['compte', 'espace', 'securite', 'abonne
 const SETTINGS_TABS: { key: SettingsTabKey; label: string; icon: string }[] = [
   { key: 'espace', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
+  { key: 'support', label: 'Support', icon: 'message-circle' },
   { key: 'abonnement', label: 'Abonnement', icon: 'credit-card' },
 ];
 
@@ -89,6 +91,7 @@ function SettingsPageInner() {
 
       {activeTab === 'espace' && <EspaceTab user={user} />}
       {activeTab === 'securite' && <SecuriteTab user={user} />}
+      {activeTab === 'support' && <SupportTab />}
       {activeTab === 'abonnement' && <FacturationTab />}
     </div>
   );

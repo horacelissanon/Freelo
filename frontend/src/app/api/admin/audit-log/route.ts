@@ -86,11 +86,44 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         ip: true,
         userAgent: true,
         createdAt: true,
+        actor: { select: { email: true, name: true } },
       },
     });
 
-    return NextResponse.json(buildPage(rows, limit), {
-      headers: { 'x-request-id': ctx.requestId },
-    });
+    const page = buildPage(rows, limit);
+
+    // Best-effort target resolution: only for targetType='User' today (the
+    // by-far most common target). Withdrawal/Subscription/OutboxEvent/
+    // EmailJob targets keep the raw truncated ID on the client — resolving
+    // every possible targetType would need a per-type join, not worth it
+    // for the incident-response read this endpoint serves.
+    const userTargetIds = [
+      ...new Set(
+        page.items
+          .filter((r) => r.targetType === 'User' && r.targetId)
+          .map((r) => r.targetId as string),
+      ),
+    ];
+    const targetUsers = userTargetIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: userTargetIds } },
+          select: { id: true, email: true, name: true },
+        })
+      : [];
+    const targetLabelById = new Map(targetUsers.map((u) => [u.id, u.name || u.email] as const));
+
+    return NextResponse.json(
+      {
+        ...page,
+        items: page.items.map((r) => ({
+          ...r,
+          targetLabel:
+            r.targetType === 'User' && r.targetId
+              ? (targetLabelById.get(r.targetId) ?? null)
+              : null,
+        })),
+      },
+      { headers: { 'x-request-id': ctx.requestId } },
+    );
   });
 }

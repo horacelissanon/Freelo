@@ -15,6 +15,8 @@ import { formatLongDate, formatPrice } from '@/lib/utils';
 type Plan = 'FREE' | 'PRO';
 type SubStatus = 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'EXPIRED';
 
+type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
+
 interface SubscriptionRow {
   id: string;
   userId: string;
@@ -25,6 +27,7 @@ interface SubscriptionRow {
   cancelAtPeriodEnd: boolean;
   createdAt: string;
   user: { email: string; name: string | null };
+  transactions: { status: PaymentStatus }[];
 }
 
 interface SubscriptionsPage {
@@ -37,7 +40,19 @@ interface OverviewKpis {
   mrrCurrency: string;
   activeSubscribers: number;
   planDistribution: { free: number; pro: number };
+  churnRate: number;
 }
+
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  PAID: 'À jour',
+  FAILED: 'Échoué',
+  PENDING: 'En attente',
+};
+const PAYMENT_STATUS_COLORS: Record<PaymentStatus, string> = {
+  PAID: 'bg-emerald-50 text-emerald-700',
+  FAILED: 'bg-red-50 text-red-700',
+  PENDING: 'bg-amber-50 text-amber-700',
+};
 
 const PLAN_LABELS: Record<Plan, string> = { FREE: 'Gratuit', PRO: 'Pro' };
 const PLAN_COLORS: Record<Plan, string> = {
@@ -195,6 +210,10 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
               {kpis.planDistribution.free + kpis.planDistribution.pro}
             </p>
           </div>
+          <div className={`${cardClass} p-4`}>
+            <p className="font-body text-xs text-slate-500">Taux de churn</p>
+            <p className="mt-1 font-headings text-xl font-bold text-slate-900">{kpis.churnRate}%</p>
+          </div>
         </div>
       )}
 
@@ -256,10 +275,17 @@ export function SubscriptionsTab({ canOverride }: { canOverride: boolean }) {
                   {STATUS_LABELS[s.status]}
                 </span>
                 {s.billingCycle && (
-                  <span className="flex-shrink-0 font-body text-xs text-slate-400">
+                  <span className="flex-shrink-0 font-body text-sm font-semibold text-slate-800">
                     {s.billingCycle === 'MONTHLY'
                       ? formatPrice(3500, 'XOF/mois')
                       : formatPrice(35000, 'XOF/an')}
+                  </span>
+                )}
+                {s.transactions[0] && (
+                  <span
+                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${PAYMENT_STATUS_COLORS[s.transactions[0].status]}`}
+                  >
+                    {PAYMENT_STATUS_LABELS[s.transactions[0].status]}
                   </span>
                 )}
                 <span className="flex-shrink-0 font-body text-xs text-slate-400">
