@@ -13,10 +13,11 @@ const BASE: DocumentIdentitySource = {
   address: 'Cotonou',
   companyPhone: '+22961111111',
   slogan: 'On code, vous respirez.',
+  logoUrl: 'https://res.cloudinary.com/demo/logo.png',
 };
 
 describe('resolveDocumentIdentity', () => {
-  it('PERSONAL: uses the personal name/phone/bio, no address or registry fields', () => {
+  it('PERSONAL: uses the personal name/phone/bio, no address, registry, or logo fields', () => {
     const resolved = resolveDocumentIdentity(BASE);
     expect(resolved).toEqual({
       name: 'Horace Lissanon',
@@ -26,6 +27,7 @@ describe('resolveDocumentIdentity', () => {
       taxId: null,
       commerceRegistry: null,
       slogan: 'On code, vous respirez.',
+      logoUrl: null,
     });
   });
 
@@ -48,6 +50,16 @@ describe('resolveDocumentIdentity', () => {
     expect(resolved.address).toBe('Cotonou');
     expect(resolved.taxId).toBe('IFU000000000');
     expect(resolved.commerceRegistry).toBe('RCCM AB/00000');
+    expect(resolved.logoUrl).toBe('https://res.cloudinary.com/demo/logo.png');
+  });
+
+  it('COMPANY: logoUrl is null when none was ever uploaded', () => {
+    const resolved = resolveDocumentIdentity({
+      ...BASE,
+      documentIdentity: 'COMPANY',
+      logoUrl: null,
+    });
+    expect(resolved.logoUrl).toBeNull();
   });
 
   it('COMPANY: phone is null when no company phone was ever filled in', () => {

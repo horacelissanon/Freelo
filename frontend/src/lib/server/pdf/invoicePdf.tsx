@@ -65,6 +65,9 @@ export interface InvoicePdfData {
     commerceRegistry?: string | null;
     brandColor?: string | null;
     slogan?: string | null;
+    // Pro-only — callers (the two /pdf routes) already strip this to null
+    // for FREE-plan users, so this renderer just draws whatever it's given.
+    logoUrl?: string | null;
   };
   lineItems: PdfLineItem[];
   packs: PdfPack[];
@@ -108,6 +111,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 24,
   },
+  providerHeaderLeft: { flexDirection: 'row', alignItems: 'center' },
+  providerLogo: { width: 36, height: 36, marginRight: 10, objectFit: 'contain' },
   providerName: { fontSize: 13, fontWeight: 700, marginBottom: 3 },
   muted: { color: '#6b6b6b', fontSize: 9 },
   // Neutral, not brand-colored — mirrors the on-screen preview's "FACTURE"
@@ -287,9 +292,14 @@ function InvoiceDocument({
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.providerName}>{data.provider.name}</Text>
-            {data.provider.slogan && <Text style={styles.muted}>{data.provider.slogan}</Text>}
+          <View style={styles.providerHeaderLeft}>
+            {data.provider.logoUrl && (
+              <Image src={data.provider.logoUrl} style={styles.providerLogo} />
+            )}
+            <View>
+              <Text style={styles.providerName}>{data.provider.name}</Text>
+              {data.provider.slogan && <Text style={styles.muted}>{data.provider.slogan}</Text>}
+            </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.docTitle}>{DOC_LABELS[data.docType]}</Text>

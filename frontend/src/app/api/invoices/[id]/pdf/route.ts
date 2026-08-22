@@ -10,6 +10,7 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { renderInvoicePdf, type InvoicePdfData } from '@/lib/server/pdf/invoicePdf';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -58,6 +59,7 @@ export async function GET(
         taxId: true,
         commerceRegistry: true,
         brandColor: true,
+        logoUrl: true,
       },
     });
     if (!owner) {
@@ -67,13 +69,21 @@ export async function GET(
       );
     }
 
+    const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
+    const isPro = isProActive(subscription);
+    const identity = resolveDocumentIdentity({
+      ...owner,
+      documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
+    });
+
     const provider = {
-      ...resolveDocumentIdentity({
-        ...owner,
-        documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
-      }),
+      ...identity,
       email: owner.email,
       brandColor: owner.brandColor,
+      // Logo is a Pro perk on top of resolveDocumentIdentity's own
+      // COMPANY-only gating — stripped here for FREE users regardless of
+      // identity mode or whether a logo was ever uploaded.
+      logoUrl: isPro ? identity.logoUrl : null,
     };
 
     // No tracking page exists for a DRAFT yet (GET /api/track/[token] 404s

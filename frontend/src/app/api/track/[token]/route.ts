@@ -19,7 +19,8 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
-import { resolveDocumentIdentity } from '@/lib/documentIdentity';
+import { resolveDocumentIdentity, type DocumentIdentitySource } from '@/lib/documentIdentity';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { computeDepositBalance } from '@/lib/server/projects/depositBalance';
 import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
 
@@ -51,6 +52,23 @@ async function resolveDefaultPaymentBlocks(userId: string): Promise<TrackedConte
   }));
 }
 
+// Minimal name+photo projection for the tracking page's top brand block —
+// distinct from the full `provider` object the quote/invoice view also
+// returns (bio/address/tax fields only that view needs). Photo choice
+// mirrors the freelancer's documentIdentity choice (studio logo for
+// COMPANY, personal photo for PERSONAL) but, unlike resolveDocumentIdentity's
+// logoUrl (which stays null for PERSONAL — formal documents never show a
+// personal photo), a PERSONAL freelancer's avatar IS shown here. Gated by
+// isPro like every other Freelo-branding-replacement perk.
+function resolveProviderBrand(
+  user: DocumentIdentitySource & { avatarUrl: string | null },
+  isPro: boolean,
+): { name: string; photoUrl: string | null } {
+  const { name } = resolveDocumentIdentity(user);
+  if (!isPro) return { name, photoUrl: null };
+  return { name, photoUrl: user.documentIdentity === 'COMPANY' ? user.logoUrl : user.avatarUrl };
+}
+
 export async function GET(
   req: NextRequest,
   ctx: { params: Promise<{ token: string }> },
@@ -76,7 +94,26 @@ export async function GET(
       where: { trackingToken: token },
       select: {
         name: true,
-        user: { select: { publicPortalEnabled: true, brandColor: true } },
+        user: {
+          select: {
+            id: true,
+            publicPortalEnabled: true,
+            brandColor: true,
+            documentIdentity: true,
+            studioName: true,
+            name: true,
+            email: true,
+            phone: true,
+            companyPhone: true,
+            slogan: true,
+            bio: true,
+            address: true,
+            taxId: true,
+            commerceRegistry: true,
+            avatarUrl: true,
+            logoUrl: true,
+          },
+        },
         projects: {
           where: { status: { not: 'DRAFT' } },
           orderBy: { createdAt: 'desc' },
@@ -110,6 +147,8 @@ export async function GET(
 
     if (client) {
       if (!client.user.publicPortalEnabled) return notFound();
+      const clientOwnerSubscription = await getOrCreateSubscription(prisma, client.user.id);
+      const clientOwnerIsPro = isProActive(clientOwnerSubscription);
       return NextResponse.json(
         {
           kind: 'client',
@@ -117,6 +156,14 @@ export async function GET(
           projects: client.projects,
           invoices: client.invoices,
           brandColor: client.user.brandColor,
+          isPro: clientOwnerIsPro,
+          providerBrand: resolveProviderBrand(
+            {
+              ...client.user,
+              documentIdentity: client.user.documentIdentity as 'PERSONAL' | 'COMPANY',
+            },
+            clientOwnerIsPro,
+          ),
         },
         { headers: { 'x-request-id': reqCtx.requestId } },
       );
@@ -137,7 +184,26 @@ export async function GET(
         depositValue: true,
         createdAt: true,
         client: { select: { name: true } },
-        user: { select: { id: true, publicPortalEnabled: true, phone: true, brandColor: true } },
+        user: {
+          select: {
+            id: true,
+            publicPortalEnabled: true,
+            phone: true,
+            brandColor: true,
+            documentIdentity: true,
+            studioName: true,
+            name: true,
+            email: true,
+            companyPhone: true,
+            slogan: true,
+            bio: true,
+            address: true,
+            taxId: true,
+            commerceRegistry: true,
+            avatarUrl: true,
+            logoUrl: true,
+          },
+        },
         steps: { orderBy: { order: 'asc' } },
         comments: { orderBy: { createdAt: 'asc' } },
         review: { select: { rating: true, comment: true } },
@@ -174,6 +240,8 @@ export async function GET(
           : await resolveDefaultPaymentBlocks(project.user.id);
 
       const { steps, comments, review, client: projectClient, user, ...projectFields } = project;
+      const projectOwnerSubscription = await getOrCreateSubscription(prisma, user.id);
+      const projectOwnerIsPro = isProActive(projectOwnerSubscription);
       return NextResponse.json(
         {
           kind: 'project',
@@ -185,6 +253,11 @@ export async function GET(
           balance,
           providerPhone: user.phone,
           brandColor: user.brandColor,
+          isPro: projectOwnerIsPro,
+          providerBrand: resolveProviderBrand(
+            { ...user, documentIdentity: user.documentIdentity as 'PERSONAL' | 'COMPANY' },
+            projectOwnerIsPro,
+          ),
           paymentInfo:
             originQuote?.paymentTermsNote != null || paymentBlocks.length > 0
               ? { note: originQuote?.paymentTermsNote ?? null, blocks: paymentBlocks }
@@ -224,6 +297,8 @@ export async function GET(
             taxId: true,
             commerceRegistry: true,
             brandColor: true,
+            logoUrl: true,
+            avatarUrl: true,
           },
         },
         // lineItems always carries invoiceId, even for a QUOTE's pack items —
@@ -252,14 +327,25 @@ export async function GET(
       invoice.docType === 'QUOTE' && !hasPaymentBlocks
         ? [...invoice.contentBlocks, ...(await resolveDefaultPaymentBlocks(invoiceUser.id))]
         : invoice.contentBlocks;
+    const subscription = await getOrCreateSubscription(prisma, invoiceUser.id);
+    const isPro = isProActive(subscription);
+    const identity = resolveDocumentIdentity({
+      ...invoiceUser,
+      documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+    });
     return NextResponse.json(
       {
         kind: invoice.docType === 'QUOTE' ? 'quote' : 'invoice',
         invoice: { ...invoiceFields, contentBlocks },
-        provider: resolveDocumentIdentity({
-          ...invoiceUser,
-          documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
-        }),
+        provider: { ...identity, logoUrl: isPro ? identity.logoUrl : null },
+        providerBrand: resolveProviderBrand(
+          {
+            ...invoiceUser,
+            documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+          },
+          isPro,
+        ),
+        isPro,
         // Raw phone, independent of the documentIdentity header choice —
         // COMPANY identity hides the phone from the document itself, but the
         // freelancer still has a real WhatsApp number to notify once the

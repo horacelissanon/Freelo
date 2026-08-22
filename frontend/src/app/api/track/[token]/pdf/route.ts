@@ -10,6 +10,7 @@ export const runtime = 'nodejs';
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { prisma } from '@/lib/server/prisma';
+import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
 import { resolveDocumentIdentity } from '@/lib/documentIdentity';
 import { renderInvoicePdf, type InvoicePdfData } from '@/lib/server/pdf/invoicePdf';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -46,6 +47,7 @@ export async function GET(
         client: { select: { name: true, email: true, phone: true, company: true } },
         user: {
           select: {
+            id: true,
             publicPortalEnabled: true,
             documentIdentity: true,
             studioName: true,
@@ -59,6 +61,7 @@ export async function GET(
             taxId: true,
             commerceRegistry: true,
             brandColor: true,
+            logoUrl: true,
           },
         },
         lineItems: { where: { packId: null }, orderBy: { order: 'asc' } },
@@ -73,13 +76,17 @@ export async function GET(
     }
 
     const { user: invoiceUser, ...invoiceFields } = invoice;
+    const subscription = await getOrCreateSubscription(prisma, invoiceUser.id);
+    const isPro = isProActive(subscription);
+    const identity = resolveDocumentIdentity({
+      ...invoiceUser,
+      documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+    });
     const provider = {
-      ...resolveDocumentIdentity({
-        ...invoiceUser,
-        documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
-      }),
+      ...identity,
       email: invoiceUser.email,
       brandColor: invoiceUser.brandColor,
+      logoUrl: isPro ? identity.logoUrl : null,
     };
 
     // Reached this point only for a non-DRAFT invoice (guard above), so the

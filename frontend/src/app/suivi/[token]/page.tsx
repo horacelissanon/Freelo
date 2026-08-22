@@ -57,12 +57,19 @@ interface ClientInvoiceRow {
   trackingToken: string;
 }
 
+interface ProviderBrand {
+  name: string;
+  photoUrl: string | null;
+}
+
 interface ClientView {
   kind: 'client';
   client: { name: string };
   projects: ClientProjectRow[];
   invoices: ClientInvoiceRow[];
   brandColor: string | null;
+  isPro: boolean;
+  providerBrand: ProviderBrand;
 }
 
 interface TrackedLineItem {
@@ -120,12 +127,15 @@ interface QuoteOrInvoiceView {
     taxId: string | null;
     commerceRegistry: string | null;
     slogan: string | null;
+    logoUrl: string | null;
   };
   // Raw phone, independent of the documentIdentity header choice — needed
   // for the "J'ai envoyé l'acompte" WhatsApp button even when the provider
   // shows a COMPANY identity (which hides provider.phone from the document).
   providerPhone: string | null;
   brandColor: string | null;
+  isPro: boolean;
+  providerBrand: ProviderBrand;
 }
 
 interface ProjectStep {
@@ -170,6 +180,8 @@ interface ProjectView {
   providerPhone: string | null;
   paymentInfo: { note: string | null; blocks: TrackedContentBlock[] } | null;
   brandColor: string | null;
+  isPro: boolean;
+  providerBrand: ProviderBrand;
 }
 
 type TrackView = ClientView | ProjectView | QuoteOrInvoiceView;
@@ -190,7 +202,26 @@ function brandColorVars(hex: string | null): CSSProperties {
   } as CSSProperties;
 }
 
-function Brand() {
+function Brand({ view }: { view: TrackView | null }) {
+  if (view?.isPro) {
+    const { name, photoUrl } = view.providerBrand;
+    return (
+      <div className="flex items-center justify-center gap-2">
+        {photoUrl ? (
+          <img src={photoUrl} alt="" className="h-8 w-8 rounded-md object-cover" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+            <span className="font-headings text-lg font-bold text-primary-foreground">
+              {name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <span className="font-headings text-xl font-bold tracking-tight text-foreground">
+          {name}
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-center gap-2">
       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
@@ -198,6 +229,27 @@ function Brand() {
       </div>
       <span className="font-headings text-xl font-bold tracking-tight text-foreground">Freelo</span>
     </div>
+  );
+}
+
+// FREE-plan-only watermark — never shown once the freelancer is on Pro (see
+// Brand() above, which swaps in their own name/photo instead). Fixed
+// bottom-right so it survives scrolling on long devis/factures without
+// overlapping the comment/upload composer some tracking views pin to the
+// bottom of the viewport.
+function FreeloFloatingBadge() {
+  return (
+    <a
+      href="/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-canvas px-3 py-2 shadow-card transition-transform hover:scale-105"
+    >
+      <div className="flex h-5 w-5 items-center justify-center rounded bg-primary">
+        <span className="font-headings text-[10px] font-bold text-primary-foreground">F</span>
+      </div>
+      <span className="font-body text-xs font-medium text-foreground">Créé avec Freelo</span>
+    </a>
   );
 }
 
@@ -234,7 +286,7 @@ export default function TrackingPage() {
       className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-background px-4 py-12"
       style={view ? brandColorVars(view.brandColor) : undefined}
     >
-      <Brand />
+      <Brand view={view} />
 
       {loading ? (
         <div className="h-40 animate-pulse rounded-lg border border-border bg-muted" />
@@ -251,6 +303,8 @@ export default function TrackingPage() {
       ) : (
         <QuoteInvoiceDetail view={view} token={token} onRefresh={load} />
       )}
+
+      {view && !view.isPro ? <FreeloFloatingBadge /> : null}
     </main>
   );
 }
@@ -1357,19 +1411,28 @@ function QuoteInvoiceDetail({
         <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
 
         <div className="relative flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-body text-xs tracking-widest text-white/70 uppercase">
-              {docLabel} pour {invoice.client.name}
-            </p>
-            <h1 className="mt-1 font-headings text-3xl font-bold text-white">{invoice.number}</h1>
-            {provider.name && (
-              <p className="mt-1 font-body text-sm text-white/80">Préparé par {provider.name}</p>
+          <div className="flex items-start gap-3">
+            {provider.logoUrl && (
+              <img
+                src={provider.logoUrl}
+                alt=""
+                className="h-11 w-11 flex-shrink-0 rounded-full bg-white object-contain p-1 shadow-sm"
+              />
             )}
-            {(provider.slogan || provider.phone) && (
-              <p className="mt-0.5 font-body text-xs text-white/60">
-                {provider.slogan || provider.phone}
+            <div>
+              <p className="font-body text-xs tracking-widest text-white/70 uppercase">
+                {docLabel} pour {invoice.client.name}
               </p>
-            )}
+              <h1 className="mt-1 font-headings text-3xl font-bold text-white">{invoice.number}</h1>
+              {provider.name && (
+                <p className="mt-1 font-body text-sm text-white/80">Préparé par {provider.name}</p>
+              )}
+              {(provider.slogan || provider.phone) && (
+                <p className="mt-0.5 font-body text-xs text-white/60">
+                  {provider.slogan || provider.phone}
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex flex-shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1.5 font-body text-xs font-medium text-white backdrop-blur-sm">

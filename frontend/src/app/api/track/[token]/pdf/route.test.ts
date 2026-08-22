@@ -85,6 +85,11 @@ describe('GET /api/track/[token]/pdf', () => {
 
   it('SENT quote -> 200 application/pdf with Content-Disposition attachment', async () => {
     prismaMock.invoice.findUnique.mockResolvedValue(invoiceRow as never);
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
     const res = await GET(makeGet('http://test/api/track/tok-1/pdf'), ctxWith('tok-1'));
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/pdf');

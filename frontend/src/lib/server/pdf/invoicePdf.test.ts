@@ -102,4 +102,19 @@ describe('renderInvoicePdf', () => {
     expect(withQr.subarray(0, 5).toString('utf8')).toBe('%PDF-');
     expect(withQr.length).toBeGreaterThan(withoutQr.length);
   });
+
+  it('renders a valid PDF when the provider has a logoUrl (Pro plan)', async () => {
+    // data: URL, not a remote fetch — keeps the test network-free while
+    // still exercising the <Image> render path callers only reach for
+    // Pro-plan users (the /pdf routes strip logoUrl to null otherwise).
+    const pdf = await renderInvoicePdf({
+      ...baseData,
+      provider: {
+        ...baseData.provider,
+        logoUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      },
+    });
+    expect(pdf.subarray(0, 5).toString('utf8')).toBe('%PDF-');
+  });
 });

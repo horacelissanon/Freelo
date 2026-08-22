@@ -27,6 +27,7 @@ export interface User {
   slogan: string | null;
   bio: string | null;
   studioName: string | null;
+  logoUrl: string | null;
   taxId: string | null;
   commerceRegistry: string | null;
   address: string | null;

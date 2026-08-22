@@ -75,6 +75,11 @@ describe('GET /api/invoices/[id]/pdf', () => {
     mockRequireAuth.mockResolvedValue(authedCtx as never);
     prismaMock.invoice.findFirst.mockResolvedValue(invoiceRow as never);
     prismaMock.user.findUnique.mockResolvedValue(ownerRow as never);
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
 
     const res = await GET(makeGet('i-1'), ctxWith('i-1'));
     expect(res.status).toBe(200);

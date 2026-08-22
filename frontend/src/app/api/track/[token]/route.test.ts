@@ -22,13 +22,21 @@ beforeEach(() => {
   // don't care about this fallback and would otherwise crash on
   // `.map()`-ing the unmocked-deep-mock's `undefined` return.
   prismaMock.defaultPaymentMethod.findMany.mockResolvedValue([]);
+  // Default: FREE plan (no active Pro subscription) — most tests don't care
+  // about isPro/providerBrand and would otherwise crash on
+  // isProActive() reading `.plan` off the unmocked-deep-mock's `undefined`.
+  prismaMock.subscription.findUnique.mockResolvedValue({
+    plan: 'FREE',
+    status: 'ACTIVE',
+    currentPeriodEnd: null,
+  } as never);
 });
 
 describe('GET /api/track/[token] — client token', () => {
   it('valid client token -> 200 { kind: "client", projects }', async () => {
     prismaMock.client.findUnique.mockResolvedValue({
       name: 'Tekki Foods',
-      user: { publicPortalEnabled: true },
+      user: { id: 'user-1', publicPortalEnabled: true },
       projects: [
         {
           id: 'p-1',
@@ -53,6 +61,90 @@ describe('GET /api/track/[token] — client token', () => {
 
     const args = prismaMock.client.findUnique.mock.calls[0]?.[0];
     expect(args?.where?.trackingToken).toBe('tok-client-1');
+  });
+
+  it('FREE plan -> isPro false, providerBrand has no photo even with a logo/avatar on file', async () => {
+    prismaMock.client.findUnique.mockResolvedValue({
+      name: 'Tekki Foods',
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
+        studioName: 'Atelier X',
+        name: 'Awa Diop',
+        email: 'awa@example.com',
+        logoUrl: 'https://cdn.example.com/logo.png',
+        avatarUrl: 'https://cdn.example.com/avatar.png',
+      },
+      projects: [],
+      invoices: [],
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-client-1'), ctxWith('tok-client-1'));
+    const body = await res.json();
+    expect(body.isPro).toBe(false);
+    expect(body.providerBrand).toEqual({ name: 'Atelier X', photoUrl: null });
+  });
+
+  it('PRO plan + COMPANY identity -> providerBrand shows the studio name and logo', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'PRO',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
+    prismaMock.client.findUnique.mockResolvedValue({
+      name: 'Tekki Foods',
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
+        studioName: 'Atelier X',
+        name: 'Awa Diop',
+        email: 'awa@example.com',
+        logoUrl: 'https://cdn.example.com/logo.png',
+        avatarUrl: 'https://cdn.example.com/avatar.png',
+      },
+      projects: [],
+      invoices: [],
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-client-1'), ctxWith('tok-client-1'));
+    const body = await res.json();
+    expect(body.isPro).toBe(true);
+    expect(body.providerBrand).toEqual({
+      name: 'Atelier X',
+      photoUrl: 'https://cdn.example.com/logo.png',
+    });
+  });
+
+  it('PRO plan + PERSONAL identity -> providerBrand uses the personal name and avatar, not the logo', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'PRO',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
+    prismaMock.client.findUnique.mockResolvedValue({
+      name: 'Tekki Foods',
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'PERSONAL',
+        studioName: null,
+        name: 'Awa Diop',
+        email: 'awa@example.com',
+        logoUrl: 'https://cdn.example.com/logo.png',
+        avatarUrl: 'https://cdn.example.com/avatar.png',
+      },
+      projects: [],
+      invoices: [],
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-client-1'), ctxWith('tok-client-1'));
+    const body = await res.json();
+    expect(body.providerBrand).toEqual({
+      name: 'Awa Diop',
+      photoUrl: 'https://cdn.example.com/avatar.png',
+    });
   });
 
   it('owner has publicPortalEnabled=false -> 404 NOT_FOUND (same shape as an invalid token)', async () => {
@@ -143,6 +235,8 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
         address: null,
         taxId: null,
         commerceRegistry: null,
+        logoUrl: null,
+        avatarUrl: null,
       },
       lineItems: [],
       packs: [
@@ -177,8 +271,67 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       taxId: null,
       commerceRegistry: null,
       slogan: null,
+      logoUrl: null,
     });
+    expect(body.isPro).toBe(false);
+    expect(body.providerBrand).toEqual({ name: 'Atelier X', photoUrl: null });
     expect(body.invoice.user).toBeUndefined();
+  });
+
+  it('PRO plan -> provider.logoUrl and providerBrand.photoUrl both carry the studio logo', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'PRO',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
+    prismaMock.client.findUnique.mockResolvedValue(null);
+    prismaMock.project.findUnique.mockResolvedValue(null);
+    prismaMock.invoice.findUnique.mockResolvedValue({
+      id: 'i-1',
+      number: 'QT-2026-001',
+      docType: 'QUOTE',
+      status: 'SENT',
+      description: null,
+      amount: 200000,
+      currency: 'XOF',
+      issueDate: new Date('2026-05-01T00:00:00Z'),
+      dueDate: null,
+      client: { name: 'Tekki Foods' },
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'COMPANY',
+        studioName: 'Atelier X',
+        name: null,
+        email: 'atelier@example.com',
+        phone: null,
+        companyPhone: null,
+        slogan: null,
+        bio: null,
+        address: null,
+        taxId: null,
+        commerceRegistry: null,
+        logoUrl: 'https://cdn.example.com/logo.png',
+        avatarUrl: 'https://cdn.example.com/avatar.png',
+      },
+      lineItems: [],
+      packs: [],
+      contentBlocks: [],
+      paymentTermsNote: null,
+      depositAmount: null,
+      deliveryDate: null,
+      paymentMethodNote: null,
+      footerNote: null,
+    } as never);
+
+    const res = await GET(makeGet('http://test/api/track/tok-invoice-1'), ctxWith('tok-invoice-1'));
+    const body = await res.json();
+    expect(body.isPro).toBe(true);
+    expect(body.provider.logoUrl).toBe('https://cdn.example.com/logo.png');
+    expect(body.providerBrand).toEqual({
+      name: 'Atelier X',
+      photoUrl: 'https://cdn.example.com/logo.png',
+    });
   });
 
   it('devis with no PAYMENT_METHOD block falls back to the freelancer default methods', async () => {
@@ -377,6 +530,50 @@ describe('GET /api/track/[token] — project token', () => {
 
     const orderArgs = prismaMock.order.findMany.mock.calls[0]?.[0];
     expect(orderArgs?.where?.status).toBe('PAID');
+  });
+
+  it('PRO plan + PERSONAL identity -> isPro true, providerBrand uses the personal name and avatar', async () => {
+    prismaMock.subscription.findUnique.mockResolvedValue({
+      plan: 'PRO',
+      status: 'ACTIVE',
+      currentPeriodEnd: null,
+    } as never);
+    prismaMock.project.findUnique.mockResolvedValue({
+      id: 'p-1',
+      name: 'Refonte site web',
+      status: 'IN_PROGRESS',
+      progress: 40,
+      amount: 500000,
+      currency: 'XOF',
+      dueDate: null,
+      step: null,
+      depositType: 'PERCENT',
+      depositValue: 30,
+      createdAt: new Date('2026-05-01T00:00:00Z'),
+      client: { name: 'Tekki Foods' },
+      user: {
+        id: 'user-1',
+        publicPortalEnabled: true,
+        documentIdentity: 'PERSONAL',
+        studioName: null,
+        name: 'Awa Diop',
+        email: 'awa@example.com',
+        logoUrl: 'https://cdn.example.com/logo.png',
+        avatarUrl: 'https://cdn.example.com/avatar.png',
+      },
+      steps: [],
+      comments: [],
+    } as never);
+    prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.invoice.findFirst.mockResolvedValue(null);
+
+    const res = await GET(makeGet('http://test/api/track/tok-project-1'), ctxWith('tok-project-1'));
+    const body = await res.json();
+    expect(body.isPro).toBe(true);
+    expect(body.providerBrand).toEqual({
+      name: 'Awa Diop',
+      photoUrl: 'https://cdn.example.com/avatar.png',
+    });
   });
 
   it('a partial acompte actually paid shows the real amount, not the theoretical split', async () => {

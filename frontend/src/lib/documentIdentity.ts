@@ -19,6 +19,7 @@ export interface DocumentIdentitySource {
   address: string | null;
   companyPhone: string | null;
   slogan: string | null;
+  logoUrl: string | null;
 }
 
 export interface ResolvedDocumentIdentity {
@@ -29,6 +30,11 @@ export interface ResolvedDocumentIdentity {
   taxId: string | null;
   commerceRegistry: string | null;
   slogan: string | null;
+  // COMPANY-only, same as address/taxId/commerceRegistry — always resolved
+  // here regardless of plan; it's a Pro-only perk, so callers must additionally
+  // gate this on isProActive() before using it (this function has no DB
+  // access and can't check the subscription itself).
+  logoUrl: string | null;
 }
 
 export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedDocumentIdentity {
@@ -41,6 +47,7 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
       taxId: null,
       commerceRegistry: null,
       slogan: user.slogan,
+      logoUrl: null,
     };
   }
   // COMPANY: fall back to the personal name when no studio name was filled
@@ -56,5 +63,6 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
     taxId: user.taxId,
     commerceRegistry: user.commerceRegistry,
     slogan: user.slogan,
+    logoUrl: user.logoUrl,
   };
 }

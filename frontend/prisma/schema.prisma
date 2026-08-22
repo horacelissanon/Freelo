@@ -47,6 +47,12 @@ model User {
   // independent of documentIdentity (unlike address/taxId/commerceRegistry,
   // it applies whichever identity mode is active).
   slogan                  String?
+  // Company logo (Cloudinary URL, same upload pipeline as avatarUrl) —
+  // shown on devis/factures/PDF/tracking page header only when
+  // documentIdentity=COMPANY AND the subscription is Pro (isProActive()).
+  // Stored regardless of plan so a freelance who downgrades then re-upgrades
+  // doesn't lose their upload; every render call site does its own Pro gate.
+  logoUrl                 String?
   // Which identity shows in the header of this user's devis/factures:
   // PERSONAL (name/phone/bio) or COMPANY (studioName/address/taxId/
   // commerceRegistry). Set in Paramètres → Compte → Entreprise. Defaults to

@@ -111,6 +111,13 @@ export default function InvoiceDetailPage() {
   const { moneyMasked } = useMoneyMask();
   const mask = (text: string) => (moneyMasked ? '••••••' : text);
   const { data: invoice, loading, error, refresh } = useApi<InvoiceDetail>(`/api/invoices/${id}`);
+  // Mirrors what the /pdf and /suivi/[token] renderers actually gate the
+  // logo on — without this, a FREE-plan freelance would see their logo in
+  // this preview but not on the real PDF/tracking page their client gets.
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
   const [changingStatus, setChangingStatus] = useState<InvoiceStatus | null>(null);
   const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -285,10 +292,18 @@ export default function InvoiceDetailPage() {
           <div className="mb-6 overflow-hidden rounded-lg border border-border bg-canvas shadow-card lg:col-start-1 lg:row-start-1 lg:mb-0 print:border-0 print:shadow-none">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-6">
               <div className="flex items-center gap-3">
-                <Avatar
-                  name={providerIdentity.name}
-                  className="h-11 w-11 flex-shrink-0 text-base"
-                />
+                {isProActive && providerIdentity.logoUrl ? (
+                  <img
+                    src={providerIdentity.logoUrl}
+                    alt=""
+                    className="h-11 w-11 flex-shrink-0 rounded-full border border-border object-contain p-1"
+                  />
+                ) : (
+                  <Avatar
+                    name={providerIdentity.name}
+                    className="h-11 w-11 flex-shrink-0 text-base"
+                  />
+                )}
                 <div>
                   <p className="font-headings text-sm font-bold text-foreground">
                     {providerIdentity.name}

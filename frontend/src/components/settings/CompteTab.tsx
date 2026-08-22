@@ -6,9 +6,11 @@ import { api, ApiError } from '@/lib/api';
 import { uploadFile } from '@/lib/upload';
 import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useApi } from '@/lib/useApi';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { PlanLimitPrompt } from '@/components/ui/PlanLimitPrompt';
 import { DefaultPaymentMethodsSection } from '@/components/settings/DefaultPaymentMethodsSection';
 import { CURRENCIES } from '@/lib/constants';
 
@@ -44,6 +46,15 @@ export function CompteTab({ user }: { user: User }) {
   const { refresh, logout } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  // Logo only renders on devis/factures/suivi for Pro plans (see
+  // resolveDocumentIdentity + the /pdf and /suivi/[token] routes) — fetched
+  // here just to show the upsell hint below the upload field, same source
+  // FacturationTab reads from.
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
 
   const initialName = splitName(user.name ?? '');
   const [firstName, setFirstName] = useState(initialName.firstName);
@@ -52,6 +63,7 @@ export function CompteTab({ user }: { user: User }) {
   const [bio, setBio] = useState(user.bio ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
@@ -93,6 +105,24 @@ export function CompteTab({ user }: { user: User }) {
       setError(err instanceof ApiError ? err.message : 'Échec du téléversement.');
     } finally {
       setUploadingAvatar(false);
+    }
+  }
+
+  async function onPickLogo(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingLogo(true);
+    setError(null);
+    try {
+      const uploaded = await uploadFile(file);
+      await api('/api/auth/me', { method: 'PATCH', body: { logoUrl: uploaded.url } });
+      await refresh();
+      toast('Logo mis à jour.', 'success');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Échec du téléversement.');
+    } finally {
+      setUploadingLogo(false);
     }
   }
 
@@ -356,6 +386,57 @@ export function CompteTab({ user }: { user: User }) {
                 Entreprise
               </button>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="font-body text-sm font-medium text-foreground">
+              Logo de l&apos;entreprise
+            </p>
+            <p className="font-body text-xs text-muted-foreground">
+              Affiché sur tes devis, factures et la page de suivi à la place de ton avatar, quand
+              l&apos;identité « Entreprise » est sélectionnée ci-dessus.
+            </p>
+            <div className="flex items-center gap-4">
+              {user.logoUrl ? (
+                <img
+                  src={user.logoUrl}
+                  alt=""
+                  className="h-16 w-16 flex-shrink-0 rounded-lg border border-border object-contain p-1.5"
+                />
+              ) : (
+                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground">
+                  <Icon i="image" size={20} />
+                </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 font-body text-sm font-medium text-foreground disabled:opacity-50"
+                >
+                  <Icon
+                    i={uploadingLogo ? 'loader' : 'upload'}
+                    size={14}
+                    className={uploadingLogo ? 'animate-spin' : ''}
+                  />
+                  {uploadingLogo ? 'Envoi…' : user.logoUrl ? 'Changer le logo' : 'Ajouter un logo'}
+                </button>
+                <span className="font-body text-xs text-muted-foreground">
+                  JPG, PNG ou WEBP — 10 Mo max.
+                </span>
+              </div>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={onPickLogo}
+                className="hidden"
+              />
+            </div>
+            {!isProActive && (
+              <PlanLimitPrompt message="Le logo s'affiche sur tes devis, factures et la page de suivi avec le forfait Pro." />
+            )}
           </div>
 
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">
