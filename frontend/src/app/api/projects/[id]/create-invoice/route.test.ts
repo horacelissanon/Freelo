@@ -65,6 +65,19 @@ beforeEach(() => {
     createdAt: new Date('2026-05-01T00:00:00Z'),
     updatedAt: new Date('2026-05-01T00:00:00Z'),
   } as never);
+  prismaMock.planConfig.findUnique.mockResolvedValue({
+    id: 'plan-free',
+    plan: 'FREE',
+    monthlyAmount: null,
+    yearlyAmount: null,
+    currency: 'XOF',
+    maxClients: 1,
+    maxActiveProjects: 2,
+    maxInvoices: 1,
+    maxQuotes: 1,
+    features: [],
+    updatedAt: new Date('2026-05-01T00:00:00Z'),
+  } as never);
 });
 
 describe('POST /api/projects/[id]/create-invoice', () => {
@@ -94,6 +107,14 @@ describe('POST /api/projects/[id]/create-invoice', () => {
     );
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('PLAN_LIMIT_CURRENCY');
+    expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+  });
+
+  it('FREE plan + already 1 INVOICE -> 403 PLAN_LIMIT_INVOICES, no create', async () => {
+    prismaMock.invoice.count.mockResolvedValue(1 as never);
+    const res = await POST(makePost(validBody()), ctxWith('p-1'));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('PLAN_LIMIT_INVOICES');
     expect(prismaMock.invoice.create).not.toHaveBeenCalled();
   });
 

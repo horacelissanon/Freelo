@@ -11,6 +11,7 @@ import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi, invalidateCache } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingState } from '@/components/ui/PageStates';
 import { formatLongDate } from '@/lib/utils';
 
 const inputClass =
@@ -93,7 +94,7 @@ function SessionsSection() {
         </p>
       </div>
       {loading ? (
-        <p className="font-body text-sm text-muted-foreground">Chargement…</p>
+        <LoadingState />
       ) : sessions.length === 0 ? (
         <p className="font-body text-sm text-muted-foreground">Aucune session active détectée.</p>
       ) : (

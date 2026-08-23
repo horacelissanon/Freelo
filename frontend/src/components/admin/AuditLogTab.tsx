@@ -34,12 +34,16 @@ const ACTION_LABELS: Record<string, string> = {
   'user.role_change': 'Changement de rôle',
   'user.suspend': 'Suspension de compte',
   'user.restore': 'Réactivation de compte',
+  'user.grant_pro': 'Passage en Pro (offert)',
+  'user.revoke_pro': 'Annulation de Pro',
   'withdrawal.cancel': 'Annulation de retrait',
   'subscription.override': "Modification d'abonnement",
   'plan.update': 'Modification de plan',
   'outbox.requeue': "Relance d'événement",
   'email.requeue': "Relance d'email",
   'support.status_change': 'Changement de statut de ticket',
+  'alert.acknowledge': "Prise en compte d'alerte",
+  'alert.resolve': "Résolution d'alerte",
   BOOTSTRAP_SUPERADMIN: 'Bootstrap super-administrateur',
 };
 
@@ -59,6 +63,12 @@ function describeAction(action: string, metadata: Record<string, unknown> | null
     case 'user.suspend':
     case 'user.restore':
       return `Statut changé de ${str(m.from)} à ${str(m.to)}${m.reason ? ` — ${str(m.reason)}` : ''}`;
+    case 'user.grant_pro':
+    case 'user.revoke_pro': {
+      const from = m.from as Record<string, unknown> | undefined;
+      const to = m.to as Record<string, unknown> | undefined;
+      return `Plan ${str(from?.plan)} → ${str(to?.plan)}${m.reason ? ` — ${str(m.reason)}` : ''}`;
+    }
     case 'subscription.override': {
       const from = m.from as Record<string, unknown> | undefined;
       const to = m.to as Record<string, unknown> | undefined;
@@ -87,6 +97,9 @@ function describeAction(action: string, metadata: Record<string, unknown> | null
       return `Retrait annulé : ${str(m.reason)}`;
     case 'support.status_change':
       return `Statut du ticket changé de ${str(m.from)} à ${str(m.to)}`;
+    case 'alert.acknowledge':
+    case 'alert.resolve':
+      return `${str(m.type)} (${str(m.severity)})`;
     case 'BOOTSTRAP_SUPERADMIN':
       return 'Promu super-administrateur via script CLI';
     default:
@@ -166,6 +179,7 @@ export function AuditLogTab() {
           <option value="EmailJob">Email</option>
           <option value="SupportTicket">Ticket support</option>
           <option value="PlanConfig">Plan</option>
+          <option value="AdminAlert">Alerte</option>
         </select>
       </div>
 

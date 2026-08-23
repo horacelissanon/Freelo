@@ -71,19 +71,18 @@ export async function GET(
 
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
     const isPro = isProActive(subscription);
-    const identity = resolveDocumentIdentity({
-      ...owner,
-      documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
-    });
+    const identity = resolveDocumentIdentity(
+      {
+        ...owner,
+        documentIdentity: owner.documentIdentity as 'PERSONAL' | 'COMPANY',
+      },
+      isPro,
+    );
 
     const provider = {
       ...identity,
       email: owner.email,
       brandColor: owner.brandColor,
-      // Logo is a Pro perk on top of resolveDocumentIdentity's own
-      // COMPANY-only gating — stripped here for FREE users regardless of
-      // identity mode or whether a logo was ever uploaded.
-      logoUrl: isPro ? identity.logoUrl : null,
     };
 
     // No tracking page exists for a DRAFT yet (GET /api/track/[token] 404s

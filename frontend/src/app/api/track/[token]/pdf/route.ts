@@ -78,15 +78,17 @@ export async function GET(
     const { user: invoiceUser, ...invoiceFields } = invoice;
     const subscription = await getOrCreateSubscription(prisma, invoiceUser.id);
     const isPro = isProActive(subscription);
-    const identity = resolveDocumentIdentity({
-      ...invoiceUser,
-      documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
-    });
+    const identity = resolveDocumentIdentity(
+      {
+        ...invoiceUser,
+        documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+      },
+      isPro,
+    );
     const provider = {
       ...identity,
       email: invoiceUser.email,
       brandColor: invoiceUser.brandColor,
-      logoUrl: isPro ? identity.logoUrl : null,
     };
 
     // Reached this point only for a non-DRAFT invoice (guard above), so the

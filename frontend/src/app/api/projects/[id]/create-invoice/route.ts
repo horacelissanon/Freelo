@@ -17,6 +17,7 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { computeItemsTotal } from '@/lib/invoiceTotals';
 import { zPositiveInt } from '@/lib/server/zod-helpers';
@@ -94,13 +95,32 @@ export async function POST(
     );
     if (rateError) return rateError;
 
-    if (parsed.data.currency !== 'XOF') {
-      const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
-      if (!isProActive(subscription)) {
+    const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
+    const isPro = isProActive(subscription);
+
+    if (parsed.data.currency !== 'XOF' && !isPro) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_CURRENCY',
+          message: 'Le plan Gratuit ne permet que la devise XOF. Passe en Pro pour EUR/USD.',
+        },
+        { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
+      );
+    }
+
+    // Same 1-facture cap as POST /api/invoices — this route is a second
+    // entry point that creates docType=INVOICE rows and must not bypass it.
+    if (!isPro) {
+      const freeConfig = await getPlanConfig(prisma, 'FREE');
+      const maxInvoices = freeConfig.maxInvoices ?? Infinity;
+      const invoiceCount = await prisma.invoice.count({
+        where: { userId: auth.user.sub, docType: 'INVOICE' },
+      });
+      if (invoiceCount >= maxInvoices) {
         return NextResponse.json(
           {
-            error: 'PLAN_LIMIT_CURRENCY',
-            message: 'Le plan Gratuit ne permet que la devise XOF. Passe en Pro pour EUR/USD.',
+            error: 'PLAN_LIMIT_INVOICES',
+            message: `Le plan Gratuit est limité à ${maxInvoices} facture. Passe en Pro pour en créer davantage.`,
           },
           { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
         );

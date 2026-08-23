@@ -30,10 +30,30 @@ import { createWebhookHandler } from '@/lib/server/webhook/handler';
 import { bictorysWebhookProvider } from '@/lib/server/webhook/bictorys';
 import { enqueueOutbox } from '@/lib/server/outbox';
 import { prisma } from '@/lib/server/prisma';
+import { redis } from '@/lib/server/redis';
+import { incrWithWindow } from '@/lib/server/admin-alerts/counters';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { webhookSignatureInvalid } from '@/lib/server/admin-alerts/templates';
+
+// Refund amount (smallest currency unit) at or above which onRefunded also
+// emits an admin_alert.large_refund outbox event — override per project.
+const LARGE_REFUND_THRESHOLD = Number(process.env.ADMIN_ALERT_LARGE_REFUND_THRESHOLD ?? 50_000);
+
+async function onBictorysSignatureInvalid(): Promise<void> {
+  if (!redis) return;
+  // 5+ invalid-signature requests in a 5min window is a plausible signing
+  // attack on the endpoint — dedupe the resulting alert to once per hour.
+  const count = await incrWithWindow(redis, 'webhook:sig-fail:bictorys', 5 * 60);
+  if (count >= 5) {
+    const bucket1h = new Date().toISOString().slice(0, 13);
+    await createAdminAlert(prisma, webhookSignatureInvalid('bictorys', bucket1h));
+  }
+}
 
 export const POST = createWebhookHandler({
   prisma,
   provider: bictorysWebhookProvider,
+  onSignatureInvalid: onBictorysSignatureInvalid,
 
   async onPaid(payload, tx) {
     const externalRef = String(payload.charge_id ?? payload.chargeId ?? payload.id ?? '');
@@ -95,9 +115,23 @@ export const POST = createWebhookHandler({
       where: { id: order.id },
       data: { status: 'REFUNDED' },
     });
-    // No outbox emit in v1 — `notification.refund_received` kind is not
-    // declared in outbox/types.ts (RESEARCH §"Pattern 1" + A6). Adding it
-    // would touch the PROTECTED dispatcher; deferred to a follow-up phase.
+    if (order.userId) {
+      await enqueueOutbox(tx, {
+        kind: 'notification.refund_received',
+        payload: {
+          userId: order.userId,
+          orderId: order.id,
+          amount: order.amount,
+          currency: order.currency,
+        },
+      });
+    }
+    if (order.amount >= LARGE_REFUND_THRESHOLD) {
+      await enqueueOutbox(tx, {
+        kind: 'admin_alert.large_refund',
+        payload: { orderId: order.id, amount: order.amount, currency: order.currency },
+      });
+    }
     return {};
   },
 
@@ -112,6 +146,12 @@ export const POST = createWebhookHandler({
       where: { id: order.id },
       data: { status: 'FAILED' },
     });
+    if (order.userId) {
+      await enqueueOutbox(tx, {
+        kind: 'notification.order_payment_failed',
+        payload: { userId: order.userId, orderId: order.id },
+      });
+    }
     return {};
   },
 });

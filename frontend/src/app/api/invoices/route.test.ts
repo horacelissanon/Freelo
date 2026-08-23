@@ -72,6 +72,34 @@ beforeEach(() => {
   prismaMock.client.findFirst.mockResolvedValue({ id: 'c-1' } as never);
   prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
   prismaMock.user.findUnique.mockResolvedValue({ defaultCurrency: 'XOF' } as never);
+  // Every create now unconditionally checks the plan (currency + devis/
+  // facture cap), not just non-XOF creates — default to a PRO subscription
+  // so the pre-existing tests below (which don't care about plan gating)
+  // aren't blocked; the dedicated plan-gating tests override this per-case.
+  prismaMock.subscription.findUnique.mockResolvedValue({
+    id: 'sub-1',
+    userId: 'user-1',
+    plan: 'PRO',
+    status: 'ACTIVE',
+    billingCycle: null,
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    createdAt: new Date('2026-05-01T00:00:00Z'),
+    updatedAt: new Date('2026-05-01T00:00:00Z'),
+  } as never);
+  prismaMock.planConfig.findUnique.mockResolvedValue({
+    id: 'plan-free',
+    plan: 'FREE',
+    monthlyAmount: null,
+    yearlyAmount: null,
+    currency: 'XOF',
+    maxClients: 1,
+    maxActiveProjects: 2,
+    maxInvoices: 1,
+    maxQuotes: 1,
+    features: [],
+    updatedAt: new Date('2026-05-01T00:00:00Z'),
+  } as never);
   prismaMock.$transaction.mockImplementation((cb: unknown) => {
     if (typeof cb === 'function') {
       return (cb as (tx: typeof prismaMock) => unknown)(prismaMock) as Promise<unknown>;
@@ -271,6 +299,63 @@ describe('POST /api/invoices', () => {
     const createArg = prismaMock.invoice.create.mock.calls[0]?.[0];
     expect(createArg?.data?.currency).toBe('EUR');
     expect(createArg?.data?.exchangeRateToDefault).toBe(1.16);
+  });
+
+  describe('plan limits — 1 devis + 1 facture cap on FREE', () => {
+    function freeSubscription() {
+      return {
+        id: 'sub-1',
+        userId: 'user-1',
+        plan: 'FREE',
+        status: 'ACTIVE',
+        billingCycle: null,
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        createdAt: new Date('2026-05-01T00:00:00Z'),
+        updatedAt: new Date('2026-05-01T00:00:00Z'),
+      };
+    }
+
+    it('FREE + already 1 INVOICE -> 403 PLAN_LIMIT_INVOICES, no create', async () => {
+      prismaMock.subscription.findUnique.mockResolvedValue(freeSubscription() as never);
+      prismaMock.invoice.count.mockResolvedValue(1 as never);
+      const res = await POST(
+        makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(1000) }),
+      );
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe('PLAN_LIMIT_INVOICES');
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('FREE + already 1 QUOTE -> 403 PLAN_LIMIT_QUOTES, no create', async () => {
+      prismaMock.subscription.findUnique.mockResolvedValue(freeSubscription() as never);
+      prismaMock.invoice.count.mockResolvedValue(1 as never);
+      const res = await POST(makePost({ clientId: 'c-1', docType: 'QUOTE', packs: onePack(1000) }));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe('PLAN_LIMIT_QUOTES');
+      expect(prismaMock.invoice.create).not.toHaveBeenCalled();
+    });
+
+    it('FREE + 0 existing INVOICE -> 201, allowed', async () => {
+      prismaMock.subscription.findUnique.mockResolvedValue(freeSubscription() as never);
+      prismaMock.invoice.count.mockResolvedValue(0 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+      const res = await POST(
+        makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(1000) }),
+      );
+      expect(res.status).toBe(201);
+      expect(prismaMock.invoice.create).toHaveBeenCalled();
+    });
+
+    it('PRO + 5 existing INVOICE -> 201, never capped', async () => {
+      prismaMock.invoice.count.mockResolvedValue(5 as never);
+      prismaMock.invoice.create.mockResolvedValue(invoice() as never);
+      const res = await POST(
+        makePost({ clientId: 'c-1', docType: 'INVOICE', lineItems: oneLineItem(1000) }),
+      );
+      expect(res.status).toBe(201);
+      expect(prismaMock.invoice.create).toHaveBeenCalled();
+    });
   });
 
   it('null projectId/description/dueDate on create -> 201, fields omitted (not rejected)', async () => {

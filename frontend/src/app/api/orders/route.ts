@@ -50,6 +50,8 @@ import {
   getProvider,
   PaymentProviderUnconfiguredError,
 } from '@/lib/server/payments/provider-singleton';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { circuitOpen } from '@/lib/server/admin-alerts/templates';
 
 // CR-02 helpers ────────────────────────────────────────────────────────
 // Idempotency-Key length cap. 200 chars matches Stripe's documented limit
@@ -263,7 +265,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         userId: auth.user.sub,
         amount: parsed.data.amount,
         currency: parsed.data.currency,
-        provider: 'bictorys',
+        provider: 'saspay',
         status: 'PENDING',
         expiresAt: new Date(Date.now() + ORDER_EXPIRY_MS),
         idempotencyKey: idemKey,
@@ -317,6 +319,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           where: { id: order.id },
           data: { status: 'FAILED' },
         });
+        // Best-effort platform-side alert — a provider outage is invisible
+        // to the team otherwise (this is a handled, non-throwing path, not
+        // an exception Sentry would ever see). Deduped to once per 15min
+        // per breaker so a sustained outage doesn't spam.
+        try {
+          const bucket15min = Math.floor(Date.now() / (15 * 60_000)).toString();
+          await createAdminAlert(
+            prisma,
+            circuitOpen(breaker.name, bucket15min, err.retryAt.toISOString()),
+          );
+        } catch {
+          // Never let alerting affect the payment-provider-unavailable response.
+        }
         const retryAfterSec = Math.max(1, Math.ceil((err.retryAt.getTime() - Date.now()) / 1000));
         return NextResponse.json(
           {

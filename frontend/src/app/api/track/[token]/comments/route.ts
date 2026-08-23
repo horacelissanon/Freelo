@@ -3,6 +3,12 @@
 // IS the authorization, so `author` is always forced to CLIENT here
 // (a public caller can never post as FREELANCER). Rate-limited per token
 // since there's no session/IP to key on otherwise.
+//
+// Available on FREE too (not Pro-gated) — a client being able to comment/
+// validate on the tracking link is core to Freelo's pitch and shouldn't be
+// locked away before a freelance ever sees the payoff. `attachmentUrl` still
+// requires Pro in practice: it can only be non-empty if the client got a
+// real URL from POST /api/track/[token]/upload, which stays Pro-gated.
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -10,7 +16,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/server/prisma';
 import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
-import { isProActive } from '@/lib/server/billing/subscription';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const Body = z
@@ -54,31 +59,13 @@ export async function POST(
       where: { publicToken: token },
       select: {
         id: true,
-        user: {
-          select: {
-            publicPortalEnabled: true,
-            subscription: { select: { plan: true, status: true, currentPeriodEnd: true } },
-          },
-        },
+        user: { select: { publicPortalEnabled: true } },
       },
     });
     if (!project || !project.user.publicPortalEnabled) {
       return NextResponse.json(
         { error: 'NOT_FOUND', message: 'Lien de suivi invalide ou expiré.' },
         { status: 404, headers: { 'x-request-id': reqCtx.requestId } },
-      );
-    }
-    if (
-      !isProActive(
-        project.user.subscription ?? { plan: 'FREE', status: 'ACTIVE', currentPeriodEnd: null },
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error: 'PLAN_REQUIRES_PRO',
-          message: 'Les commentaires sont réservés aux freelances en plan Pro.',
-        },
-        { status: 403, headers: { 'x-request-id': reqCtx.requestId } },
       );
     }
 

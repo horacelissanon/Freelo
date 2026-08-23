@@ -73,19 +73,21 @@ describe('POST /api/track/[token]/comments', () => {
     expect(prismaMock.projectComment.create).not.toHaveBeenCalled();
   });
 
-  it('owner is on FREE plan -> 403 PLAN_REQUIRES_PRO, no comment created', async () => {
+  it('owner is on FREE plan -> 201, comments are not Pro-gated', async () => {
     prismaMock.project.findUnique.mockResolvedValue({
       id: 'p-1',
-      user: {
-        publicPortalEnabled: true,
-        subscription: { plan: 'FREE', status: 'ACTIVE', currentPeriodEnd: null },
-      },
+      user: { publicPortalEnabled: true },
+    } as never);
+    prismaMock.projectComment.create.mockResolvedValue({
+      id: 'c-1',
+      projectId: 'p-1',
+      author: 'CLIENT',
+      body: 'Merci !',
+      createdAt: new Date(),
     } as never);
 
     const res = await POST(makePost({ body: 'Merci !' }, 'tok-1'), ctxWith('tok-1'));
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error).toBe('PLAN_REQUIRES_PRO');
-    expect(prismaMock.projectComment.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(prismaMock.projectComment.create).toHaveBeenCalled();
   });
 });

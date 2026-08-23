@@ -22,10 +22,24 @@ import { createWebhookHandler } from '@/lib/server/webhook/handler';
 import { fedapayWebhookProvider } from '@/lib/server/webhook/fedapay';
 import { enqueueOutbox } from '@/lib/server/outbox';
 import { prisma } from '@/lib/server/prisma';
+import { redis } from '@/lib/server/redis';
+import { incrWithWindow } from '@/lib/server/admin-alerts/counters';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { webhookSignatureInvalid } from '@/lib/server/admin-alerts/templates';
+
+async function onFedapaySignatureInvalid(): Promise<void> {
+  if (!redis) return;
+  const count = await incrWithWindow(redis, 'webhook:sig-fail:fedapay', 5 * 60);
+  if (count >= 5) {
+    const bucket1h = new Date().toISOString().slice(0, 13);
+    await createAdminAlert(prisma, webhookSignatureInvalid('fedapay', bucket1h));
+  }
+}
 
 export const POST = createWebhookHandler({
   prisma,
   provider: fedapayWebhookProvider,
+  onSignatureInvalid: onFedapaySignatureInvalid,
 
   async onPaid(payload, tx) {
     const externalRef = String(payload.entity?.id ?? payload.id ?? '');
@@ -76,6 +90,21 @@ export const POST = createWebhookHandler({
       where: { id: transaction.id },
       data: { status: 'FAILED' },
     });
+    const subscription = await tx.subscription.findUnique({
+      where: { id: transaction.subscriptionId },
+      select: { userId: true },
+    });
+    if (subscription) {
+      await enqueueOutbox(tx, {
+        kind: 'notification.subscription_payment_failed',
+        payload: {
+          userId: subscription.userId,
+          subscriptionTransactionId: transaction.id,
+          amount: transaction.amount,
+          currency: transaction.currency,
+        },
+      });
+    }
     return {};
   },
 });

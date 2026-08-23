@@ -7,14 +7,14 @@
 // fabricated user counts or testimonials, and no overclaiming payment
 // processing that doesn't exist: Freelo does NOT collect payment from a
 // freelancer's client on their behalf — a freelancer indicates their
-// preferred payment method (Wave, Orange Money, MTN…) and it's displayed on
+// preferred payment method (MTN Mobile Money, Moov Money…) and it's displayed on
 // the devis/facture; the client settles directly, outside the app. Every
 // payment-related line on this page is worded around that, not around
 // in-app processing. The "Pensé pour" section uses named personas framed
 // explicitly as target personas ("Profil type" badge on every card, see
 // PersonasMarquee.tsx), not attributed customer quotes — first-person copy
-// and the scrolling marquee are a style choice, not a claim that a real
-// person said this. Restructured/rewritten 2026-08-15, inspired by a competitor's
+// is a style choice, not a claim that a real person said this. Kept to just
+// 2 fixed cards, no carousel/scroll. Restructured/rewritten 2026-08-15, inspired by a competitor's
 // landing structure (numbered steps, capability strip, comparison table,
 // tiered pricing with a billing toggle, richer FAQ) but with entirely
 // original copy and zero fabricated blocks — no fake trust numbers, no
@@ -28,6 +28,7 @@ import { ScrollReveal } from '@/components/marketing/ScrollReveal';
 import { PricingToggle } from '@/components/marketing/PricingToggle';
 import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
 import { RotatingWord } from '@/components/marketing/RotatingWord';
+import { HeaderAuthCta } from '@/components/marketing/HeaderAuthCta';
 import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -91,7 +92,7 @@ const STEPS: { icon: string; title: string; description: string }[] = [
     icon: 'banknote',
     title: 'Sois payé, sans confusion',
     description:
-      'Ton moyen de paiement (Wave, Orange Money, MTN…) apparaît clairement sur le devis ou la facture.',
+      'Ton moyen de paiement (MTN Mobile Money, Moov Money…) apparaît clairement sur le devis ou la facture.',
   },
 ];
 
@@ -198,27 +199,6 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
     solution:
       'Depuis, il valide lui-même l’offre choisie sur son lien de suivi — le prix est figé, plus de discussion sans fin sur ce qui avait été convenu.',
   },
-  {
-    name: 'Fatou',
-    role: 'Rédactrice freelance, Dakar',
-    pain: 'Je perdais le fil des échéances — une facture en retard, un projet dont la deadline approchait sans que je m’en rende compte.',
-    solution:
-      'Freelo me prévient automatiquement avant qu’une échéance de projet approche ou qu’une facture traîne trop longtemps.',
-  },
-  {
-    name: 'Ibrahima',
-    role: 'Consultant freelance, Douala',
-    pain: 'Mes clients m’appelaient sans arrêt pour savoir où en était leur projet.',
-    solution:
-      'Maintenant ils suivent l’avancement en temps réel depuis leur lien, sans même avoir besoin de créer un compte.',
-  },
-  {
-    name: 'Léa',
-    role: 'Vidéaste freelance, clientèle internationale',
-    pain: 'Chaque facture pour un client à l’étranger voulait dire refaire toute la mise en page à la main pour une autre devise.',
-    solution:
-      'Freelo génère mes factures directement en FCFA, EUR ou USD selon le client — plus rien à recomposer.',
-  },
 ];
 
 const FAQS: { question: string; answer: string }[] = [
@@ -241,7 +221,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: 'Mes clients paient-ils directement depuis Freelo ?',
     answer:
-      'Pas encore — Freelo n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (Wave, Orange Money, MTN…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
+      'Pas encore — Freelo n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (MTN Mobile Money, Moov Money…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
   },
   {
     question: 'Puis-je facturer en euros ou en dollars ?',
@@ -302,18 +282,7 @@ export default function Home() {
           </nav>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
-            <Link
-              href="/login"
-              className="hidden font-body text-sm font-medium text-foreground sm:inline"
-            >
-              Se connecter
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-md bg-primary px-4 py-2 font-body text-sm font-medium text-primary-foreground"
-            >
-              Commencer gratuitement
-            </Link>
+            <HeaderAuthCta />
           </div>
         </div>
       </header>
@@ -348,7 +317,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row">
             <Link
-              href="/signup"
+              href="/login?mode=signup"
               className="rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
             >
               Commencer gratuitement
@@ -723,10 +692,7 @@ export default function Home() {
               Des profils types que Freelo a été conçu pour servir.
             </p>
           </div>
-          {/* Bleeds full-width (no max-w container) — the horizontal scroll
-              reads as intentional edge-to-edge motion, not a marquee
-              cramped inside the page's usual content column. */}
-          <div className="pb-16">
+          <div className="px-4 pb-16 sm:px-6">
             <PersonasMarquee personas={PERSONAS} />
           </div>
         </section>
@@ -740,8 +706,11 @@ export default function Home() {
               stands out, not competing with a saturated background. Sits on
               the white section behind it, so the panel reads as "raised"
               via border + shadow rather than a color fill (bg-secondary/40
-              was too close to the page background to register as a card). */}
-          <div className="relative overflow-hidden rounded-3xl border border-border bg-canvas px-4 py-14 shadow-xl sm:px-10 sm:py-16">
+              was too close to the page background to register as a card).
+              Padding/radius/shadow kept modest (not py-16/rounded-3xl/
+              shadow-xl) so the frame doesn't dwarf the pricing cards it's
+              wrapping. */}
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-canvas px-4 py-10 shadow-lg sm:px-8 sm:py-12">
             <div className="mx-auto max-w-2xl text-center">
               <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-semibold tracking-wide text-tag-green-fg uppercase">
                 Tarifs
@@ -806,7 +775,7 @@ export default function Home() {
             suivi client aujourd’hui.
           </p>
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             className="rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-foreground"
           >
             Commencer gratuitement
@@ -846,7 +815,7 @@ export default function Home() {
               <Link href="/login" className="font-body text-xs text-muted-foreground">
                 Connexion
               </Link>
-              <Link href="/signup" className="font-body text-xs text-muted-foreground">
+              <Link href="/login?mode=signup" className="font-body text-xs text-muted-foreground">
                 Inscription
               </Link>
             </div>

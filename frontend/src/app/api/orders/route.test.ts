@@ -177,7 +177,7 @@ describe('POST /api/orders [Wave 1] — happy path', () => {
       userId: 'user-1',
       amount: 5000,
       currency: 'XOF',
-      provider: 'bictorys',
+      provider: 'saspay',
       status: 'PENDING',
       idempotencyKey: 'unique-idem-1',
       metadata: { source: 'web' },

@@ -220,26 +220,6 @@ body {
   animation: slide-in-left 200ms ease-out;
 }
 
-/* Personas ("Pensé pour") marquee — the track renders its card list twice
-   back to back (see page.tsx) and this animates exactly halfway (-50%), so
-   the moment the first copy scrolls fully offscreen the second copy is in
-   the exact start position: a seamless, infinite right-to-left loop with no
-   visible seam or reset jump. Paused on hover in page.tsx via a plain CSS
-   class swap, not JS, so it stays a no-JS-safe progressive enhancement like
-   ScrollReveal. */
-@keyframes marquee-left {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-@utility animate-marquee {
-  animation: marquee-left 32s linear infinite;
-}
-
 /* Accent color overrides — deliberately placed after both theme blocks
    above so `--color-primary`/`--color-accent` here always win regardless of
    light/dark, matching the existing invariant that the brand accent stays
@@ -301,9 +281,5 @@ body {
     opacity: 1;
     transform: none;
     transition: none;
-  }
-
-  .animate-marquee {
-    animation: none;
   }
 }

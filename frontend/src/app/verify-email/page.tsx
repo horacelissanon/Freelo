@@ -6,6 +6,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError, storeCsrfToken } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Mirrors login/page.tsx's PENDING_PHONE_KEY — the signup form stashes an
+// optional phone number here since POST /api/auth/signup has no session to
+// attach it to yet; this is the first point after signup where a session
+// (and therefore a PATCH-able profile) exists.
+const PENDING_PHONE_KEY = 'merrudit-pending-signup-phone';
+
 function VerifyEmailForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -36,6 +42,16 @@ function VerifyEmailForm() {
         body: { email: emailValue, code: codeValue },
       });
       if (res.csrfToken) storeCsrfToken(res.csrfToken);
+      try {
+        const pendingPhone = sessionStorage.getItem(PENDING_PHONE_KEY);
+        if (pendingPhone) {
+          await api('/api/auth/me', { method: 'PATCH', body: { phone: pendingPhone } });
+          sessionStorage.removeItem(PENDING_PHONE_KEY);
+        }
+      } catch {
+        // Best-effort — the account is verified either way, and the
+        // freelancer can still fill in their phone from Mon compte.
+      }
       await refresh();
       router.push('/dashboard');
     } catch (err) {
@@ -114,7 +130,7 @@ function VerifyEmailForm() {
 
       <p className="text-center font-body text-sm text-muted-foreground">
         Pas reçu de code ?{' '}
-        <Link href="/signup" className="font-medium text-primary">
+        <Link href="/login?mode=signup" className="font-medium text-primary">
           Réessayer l&apos;inscription
         </Link>
       </p>

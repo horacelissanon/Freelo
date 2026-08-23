@@ -51,6 +51,14 @@ import { createDefaultBalanceComputer } from '@/lib/server/withdrawals/balance';
 import { loadGuardConfigFromEnv, validateWithdrawalRequest } from '@/lib/server/withdrawals/guards';
 import { verifyPin } from '@/lib/server/auth/pin';
 import { createNotification } from '@/lib/server/notifications';
+import {
+  withdrawalRequested,
+  withdrawalPinAbuseWarning,
+} from '@/lib/server/notifications/templates';
+import { redis } from '@/lib/server/redis';
+import { incrWithWindow } from '@/lib/server/admin-alerts/counters';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { withdrawalPinAbuse, withdrawalGuardBurst } from '@/lib/server/admin-alerts/templates';
 
 import { clampLimit, decodeCursor, encodeCursor } from '@/lib/server/pagination/paginate';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
@@ -166,6 +174,47 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
 
       if (!result.ok) {
+        // Best-effort abuse detection — never blocks or delays the error
+        // response. PIN_INVALID gets its own (lower) threshold + a warning
+        // to the account owner since it's the strongest signal of a
+        // credential-guessing attempt; the other guard rejections only
+        // escalate to the platform side once they burst.
+        if (redis) {
+          try {
+            const hourBucket = new Date().toISOString().slice(0, 13);
+            if (result.code === 'PIN_INVALID') {
+              const count = await incrWithWindow(
+                redis,
+                `withdrawal:pin-fail:${auth.user.sub}`,
+                10 * 60,
+              );
+              if (count >= 3) {
+                await createNotification(
+                  prisma,
+                  withdrawalPinAbuseWarning(auth.user.sub, hourBucket),
+                );
+                await createAdminAlert(prisma, withdrawalPinAbuse(auth.user.sub, hourBucket));
+              }
+            } else if (
+              result.code === 'AMOUNT_ABOVE_MAX' ||
+              result.code === 'DAILY_LIMIT_EXCEEDED' ||
+              result.code === 'COOLDOWN_ACTIVE' ||
+              result.code === 'INSUFFICIENT_BALANCE'
+            ) {
+              const count = await incrWithWindow(
+                redis,
+                `withdrawal:guard-fail:${auth.user.sub}`,
+                10 * 60,
+              );
+              if (count >= 5) {
+                await createAdminAlert(prisma, withdrawalGuardBurst(auth.user.sub, hourBucket));
+              }
+            }
+          } catch {
+            // Best-effort — never poison the guard-failure response.
+          }
+        }
+
         return NextResponse.json(
           { code: result.code, message: result.message },
           { status: result.status, headers: { 'x-request-id': ctx.requestId } },
@@ -178,18 +227,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // any retry idempotent. A failure here must NOT poison the response —
       // the withdrawal is already committed (T-04-04-11).
       try {
-        await createNotification(prisma, {
-          userId: auth.user.sub,
-          type: 'WITHDRAWAL_REQUESTED',
-          title: 'Withdrawal requested',
-          body: `Withdrawal of ${amount} ${currency} is pending.`,
-          data: {
-            withdrawalId: result.withdrawal.id,
-            amount,
-            currency,
-          },
-          dedupeKey: `withdrawal-requested:${result.withdrawal.id}`,
-        });
+        await createNotification(
+          prisma,
+          withdrawalRequested(auth.user.sub, result.withdrawal.id, amount, currency),
+        );
       } catch {
         // Swallow — `createNotification` already returns null on P2002 dedup
         // hits; a thrown error here is some other DB hiccup. The withdrawal

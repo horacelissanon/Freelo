@@ -64,7 +64,7 @@ function resolveProviderBrand(
   user: DocumentIdentitySource & { avatarUrl: string | null },
   isPro: boolean,
 ): { name: string; photoUrl: string | null } {
-  const { name } = resolveDocumentIdentity(user);
+  const { name } = resolveDocumentIdentity(user, isPro);
   if (!isPro) return { name, photoUrl: null };
   return { name, photoUrl: user.documentIdentity === 'COMPANY' ? user.logoUrl : user.avatarUrl };
 }
@@ -329,15 +329,18 @@ export async function GET(
         : invoice.contentBlocks;
     const subscription = await getOrCreateSubscription(prisma, invoiceUser.id);
     const isPro = isProActive(subscription);
-    const identity = resolveDocumentIdentity({
-      ...invoiceUser,
-      documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
-    });
+    const identity = resolveDocumentIdentity(
+      {
+        ...invoiceUser,
+        documentIdentity: invoiceUser.documentIdentity as 'PERSONAL' | 'COMPANY',
+      },
+      isPro,
+    );
     return NextResponse.json(
       {
         kind: invoice.docType === 'QUOTE' ? 'quote' : 'invoice',
         invoice: { ...invoiceFields, contentBlocks },
-        provider: { ...identity, logoUrl: isPro ? identity.logoUrl : null },
+        provider: identity,
         providerBrand: resolveProviderBrand(
           {
             ...invoiceUser,

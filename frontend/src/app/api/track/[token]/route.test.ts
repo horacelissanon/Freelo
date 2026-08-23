@@ -63,7 +63,7 @@ describe('GET /api/track/[token] — client token', () => {
     expect(args?.where?.trackingToken).toBe('tok-client-1');
   });
 
-  it('FREE plan -> isPro false, providerBrand has no photo even with a logo/avatar on file', async () => {
+  it('FREE plan -> isPro false, providerBrand falls back to the personal name (COMPANY is a Pro perk)', async () => {
     prismaMock.client.findUnique.mockResolvedValue({
       name: 'Tekki Foods',
       user: {
@@ -83,7 +83,7 @@ describe('GET /api/track/[token] — client token', () => {
     const res = await GET(makeGet('http://test/api/track/tok-client-1'), ctxWith('tok-client-1'));
     const body = await res.json();
     expect(body.isPro).toBe(false);
-    expect(body.providerBrand).toEqual({ name: 'Atelier X', photoUrl: null });
+    expect(body.providerBrand).toEqual({ name: 'Awa Diop', photoUrl: null });
   });
 
   it('PRO plan + COMPANY identity -> providerBrand shows the studio name and logo', async () => {
@@ -263,8 +263,11 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
     expect(body.kind).toBe('quote');
     expect(body.invoice.packs).toHaveLength(1);
     expect(body.invoice.contentBlocks).toHaveLength(1);
+    // FREE plan (no subscription override in this test) — COMPANY identity
+    // falls back to PERSONAL on the actual document, and this fixture's
+    // personal `name` is null, so it falls through further to the email.
     expect(body.provider).toEqual({
-      name: 'Atelier X',
+      name: 'atelier@example.com',
       bio: 'Designer freelance.',
       phone: null,
       address: null,
@@ -274,7 +277,7 @@ describe('GET /api/track/[token] — invoice/quote token', () => {
       logoUrl: null,
     });
     expect(body.isPro).toBe(false);
-    expect(body.providerBrand).toEqual({ name: 'Atelier X', photoUrl: null });
+    expect(body.providerBrand).toEqual({ name: 'atelier@example.com', photoUrl: null });
     expect(body.invoice.user).toBeUndefined();
   });
 

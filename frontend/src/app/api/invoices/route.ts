@@ -25,6 +25,7 @@ import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { clampLimit, decodeCursor, cursorWhere, buildPage } from '@/lib/server/pagination/paginate';
 import { getOrCreateSubscription, isProActive } from '@/lib/server/billing/subscription';
+import { getPlanConfig } from '@/lib/server/billing/plans';
 import { formatInvoiceNumber } from '@/lib/server/invoices/number';
 import { computeItemsTotal, computeQuoteTotal } from '@/lib/invoiceTotals';
 import { computeDepositBalanceBatch } from '@/lib/server/projects/depositBalance';
@@ -344,13 +345,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
     if (rateError) return rateError;
 
-    if (currency !== 'XOF') {
-      const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
-      if (!isProActive(subscription)) {
+    const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
+    const isPro = isProActive(subscription);
+
+    if (currency !== 'XOF' && !isPro) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_CURRENCY',
+          message: 'Le plan Gratuit ne permet que la devise XOF. Passe en Pro pour EUR/USD.',
+        },
+        { status: 403, headers: { 'x-request-id': ctx.requestId } },
+      );
+    }
+
+    // FREE is capped at 1 devis + 1 facture (independently) — CREDIT_NOTE is
+    // deliberately excluded: an avoir corrects an already-issued invoice, it
+    // shouldn't be blocked by the cap on new documents.
+    if (!isPro && (docType === 'INVOICE' || docType === 'QUOTE')) {
+      const freeConfig = await getPlanConfig(prisma, 'FREE');
+      const max = docType === 'INVOICE' ? freeConfig.maxInvoices : freeConfig.maxQuotes;
+      const limit = max ?? Infinity;
+      const docCount = await prisma.invoice.count({ where: { userId: auth.user.sub, docType } });
+      if (docCount >= limit) {
+        const code = docType === 'INVOICE' ? 'PLAN_LIMIT_INVOICES' : 'PLAN_LIMIT_QUOTES';
+        const noun = docType === 'INVOICE' ? 'facture' : 'devis';
         return NextResponse.json(
           {
-            error: 'PLAN_LIMIT_CURRENCY',
-            message: 'Le plan Gratuit ne permet que la devise XOF. Passe en Pro pour EUR/USD.',
+            error: code,
+            message: `Le plan Gratuit est limité à ${limit} ${noun}. Passe en Pro pour en créer davantage.`,
           },
           { status: 403, headers: { 'x-request-id': ctx.requestId } },
         );

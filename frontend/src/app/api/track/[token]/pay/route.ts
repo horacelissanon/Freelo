@@ -214,7 +214,7 @@ export async function POST(
         userId: null,
         amount,
         currency: project.currency,
-        provider: 'bictorys',
+        provider: 'saspay',
         status: 'PENDING',
         expiresAt: new Date(Date.now() + ORDER_EXPIRY_MS),
         idempotencyKey: idemKey,

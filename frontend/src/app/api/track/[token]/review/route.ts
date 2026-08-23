@@ -12,6 +12,8 @@ import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/server/prisma';
+import { dispatchNotification } from '@/lib/server/notifications/dispatch';
+import { reviewReceived } from '@/lib/server/notifications/templates';
 import { enforceTokenRateLimit } from '@/lib/server/middleware/rate-limit-by-token';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -53,7 +55,7 @@ export async function POST(
         userId: true,
         clientId: true,
         status: true,
-        user: { select: { publicPortalEnabled: true } },
+        user: { select: { publicPortalEnabled: true, email: true } },
       },
     });
     if (!project || !project.user.publicPortalEnabled) {
@@ -82,12 +84,40 @@ export async function POST(
         rating: parsed.data.rating,
         comment: parsed.data.comment ?? null,
       },
-      select: { rating: true, comment: true },
+      select: { rating: true, comment: true, updatedAt: true },
     });
 
-    return NextResponse.json(review, {
-      status: 200,
-      headers: { 'x-request-id': reqCtx.requestId },
-    });
+    try {
+      const input = reviewReceived(
+        project.userId,
+        project.id,
+        review.rating,
+        review.updatedAt.toISOString(),
+      );
+      await dispatchNotification(prisma, {
+        input,
+        // Email only for a low rating — a good review is nice-to-know
+        // in-app, a bad one is worth surfacing proactively.
+        ...(review.rating <= 2
+          ? {
+              email: () => ({
+                to: project.user.email,
+                subject: input.title,
+                html: `<p>${input.body}</p>`,
+              }),
+            }
+          : {}),
+      });
+    } catch {
+      // Best-effort — the review is already committed.
+    }
+
+    return NextResponse.json(
+      { rating: review.rating, comment: review.comment },
+      {
+        status: 200,
+        headers: { 'x-request-id': reqCtx.requestId },
+      },
+    );
   });
 }
