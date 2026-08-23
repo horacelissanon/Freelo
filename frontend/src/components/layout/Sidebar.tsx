@@ -249,8 +249,17 @@ function SidebarBody({
                   {user.email}
                 </p>
                 <p className="flex items-center gap-1 font-body text-xs text-sidebar-foreground/50">
-                  Mon compte
-                  <Icon i="chevron-right" size={11} />
+                  <span className="truncate">Mon compte</span>
+                  <span
+                    className={`ml-auto flex-shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ${
+                      isProActive
+                        ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white'
+                        : 'bg-sidebar-foreground/10 text-sidebar-foreground/60'
+                    }`}
+                  >
+                    {isProActive ? 'Pro' : 'Gratuit'}
+                  </span>
+                  <Icon i="chevron-right" size={11} className="flex-shrink-0" />
                 </p>
               </div>
             )}

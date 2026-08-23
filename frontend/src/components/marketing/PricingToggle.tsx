@@ -24,6 +24,7 @@ const FALLBACK_FREE_FEATURES = [
   '2 projets actifs',
   '1 devis et 1 facture, en FCFA',
   'Lien de suivi avec commentaires client',
+  'Badge « Créé avec Freelo » sur ton lien de suivi',
 ];
 const FALLBACK_PRO_FEATURES = [
   'Clients & projets illimités',

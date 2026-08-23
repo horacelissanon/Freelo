@@ -46,6 +46,7 @@ const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
       '2 projets actifs',
       '1 devis et 1 facture, en FCFA',
       'Lien de suivi avec commentaires client',
+      'Badge « Créé avec Freelo » sur ton lien de suivi',
     ],
   },
   PRO: {
