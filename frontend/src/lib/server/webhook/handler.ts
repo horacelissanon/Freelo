@@ -66,6 +66,13 @@ export interface WebhookHandlerOptions<TPayload> {
   onPaid?: WebhookEventHandler<TPayload>;
   onRefunded?: WebhookEventHandler<TPayload>;
   onFailed?: WebhookEventHandler<TPayload>;
+  /**
+   * Fired just before the 401 response when signature verification fails.
+   * Best-effort observability hook (e.g. an AdminAlert on a burst of
+   * invalid signatures) — errors thrown here are swallowed so a broken hook
+   * can never turn a legitimate signature-check rejection into a 500.
+   */
+  onSignatureInvalid?: () => Promise<void>;
 }
 
 const logger = createLogger();
@@ -97,6 +104,15 @@ export function createWebhookHandler<TPayload>(
     const sig = opts.provider.verifySignature(rawBody, headers);
     if (!sig.valid) {
       logger.warn(`[webhook:${opts.provider.name}] invalid signature`, { reason: sig.reason });
+      if (opts.onSignatureInvalid) {
+        try {
+          await opts.onSignatureInvalid();
+        } catch (err) {
+          logger.error(`[webhook:${opts.provider.name}] onSignatureInvalid hook failed`, {
+            err: String(err),
+          });
+        }
+      }
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 

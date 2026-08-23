@@ -4,11 +4,13 @@
 // in batches of `batchSize`. Idempotent: re-running on the same set finds
 // zero PENDING + expired rows (they're already EXPIRED).
 //
-// v1 does NOT emit `notification.order_expired` outbox events (the kind is
-// not in outbox/types.ts yet — would need a Phase 6 dispatcher extension).
-// Users learn of expirations via the Phase 3 admin/orders endpoint.
+// Emits an in-app `orderExpired` notification per row once its own per-row
+// tx commits — best-effort (wrapped in try/catch), never blocks the batch:
+// the Order is already committed EXPIRED regardless of notification outcome.
 import 'server-only';
 import type { PrismaClient } from '@prisma/client';
+import { createNotification } from '../notifications';
+import { orderExpired } from '../notifications/templates';
 
 export interface ExpirePendingOrdersOptions {
   prisma: PrismaClient;
@@ -40,7 +42,16 @@ export async function expirePendingOrders(
       });
       return u.count > 0;
     });
-    if (updated) expired++;
+    if (updated) {
+      expired++;
+      if (o.userId) {
+        try {
+          await createNotification(opts.prisma, orderExpired(o.userId, o.id));
+        } catch {
+          // Best-effort — the order is already committed EXPIRED.
+        }
+      }
+    }
   }
   return { expired };
 }

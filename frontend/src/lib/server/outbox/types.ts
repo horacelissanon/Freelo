@@ -14,7 +14,11 @@ export type OutboxEvent =
   | EmailPaymentConfirmationEvent
   | EmailVerificationCodeEvent
   | EmailPasswordResetEvent
-  | NotificationSubscriptionRenewedEvent;
+  | NotificationSubscriptionRenewedEvent
+  | NotificationRefundReceivedEvent
+  | NotificationSubscriptionPaymentFailedEvent
+  | NotificationOrderPaymentFailedEvent
+  | AdminAlertLargeRefundEvent;
 
 export interface NotificationPaymentReceivedEvent {
   kind: 'notification.payment_received';
@@ -74,6 +78,63 @@ export interface NotificationSubscriptionRenewedEvent {
     subscriptionTransactionId: string;
     plan: string;
     currentPeriodEnd: string;
+  };
+}
+
+/**
+ * Emitted by the Bictorys webhook's onRefunded handler — a refund is a
+ * financially-significant event for the freelance, so it goes through the
+ * outbox (fired inside the webhook's Serializable tx) rather than a
+ * postCommit closure.
+ */
+export interface NotificationRefundReceivedEvent {
+  kind: 'notification.refund_received';
+  payload: {
+    userId: string;
+    orderId: string;
+    amount: number;
+    currency: string;
+  };
+}
+
+/**
+ * Emitted by the FedaPay webhook's onFailed handler — the freelance's Pro
+ * subscription payment attempt failed.
+ */
+export interface NotificationSubscriptionPaymentFailedEvent {
+  kind: 'notification.subscription_payment_failed';
+  payload: {
+    userId: string;
+    subscriptionTransactionId: string;
+    amount: number;
+    currency: string;
+  };
+}
+
+/**
+ * Emitted by the Bictorys webhook's onFailed handler — an end-client's
+ * payment attempt on this freelance's Order failed.
+ */
+export interface NotificationOrderPaymentFailedEvent {
+  kind: 'notification.order_payment_failed';
+  payload: {
+    userId: string;
+    orderId: string;
+  };
+}
+
+/**
+ * Emitted alongside NotificationRefundReceivedEvent by the Bictorys
+ * webhook's onRefunded handler when the refunded amount meets or exceeds
+ * ADMIN_ALERT_LARGE_REFUND_THRESHOLD — a platform-side signal, dispatched
+ * via createAdminAlert (admin-alerts/index.ts) rather than createNotification.
+ */
+export interface AdminAlertLargeRefundEvent {
+  kind: 'admin_alert.large_refund';
+  payload: {
+    orderId: string;
+    amount: number;
+    currency: string;
   };
 }
 

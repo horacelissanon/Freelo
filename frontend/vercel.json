@@ -8,6 +8,7 @@
     { "path": "/api/cron/email-job-purge", "schedule": "0 0 * * *" },
     { "path": "/api/cron/subscription-expiry", "schedule": "0 6 * * *" },
     { "path": "/api/cron/deadline-alerts", "schedule": "0 * * * *" },
-    { "path": "/api/cron/fx-rates-refresh", "schedule": "0 5 * * *" }
+    { "path": "/api/cron/fx-rates-refresh", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/admin-alerts-scan", "schedule": "*/15 * * * *" }
   ]
 }

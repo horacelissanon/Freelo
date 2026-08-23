@@ -134,6 +134,40 @@ describe('drainOutbox (TEST-02)', () => {
     expect(prismaMock.outboxEvent.update).not.toHaveBeenCalled();
   });
 
+  it('dispatches notification.refund_received via createNotification', async () => {
+    const row = makeRow({
+      kind: 'notification.refund_received',
+      payload: { userId: 'u_1', orderId: 'o_1', amount: 5000, currency: 'XOF' },
+    });
+    prismaMock.outboxEvent.findMany.mockResolvedValue([{ id: 'oe_1' }] as never);
+    prismaMock.outboxEvent.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.outboxEvent.findUnique.mockResolvedValue(row as never);
+    prismaMock.notification.create.mockResolvedValue({} as never);
+    prismaMock.outboxEvent.update.mockResolvedValue({} as never);
+
+    const stats = await drainOutbox({ prisma: prismaMock });
+
+    expect(stats.succeeded).toBe(1);
+    expect(prismaMock.notification.create).toHaveBeenCalledOnce();
+  });
+
+  it('dispatches admin_alert.large_refund via createAdminAlert', async () => {
+    const row = makeRow({
+      kind: 'admin_alert.large_refund',
+      payload: { orderId: 'o_1', amount: 100_000, currency: 'XOF' },
+    });
+    prismaMock.outboxEvent.findMany.mockResolvedValue([{ id: 'oe_1' }] as never);
+    prismaMock.outboxEvent.updateMany.mockResolvedValue({ count: 1 } as never);
+    prismaMock.outboxEvent.findUnique.mockResolvedValue(row as never);
+    prismaMock.adminAlert.create.mockResolvedValue({} as never);
+    prismaMock.outboxEvent.update.mockResolvedValue({} as never);
+
+    const stats = await drainOutbox({ prisma: prismaMock });
+
+    expect(stats.succeeded).toBe(1);
+    expect(prismaMock.adminAlert.create).toHaveBeenCalledOnce();
+  });
+
   it('returns zero counts when there are no PENDING candidates', async () => {
     prismaMock.outboxEvent.findMany.mockResolvedValue([] as never);
 

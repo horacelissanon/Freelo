@@ -21,7 +21,15 @@
  */
 import type { PrismaClient } from '@prisma/client';
 import { createNotification } from '../notifications/index';
-import { paymentReceived, subscriptionRenewed } from '../notifications/templates';
+import {
+  paymentReceived,
+  subscriptionRenewed,
+  refundReceived,
+  subscriptionPaymentFailed,
+  orderPaymentFailed,
+} from '../notifications/templates';
+import { createAdminAlert } from '../admin-alerts/index';
+import { largeRefund } from '../admin-alerts/templates';
 import type { EmailQueue } from '../queues/email-queue';
 import { createLogger } from '../logger';
 import type { OutboxEvent } from './types';
@@ -172,6 +180,29 @@ async function dispatchEvent(deps: OutboxDispatcherDeps, event: OutboxEvent): Pr
       const { to, code, expiresAt } = event.payload;
       const tpl = resetPasswordEmail({ code, email: to, expiresAt });
       await deps.emailQueue.enqueue({ to, subject: tpl.subject, html: tpl.html });
+      return;
+    }
+    case 'notification.refund_received': {
+      const { userId, orderId, amount, currency } = event.payload;
+      await createNotification(deps.prisma, refundReceived(userId, orderId, amount, currency));
+      return;
+    }
+    case 'notification.subscription_payment_failed': {
+      const { userId, subscriptionTransactionId, amount, currency } = event.payload;
+      await createNotification(
+        deps.prisma,
+        subscriptionPaymentFailed(userId, subscriptionTransactionId, amount, currency),
+      );
+      return;
+    }
+    case 'notification.order_payment_failed': {
+      const { userId, orderId } = event.payload;
+      await createNotification(deps.prisma, orderPaymentFailed(userId, orderId));
+      return;
+    }
+    case 'admin_alert.large_refund': {
+      const { orderId, amount, currency } = event.payload;
+      await createAdminAlert(deps.prisma, largeRefund(orderId, amount, currency));
       return;
     }
     default: {

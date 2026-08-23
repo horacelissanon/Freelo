@@ -29,6 +29,19 @@ function clientIp(headers: Headers): string | null {
 }
 
 /**
+ * Geo-IP from Vercel's edge network — populated automatically on requests
+ * routed through Vercel (docs.vercel.com/edge-network/headers), absent
+ * everywhere else (local dev, other hosts). No external API/dependency.
+ */
+function clientGeo(headers: Headers): { city: string | null; country: string | null } {
+  const rawCity = headers.get('x-vercel-ip-city');
+  return {
+    city: rawCity ? decodeURIComponent(rawCity) : null,
+    country: headers.get('x-vercel-ip-country'),
+  };
+}
+
+/**
  * Creates a new Session row + sets the device-identity cookie. Called right
  * after setAuthCookies() at login and at signup verification. Best-effort by
  * design and swallows its own errors — Sessions actives is a convenience
@@ -37,11 +50,14 @@ function clientIp(headers: Headers): string | null {
  */
 export async function startSession(userId: string, headers: Headers): Promise<void> {
   try {
+    const geo = clientGeo(headers);
     const session = await prisma.session.create({
       data: {
         userId,
         userAgent: headers.get('user-agent')?.slice(0, 300) ?? null,
         ip: clientIp(headers),
+        city: geo.city,
+        country: geo.country,
       },
     });
     const store = await cookies();
