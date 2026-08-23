@@ -28,6 +28,8 @@ const Body = z
     currency: z.string().length(3).optional(),
     maxClients: z.number().int().nonnegative().optional(),
     maxActiveProjects: z.number().int().nonnegative().optional(),
+    maxInvoices: z.number().int().nonnegative().optional(),
+    maxQuotes: z.number().int().nonnegative().optional(),
     features: z.array(z.string().min(1).max(200)).max(10).optional(),
   })
   .refine((b) => Object.values(b).some((v) => v !== undefined), {
@@ -73,8 +75,16 @@ export async function PATCH(
     // never-touched plan can still be edited on its very first PATCH.
     const existing = await getPlanConfig(prisma, planParam);
 
-    const { monthlyAmount, yearlyAmount, currency, maxClients, maxActiveProjects, features } =
-      parsed.data;
+    const {
+      monthlyAmount,
+      yearlyAmount,
+      currency,
+      maxClients,
+      maxActiveProjects,
+      maxInvoices,
+      maxQuotes,
+      features,
+    } = parsed.data;
     const updated = await prisma.planConfig.update({
       where: { plan: planParam },
       data: {
@@ -83,6 +93,8 @@ export async function PATCH(
         ...(currency !== undefined ? { currency } : {}),
         ...(maxClients !== undefined ? { maxClients } : {}),
         ...(maxActiveProjects !== undefined ? { maxActiveProjects } : {}),
+        ...(maxInvoices !== undefined ? { maxInvoices } : {}),
+        ...(maxQuotes !== undefined ? { maxQuotes } : {}),
         ...(features !== undefined ? { features } : {}),
       },
     });
@@ -111,6 +123,8 @@ export async function PATCH(
           currency: updated.currency,
           maxClients: updated.maxClients,
           maxActiveProjects: updated.maxActiveProjects,
+          maxInvoices: updated.maxInvoices,
+          maxQuotes: updated.maxQuotes,
           features: updated.features,
           updatedAt: updated.updatedAt,
         },

@@ -19,11 +19,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
 
-    const [clientCount, activeProjectCount] = await Promise.all([
+    const [clientCount, activeProjectCount, invoiceCount, quoteCount] = await Promise.all([
       prisma.client.count({ where: { userId: auth.user.sub } }),
       prisma.project.count({
         where: { userId: auth.user.sub, status: { notIn: ['DELIVERED', 'DRAFT'] } },
       }),
+      prisma.invoice.count({ where: { userId: auth.user.sub, docType: 'INVOICE' } }),
+      prisma.invoice.count({ where: { userId: auth.user.sub, docType: 'QUOTE' } }),
     ]);
 
     const transactions = await prisma.subscriptionTransaction.findMany({
@@ -36,6 +38,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         currency: true,
         billingCycle: true,
         status: true,
+        couponCode: true,
         createdAt: true,
       },
     });
@@ -55,9 +58,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         usage: {
           clients: clientCount,
           activeProjects: activeProjectCount,
+          invoices: invoiceCount,
+          quotes: quoteCount,
           limits: {
             maxClients: freeConfig.maxClients,
             maxActiveProjects: freeConfig.maxActiveProjects,
+            maxInvoices: freeConfig.maxInvoices,
+            maxQuotes: freeConfig.maxQuotes,
           },
         },
         transactions,

@@ -71,9 +71,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (!user || user.role !== 'USER') {
+    // Mirrors the real shell's shape (sidebar rail + top bar + content
+    // cards) instead of a spinner or plain "Chargement…" text — same intent
+    // as admin/layout.tsx's equivalent gate. Sidebar personalization (color/
+    // shape) isn't known yet at this point, so this deliberately uses the
+    // plain 'classic' rail + default bg-sidebar token rather than guessing.
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="font-body text-sm text-muted-foreground">Chargement…</p>
+      <div className="min-h-screen bg-background lg:flex" aria-busy="true" aria-live="polite">
+        <div className="hidden lg:block lg:w-56 lg:flex-shrink-0">
+          <div className="fixed h-screen w-56 border-r border-border bg-sidebar px-3 py-6">
+            <div className="mb-6 flex items-center gap-2 px-2">
+              <div className="h-9 w-9 flex-shrink-0 animate-pulse rounded-lg bg-sidebar-foreground/10" />
+              <div className="h-4 w-20 animate-pulse rounded bg-sidebar-foreground/10" />
+            </div>
+            <div className="flex flex-col gap-2">
+              {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="h-9 animate-pulse rounded-lg bg-sidebar-foreground/5" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex h-14 items-center justify-between border-b border-border bg-sidebar px-4 lg:hidden">
+          <div className="h-7 w-24 animate-pulse rounded bg-sidebar-foreground/10" />
+          <div className="h-7 w-7 animate-pulse rounded-full bg-sidebar-foreground/10" />
+        </div>
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 h-8 w-48 animate-pulse rounded bg-muted" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-24 animate-pulse rounded-xl border border-border bg-muted"
+              />
+            ))}
+          </div>
+        </main>
       </div>
     );
   }

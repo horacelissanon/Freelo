@@ -19,9 +19,8 @@ import { api, ApiError } from '@/lib/api';
 import { useUser } from '@/contexts/AuthContext';
 
 const METHODS = [
-  { id: 'WAVE', label: 'Wave' },
-  { id: 'ORANGE_MONEY', label: 'Orange Money' },
-  { id: 'FREE_MONEY', label: 'Free Money' },
+  { id: 'MTN_MOMO', label: 'MTN Mobile Money' },
+  { id: 'MOOV_MONEY', label: 'Moov Money' },
 ] as const;
 
 type Method = (typeof METHODS)[number]['id'];
@@ -160,7 +159,7 @@ export default function WithdrawalsPage() {
           <input
             type="tel"
             required
-            placeholder="+221770000000"
+            placeholder="+22997000000"
             inputMode="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}

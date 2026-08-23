@@ -221,13 +221,17 @@ function ProjectDetailView({ data, onCopyLink }: { data: ProjectDetail; onCopyLi
   const { toast } = useToast();
   const user = useUser();
   const { moneyMasked } = useMoneyMask();
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
   const [creatingInvoiceOpen, setCreatingInvoiceOpen] = useState(false);
   const statusColors = PROJECT_STATUS_COLORS[project.status];
   const deadlineUrgency = projectDeadlineUrgency(project.dueDate, project.status);
   const effectiveSector = resolveFreelanceSector(project.sector, project.type).code;
   const trackingUrl =
     typeof window !== 'undefined' ? `${window.location.origin}/suivi/${project.publicToken}` : '';
-  const studioLabel = user ? resolveDocumentIdentity(user).name : '';
+  const studioLabel = user ? resolveDocumentIdentity(user, isProActive).name : '';
   const whatsappMessage = `Bonjour ${project.client.name}, voici le lien de suivi de votre projet « ${project.name} » avec ${studioLabel} : vous pourrez y consulter l'avancement, les étapes et les paiements en temps réel.\n\n${trackingUrl}`;
 
   const [pendingStepId, setPendingStepId] = useState<string | null>(null);

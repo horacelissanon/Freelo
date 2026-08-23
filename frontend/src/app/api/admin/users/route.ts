@@ -24,6 +24,7 @@ import { prisma } from '@/lib/server/prisma';
 import { clampLimit, cursorWhere, buildPage, decodeCursor } from '@/lib/server/pagination/paginate';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
+import { isProActive } from '@/lib/server/billing/subscription';
 
 const USER_SELECT = {
   id: true,
@@ -34,7 +35,7 @@ const USER_SELECT = {
   status: true,
   emailVerifiedAt: true,
   createdAt: true,
-  subscription: { select: { plan: true } },
+  subscription: { select: { plan: true, status: true, currentPeriodEnd: true } },
   sessions: {
     orderBy: { lastSeenAt: 'desc' },
     take: 1,
@@ -81,7 +82,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       select: USER_SELECT,
     });
 
-    const page = buildPage(rows, limit);
+    // Same isProActive() definition GET /api/admin/overview uses for
+    // planDistribution — a PRO row stuck at PAST_DUE/CANCELED must read as
+    // Gratuit here too, not "Pro" in the list and "Gratuit" in the aggregate.
+    const items = rows.map((u) => ({
+      ...u,
+      subscription: u.subscription
+        ? { plan: u.subscription.plan, isProActive: isProActive(u.subscription) }
+        : null,
+    }));
+    const page = buildPage(items, limit);
     return NextResponse.json(page, {
       headers: { 'x-request-id': ctx.requestId },
     });

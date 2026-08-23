@@ -108,12 +108,14 @@ model User {
   sessions              Session[]
   defaultPaymentMethods DefaultPaymentMethod[]
   supportTickets        SupportTicket[]
+  couponRedemptions     CouponRedemption[]
 
   // Multi-tenancy is opt-in per project: by default no resource is org-scoped.
   // Apps that need it (marketplace, B2B SaaS, classifieds) wire owner relations
   // on their domain models.
   ownedOrganizations Organization[]       @relation("OrgOwner")
   memberships        OrganizationMember[] @relation("OrgMembership")
+  adminAlertsHandled AdminAlert[]
 
   @@index([email])
   @@index([role])
@@ -148,6 +150,36 @@ model AdminAction {
   @@index([actorId, createdAt])
   @@index([action, createdAt])
   @@index([targetType, targetId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Admin alerts — proactive operational/security signals for ADMIN/SUPERADMIN,
+// distinct from AdminAction (which logs actions admins TAKE, not events that
+// happen TO the platform) and from Notification (which is strictly
+// user-scoped — one row always belongs to exactly one User). AdminAlert has
+// no "owner": it's a platform-wide signal visible to every admin, picked up
+// and acknowledged/resolved by whichever admin handles it.
+//
+// `dedupeKey` is the same at-most-once gate as Notification.dedupeKey —
+// always deterministic per logical event/time-bucket, never a timestamp or
+// random suffix (see lib/server/admin-alerts/index.ts::createAdminAlert).
+// ───────────────────────────────────────────────────────────────────────
+model AdminAlert {
+  id                  String    @id @default(cuid())
+  type                String // dotted category, e.g. "payments.circuit_open"
+  severity            String // INFO | WARNING | CRITICAL
+  title               String
+  body                String
+  data                Json?
+  dedupeKey           String    @unique
+  acknowledgedAt      DateTime?
+  acknowledgedBy      String?
+  acknowledgedByActor User?     @relation(fields: [acknowledgedBy], references: [id], onDelete: SetNull)
+  resolvedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@index([severity, acknowledgedAt, createdAt])
+  @@index([type, createdAt])
 }
 
 // A freelancer's support request to the Merrudit team. Submitted from
@@ -245,6 +277,12 @@ model Session {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userAgent  String?
   ip         String?
+  // Best-effort geo-IP captured at session-creation time from Vercel's
+  // x-vercel-ip-city/x-vercel-ip-country request headers (Sécurité →
+  // Sessions actives). Both stay null outside Vercel (e.g. local dev) —
+  // same graceful-degradation behavior as `ip` already has locally.
+  city       String?
+  country    String? // ISO 3166-1 alpha-2, e.g. "SN" — display name resolved client-side
   createdAt  DateTime  @default(now())
   lastSeenAt DateTime  @default(now())
   revokedAt  DateTime?
@@ -817,11 +855,53 @@ model SubscriptionTransaction {
   idempotencyKey        String?      @unique
   periodStart           DateTime?
   periodEnd             DateTime?
+  // Snapshot of the applied coupon code (if any) — denormalized for billing
+  // history display; the authoritative redemption record is CouponRedemption.
+  couponCode            String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
   @@index([subscriptionId, createdAt])
   @@index([status])
+}
+
+// Percentage- or fixed-amount-off discount codes, redeemable once per user
+// (enforced by CouponRedemption's unique [couponId, userId]) and up to
+// maxRedemptions times in total (null = unlimited), applied at checkout on
+// POST /api/billing/subscribe (see lib/server/billing/coupons.ts).
+// Immutable after creation (code/discountType/percentOff/amountOff/
+// maxRedemptions never change) — a Super Admin who needs different terms
+// deactivates this one and creates a new code, so past redemptions always
+// reflect the terms that were actually honored.
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique // stored uppercase
+  discountType    String    @default("PERCENT") // PERCENT | AMOUNT
+  percentOff      Int? // 1-99, set when discountType = PERCENT
+  amountOff       Int? // smallest currency unit (matches PlanConfig.currency), set when discountType = AMOUNT
+  billingCycle    String? // MONTHLY | YEARLY | null = valid on both
+  maxRedemptions  Int? // null = unlimited total uses across all users
+  active          Boolean   @default(true)
+  expiresAt       DateTime?
+  redemptionCount Int       @default(0) // incremented on each successful redemption; enforced against maxRedemptions
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  redemptions CouponRedemption[]
+}
+
+// One row per (coupon, user) — enforces "one use per user per coupon" and
+// is the source of truth for redemption checks (Coupon.redemptionCount is
+// just a denormalized counter for admin display).
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([couponId, userId])
 }
 
 model PlanConfig {
@@ -832,6 +912,8 @@ model PlanConfig {
   currency          String   @default("XOF")
   maxClients        Int? // FREE-tier limit; null = unlimited (PRO)
   maxActiveProjects Int? // FREE-tier limit; null = unlimited (PRO)
+  maxInvoices       Int? // FREE-tier limit on docType=INVOICE rows; null = unlimited (PRO)
+  maxQuotes         Int? // FREE-tier limit on docType=QUOTE rows; null = unlimited (PRO)
   features          String[] // marketing bullet list shown on pricing cards
   updatedAt         DateTime @updatedAt
 }

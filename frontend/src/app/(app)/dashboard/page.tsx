@@ -208,7 +208,7 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mb-6 flex flex-col gap-4 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[var(--color-primary)] p-6 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative mb-6 flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[var(--color-primary)] p-6 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
         <div>
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide uppercase">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />

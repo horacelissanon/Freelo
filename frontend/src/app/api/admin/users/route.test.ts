@@ -272,9 +272,14 @@ describe('/api/admin/users/[id]/role [Wave 2] — role change', () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       id: demotable.id,
       role: 'SUPERADMIN',
+      email: demotable.email,
     } as never);
     prismaMock.user.count.mockResolvedValueOnce(2);
-    prismaMock.user.update.mockResolvedValueOnce({ id: demotable.id, role: 'ADMIN' } as never);
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: demotable.id,
+      role: 'ADMIN',
+      updatedAt: new Date(),
+    } as never);
 
     const res = await PATCH_ROLE(
       makePatch(`http://test/api/admin/users/${demotable.id}/role`, { role: 'ADMIN' }),
@@ -287,7 +292,7 @@ describe('/api/admin/users/[id]/role [Wave 2] — role change', () => {
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: demotable.id },
       data: { role: 'ADMIN' },
-      select: { id: true, role: true },
+      select: { id: true, role: true, updatedAt: true },
     });
     expect(mockLogAdminAction).toHaveBeenCalledTimes(1);
     expect(mockLogAdminAction).toHaveBeenCalledWith(
@@ -399,7 +404,11 @@ describe('/api/admin/users/[id]/status [Wave 2] — suspend / restore', () => {
       name: null,
       role: 'USER',
     } as never);
-    prismaMock.user.update.mockResolvedValueOnce({ id: target.id, status: 'SUSPENDED' } as never);
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: target.id,
+      status: 'SUSPENDED',
+      updatedAt: new Date(),
+    } as never);
 
     const res = await PATCH_STATUS(
       makePatch(`http://test/api/admin/users/${target.id}/status`, {
@@ -457,7 +466,11 @@ describe('/api/admin/users/[id]/status [Wave 2] — suspend / restore', () => {
       name: null,
       role: 'USER',
     } as never);
-    prismaMock.user.update.mockResolvedValueOnce({ id: susp.id, status: 'ACTIVE' } as never);
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: susp.id,
+      status: 'ACTIVE',
+      updatedAt: new Date(),
+    } as never);
 
     const res = await PATCH_STATUS(
       makePatch(`http://test/api/admin/users/${susp.id}/status`, {
@@ -510,7 +523,11 @@ describe('/api/admin/users/[id]/status [Wave 2] — suspend / restore', () => {
       name: null,
       role: 'USER',
     } as never);
-    prismaMock.user.update.mockResolvedValueOnce({ id: target.id, status: 'SUSPENDED' } as never);
+    prismaMock.user.update.mockResolvedValueOnce({
+      id: target.id,
+      status: 'SUSPENDED',
+      updatedAt: new Date(),
+    } as never);
 
     await PATCH_STATUS(
       makePatch(`http://test/api/admin/users/${target.id}/status`, { status: 'SUSPENDED' }),
@@ -564,6 +581,7 @@ describe('/api/admin/users/[id]/status [Wave 2] — suspend / restore', () => {
     prismaMock.user.update.mockResolvedValueOnce({
       id: 'super_target_2',
       status: 'SUSPENDED',
+      updatedAt: new Date(),
     } as never);
 
     const res = await PATCH_STATUS(

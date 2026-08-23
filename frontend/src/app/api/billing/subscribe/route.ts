@@ -20,15 +20,38 @@ import {
   getFedapayCredentials,
   FedapayProviderUnconfiguredError,
 } from '@/lib/server/payments/fedapay-singleton';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { circuitOpen } from '@/lib/server/admin-alerts/templates';
 import { getOrCreateSubscription, computeNextPeriodEnd } from '@/lib/server/billing/subscription';
 import { getPlanConfig } from '@/lib/server/billing/plans';
+import { validateCoupon, applyDiscount, type CouponErrorCode } from '@/lib/server/billing/coupons';
+import { log } from '@/lib/server/observability/log';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
 const IDEM_KEY_MAX_LEN = 200;
 
 const Body = z.object({
   billingCycle: z.enum(['MONTHLY', 'YEARLY']),
+  couponCode: z.string().trim().min(1).max(30).optional(),
 });
+
+const COUPON_ERROR_STATUS: Record<CouponErrorCode, number> = {
+  COUPON_NOT_FOUND: 404,
+  COUPON_INACTIVE: 400,
+  COUPON_EXPIRED: 400,
+  COUPON_LIMIT_REACHED: 409,
+  COUPON_WRONG_CYCLE: 409,
+  COUPON_ALREADY_USED: 409,
+};
+
+const COUPON_ERROR_MESSAGE: Record<CouponErrorCode, string> = {
+  COUPON_NOT_FOUND: 'Ce code promo est introuvable.',
+  COUPON_INACTIVE: "Ce code promo n'est plus actif.",
+  COUPON_EXPIRED: 'Ce code promo a expiré.',
+  COUPON_LIMIT_REACHED: "Ce code promo a atteint son nombre maximal d'utilisations.",
+  COUPON_WRONG_CYCLE: "Ce code promo ne s'applique pas à ce cycle de facturation.",
+  COUPON_ALREADY_USED: 'Tu as déjà utilisé ce code promo.',
+};
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ctx = makeRequestContext(req.headers);
@@ -63,7 +86,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400, headers: { 'x-request-id': ctx.requestId } },
       );
     }
-    const { billingCycle } = parsed.data;
+    const { billingCycle, couponCode } = parsed.data;
 
     const existing = await prisma.subscriptionTransaction.findUnique({
       where: { idempotencyKey: idemKey },
@@ -129,14 +152,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const subscription = await getOrCreateSubscription(prisma, auth.user.sub);
     const proConfig = await getPlanConfig(prisma, 'PRO');
-    const amount = billingCycle === 'MONTHLY' ? proConfig.monthlyAmount : proConfig.yearlyAmount;
-    if (amount === null) {
+    const baseAmount =
+      billingCycle === 'MONTHLY' ? proConfig.monthlyAmount : proConfig.yearlyAmount;
+    if (baseAmount === null) {
       return NextResponse.json(
         { error: 'PAYMENT_PROVIDER_UNCONFIGURED', message: 'Pro pricing is not configured' },
         { status: 503, headers: { 'x-request-id': ctx.requestId } },
       );
     }
     const currency = proConfig.currency;
+
+    // Server-side re-check — the client's GET /api/coupons/validate call is
+    // only a preview; this is the authoritative validation before charging.
+    let appliedCoupon: { id: string; code: string } | null = null;
+    let amount = baseAmount;
+    if (couponCode) {
+      const couponResult = await validateCoupon(prisma, couponCode, auth.user.sub, billingCycle);
+      if (!couponResult.ok) {
+        return NextResponse.json(
+          { error: couponResult.code, message: COUPON_ERROR_MESSAGE[couponResult.code] },
+          {
+            status: COUPON_ERROR_STATUS[couponResult.code],
+            headers: { 'x-request-id': ctx.requestId },
+          },
+        );
+      }
+      appliedCoupon = { id: couponResult.coupon.id, code: couponResult.coupon.code };
+      amount = applyDiscount(baseAmount, couponResult.coupon);
+    }
     const periodEnd = computeNextPeriodEnd(billingCycle, subscription.currentPeriodEnd);
     const periodStart = subscription.currentPeriodEnd ?? new Date();
 
@@ -151,6 +194,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         idempotencyKey: idemKey,
         periodStart,
         periodEnd,
+        couponCode: appliedCoupon?.code ?? null,
       },
     });
 
@@ -185,6 +229,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         data: { providerTransactionId: result.transactionId, paymentUrl: result.paymentUrl },
       });
 
+      // Reserve the redemption only now that checkout genuinely exists —
+      // reserving it earlier would burn the user's one-time coupon on a
+      // FedaPay/network failure they didn't cause. The (couponId, userId)
+      // unique constraint is the real guard against a double-submit race;
+      // a failure here is non-fatal (the checkout link is already valid
+      // and must still be honored) so it's swallowed, not thrown.
+      if (appliedCoupon) {
+        try {
+          await prisma.$transaction([
+            prisma.couponRedemption.create({
+              data: { couponId: appliedCoupon.id, userId: auth.user.sub },
+            }),
+            prisma.coupon.update({
+              where: { id: appliedCoupon.id },
+              data: { redemptionCount: { increment: 1 } },
+            }),
+          ]);
+        } catch (redemptionErr) {
+          log.warn('coupon redemption bookkeeping failed — checkout proceeds anyway', {
+            userId: auth.user.sub,
+            couponId: appliedCoupon.id,
+            error: redemptionErr instanceof Error ? redemptionErr.message : String(redemptionErr),
+          });
+        }
+      }
+
       return NextResponse.json(
         { id: transaction.id, paymentUrl: result.paymentUrl, status: 'PENDING' },
         { status: 201, headers: { 'x-request-id': ctx.requestId } },
@@ -195,6 +265,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           where: { id: transaction.id },
           data: { status: 'FAILED' },
         });
+        try {
+          const bucket15min = Math.floor(Date.now() / (15 * 60_000)).toString();
+          await createAdminAlert(
+            prisma,
+            circuitOpen(fedapayBreaker.name, bucket15min, err.retryAt.toISOString()),
+          );
+        } catch {
+          // Never let alerting affect the payment-provider-unavailable response.
+        }
         const retryAfterSec = Math.max(1, Math.ceil((err.retryAt.getTime() - Date.now()) / 1000));
         return NextResponse.json(
           {

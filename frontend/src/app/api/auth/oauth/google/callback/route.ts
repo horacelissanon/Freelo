@@ -34,8 +34,14 @@ import {
 import { prisma } from '@/lib/server/prisma';
 import { createNotification } from '@/lib/server/notifications';
 import { welcomeNotification } from '@/lib/server/notifications/templates';
+import { redis } from '@/lib/server/redis';
+import { incrWithWindow } from '@/lib/server/admin-alerts/counters';
+import { createAdminAlert } from '@/lib/server/admin-alerts';
+import { oauthRejectionSpike } from '@/lib/server/admin-alerts/templates';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { log } from '@/lib/server/observability/log';
+
+const OAUTH_REJECTION_SPIKE_THRESHOLD = 10;
 
 const COOKIE_PREFIX = process.env.COOKIE_PREFIX || 'app';
 const OAUTH_STATE_COOKIE = `${COOKIE_PREFIX}-oauth-state`;
@@ -110,6 +116,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (claims.email_verified !== true) {
       await clearEphemeralCookies();
       log.warn('oauth.callback: email_verified=false rejected', { sub: claims.sub });
+      if (redis) {
+        try {
+          const count = await incrWithWindow(redis, 'oauth:google:rejected', 15 * 60);
+          if (count >= OAUTH_REJECTION_SPIKE_THRESHOLD) {
+            const bucket30min = Math.floor(Date.now() / (30 * 60_000)).toString();
+            await createAdminAlert(prisma, oauthRejectionSpike(count, bucket30min));
+          }
+        } catch {
+          // Best-effort — never affect the auth-error redirect.
+        }
+      }
       return redirectToAuthError('GOOGLE_EMAIL_NOT_VERIFIED', redirectOpts);
     }
 

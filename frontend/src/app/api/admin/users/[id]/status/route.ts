@@ -22,6 +22,8 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
+import { dispatchNotification } from '@/lib/server/notifications/dispatch';
+import { accountSuspended, accountRestored } from '@/lib/server/notifications/templates';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -34,7 +36,13 @@ type Discriminator =
   | { kind: 'NOT_FOUND' }
   | { kind: 'RESTORE_REQUIRES_SUPERADMIN' }
   | { kind: 'SUSPEND_REQUIRES_SUPERADMIN' }
-  | { kind: 'OK'; user: { id: string; status: string } };
+  | {
+      kind: 'OK';
+      user: { id: string; status: string };
+      transition: 'NONE' | 'SUSPENDED' | 'RESTORED';
+      email: string;
+      updatedAtIso: string;
+    };
 
 export async function PATCH(
   req: NextRequest,
@@ -73,6 +81,9 @@ export async function PATCH(
         return {
           kind: 'OK' as const,
           user: { id: target.id, status: target.status },
+          transition: 'NONE' as const,
+          email: target.email,
+          updatedAtIso: '',
         };
       }
 
@@ -97,7 +108,7 @@ export async function PATCH(
       const updated = await tx.user.update({
         where: { id },
         data: { status: parsed.data.status },
-        select: { id: true, status: true },
+        select: { id: true, status: true, updatedAt: true },
       });
 
       await logAdminAction(tx, {
@@ -112,7 +123,13 @@ export async function PATCH(
         },
       });
 
-      return { kind: 'OK' as const, user: updated };
+      return {
+        kind: 'OK' as const,
+        user: { id: updated.id, status: updated.status },
+        transition: isRestore ? ('RESTORED' as const) : ('SUSPENDED' as const),
+        email: target.email,
+        updatedAtIso: updated.updatedAt.toISOString(),
+      };
     });
 
     if (result.kind === 'NOT_FOUND') {
@@ -139,6 +156,30 @@ export async function PATCH(
         { status: 403 },
       );
     }
+
+    // Post-commit notification — account-status changes are exempt from
+    // NotificationPreferences (forced email + in-app, see
+    // notifications/index.ts + dispatch.ts) since a user must always learn
+    // their account was suspended/restored.
+    if (result.transition !== 'NONE') {
+      try {
+        const input =
+          result.transition === 'SUSPENDED'
+            ? accountSuspended(result.user.id, result.updatedAtIso)
+            : accountRestored(result.user.id, result.updatedAtIso);
+        await dispatchNotification(prisma, {
+          input,
+          email: () => ({
+            to: result.email,
+            subject: input.title,
+            html: `<p>${input.body}</p>`,
+          }),
+        });
+      } catch {
+        // Best-effort — the status change is already committed.
+      }
+    }
+
     return NextResponse.json({ user: result.user }, { status: 200 });
   });
 }

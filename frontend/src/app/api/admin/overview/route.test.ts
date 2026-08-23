@@ -74,7 +74,7 @@ function wireHappyPathPrisma(): void {
       role: 'USER',
       status: 'ACTIVE',
       createdAt: new Date(),
-      subscription: { plan: 'PRO' },
+      subscription: { plan: 'PRO', status: 'ACTIVE', currentPeriodEnd: null },
     },
   ] as never);
   prismaMock.subscription.count.mockResolvedValueOnce(1).mockResolvedValueOnce(10); // churnedThisMonth, everProBeforeThisMonth

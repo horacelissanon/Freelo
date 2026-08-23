@@ -22,6 +22,8 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireSuperadmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
+import { dispatchNotification } from '@/lib/server/notifications/dispatch';
+import { roleChanged } from '@/lib/server/notifications/templates';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -32,7 +34,13 @@ const Body = z.object({
 type Discriminator =
   | { kind: 'NOT_FOUND' }
   | { kind: 'LAST_SUPERADMIN' }
-  | { kind: 'OK'; user: { id: string; role: string } };
+  | {
+      kind: 'OK';
+      user: { id: string; role: string };
+      changed: boolean;
+      email: string;
+      updatedAtIso: string;
+    };
 
 export async function PATCH(
   req: NextRequest,
@@ -61,9 +69,22 @@ export async function PATCH(
     const result: Discriminator = await prisma.$transaction(async (tx) => {
       const target = await tx.user.findUnique({
         where: { id },
-        select: { id: true, role: true },
+        select: { id: true, role: true, email: true },
       });
       if (!target) return { kind: 'NOT_FOUND' as const };
+
+      // No-op guard — mirrors the idempotent-PATCH convention in
+      // users/[id]/status/route.ts (T-03-06-08): avoids audit-log noise and
+      // a spurious role-change notification when the role doesn't change.
+      if (target.role === parsed.data.role) {
+        return {
+          kind: 'OK' as const,
+          user: { id: target.id, role: target.role },
+          changed: false,
+          email: target.email,
+          updatedAtIso: '',
+        };
+      }
 
       // CF-09 / Pitfall 1: COUNT + UPDATE in same tx prevents the race where
       // two concurrent demotions both see count=2 and both succeed.
@@ -77,7 +98,7 @@ export async function PATCH(
       const updated = await tx.user.update({
         where: { id },
         data: { role: parsed.data.role },
-        select: { id: true, role: true },
+        select: { id: true, role: true, updatedAt: true },
       });
 
       await logAdminAction(tx, {
@@ -88,7 +109,13 @@ export async function PATCH(
         metadata: { from: target.role, to: parsed.data.role },
       });
 
-      return { kind: 'OK' as const, user: updated };
+      return {
+        kind: 'OK' as const,
+        user: { id: updated.id, role: updated.role },
+        changed: true,
+        email: target.email,
+        updatedAtIso: updated.updatedAt.toISOString(),
+      };
     });
 
     if (result.kind === 'NOT_FOUND') {
@@ -103,6 +130,26 @@ export async function PATCH(
         { status: 409 },
       );
     }
+
+    // Post-commit notification — role changes are exempt from
+    // NotificationPreferences (forced email + in-app, see
+    // notifications/index.ts + dispatch.ts).
+    if (result.changed) {
+      try {
+        const input = roleChanged(result.user.id, result.user.role, result.updatedAtIso);
+        await dispatchNotification(prisma, {
+          input,
+          email: () => ({
+            to: result.email,
+            subject: input.title,
+            html: `<p>${input.body}</p>`,
+          }),
+        });
+      } catch {
+        // Best-effort — the role change is already committed.
+      }
+    }
+
     return NextResponse.json({ user: result.user }, { status: 200 });
   });
 }

@@ -22,7 +22,8 @@
 //     same SubscriptionTransaction model, status=FAILED.
 //   - systemHealth mirrors the same pending/dead counts the Outbox and
 //     Email-queue admin list endpoints expose in full, plus an active-lockout
-//     count from the same Redis prefix /api/admin/rate-limits scans.
+//     count from the same Redis prefix /api/admin/rate-limits scans, plus
+//     open/critical AdminAlert counts (see /api/admin/alerts for the full feed).
 //
 // Queries run SEQUENTIALLY, not Promise.all — this dev DB's connection pool
 // caps at connection_limit=1 (Neon), and firing a dozen-plus queries at once
@@ -42,6 +43,7 @@ import { redis } from '@/lib/server/redis';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { getPlanConfig } from '@/lib/server/billing/plans';
+import { isProActive } from '@/lib/server/billing/subscription';
 
 const LOCKOUT_HARD_CAP = 1000;
 
@@ -107,6 +109,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const lockoutCount = await countLockouts();
 
+    const openAlertsCount = await prisma.adminAlert.count({ where: { acknowledgedAt: null } });
+    const criticalAlertsCount = await prisma.adminAlert.count({
+      where: { acknowledgedAt: null, severity: 'CRITICAL' },
+    });
+
     const revenueRows = await prisma.subscriptionTransaction.findMany({
       where: { status: 'PAID', createdAt: { gte: sixMonthsAgo } },
       select: { amount: true, createdAt: true },
@@ -122,7 +129,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         role: true,
         createdAt: true,
         status: true,
-        subscription: { select: { plan: true } },
+        subscription: { select: { plan: true, status: true, currentPeriodEnd: true } },
       },
     });
 
@@ -209,7 +216,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         churnRate,
         dau: dauRows.length,
         revenueTrend: months.map(({ label, amount }) => ({ label, amount })),
-        systemHealth: { outboxPending, outboxDead, emailPending, emailDead, lockoutCount },
+        systemHealth: {
+          outboxPending,
+          outboxDead,
+          emailPending,
+          emailDead,
+          lockoutCount,
+          openAlertsCount,
+          criticalAlertsCount,
+        },
         support: { openTickets: openTicketsCount, urgentOpenTickets: urgentOpenTicketsCount },
         recentUsers: recentUsers.map((u) => ({
           id: u.id,
@@ -217,7 +232,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           name: u.name,
           role: u.role,
           accountStatus: u.status,
-          plan: u.subscription?.plan ?? 'FREE',
+          // Same isProActive() definition as planDistribution above — a
+          // PRO row stuck at PAST_DUE/CANCELED must read as Gratuit here
+          // too, not "Pro" in one card and "Gratuit" in the other.
+          plan: u.subscription && isProActive(u.subscription) ? 'PRO' : 'FREE',
           createdAt: u.createdAt.toISOString(),
         })),
         recentFailedPayments: recentFailedPayments.map((p) => ({

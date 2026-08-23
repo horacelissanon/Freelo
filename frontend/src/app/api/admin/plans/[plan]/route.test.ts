@@ -99,6 +99,33 @@ describe('PATCH /api/admin/plans/[plan]', () => {
     });
   });
 
+  it('updates the FREE devis/facture caps', async () => {
+    mockGetPlanConfig.mockResolvedValue({
+      plan: 'FREE',
+      monthlyAmount: null,
+      yearlyAmount: null,
+      currency: 'XOF',
+      maxClients: 1,
+      maxActiveProjects: 2,
+      maxInvoices: 1,
+      maxQuotes: 1,
+      features: [],
+    } as never);
+    prismaMock.planConfig.update.mockResolvedValue({
+      plan: 'FREE',
+      maxInvoices: 2,
+      maxQuotes: 3,
+      updatedAt: new Date('2026-08-19T00:00:00.000Z'),
+    } as never);
+
+    const res = await PATCH(makePatch({ maxInvoices: 2, maxQuotes: 3 }), makeCtx('FREE'));
+    expect(res.status).toBe(200);
+    expect(prismaMock.planConfig.update).toHaveBeenCalledWith({
+      where: { plan: 'FREE' },
+      data: { maxInvoices: 2, maxQuotes: 3 },
+    });
+  });
+
   it('400s for an invalid plan param', async () => {
     const res = await PATCH(makePatch({ monthlyAmount: 4000 }), makeCtx('ENTERPRISE'));
     expect(res.status).toBe(400);

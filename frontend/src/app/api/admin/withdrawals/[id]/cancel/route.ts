@@ -27,6 +27,8 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireSuperadmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
+import { createNotification } from '@/lib/server/notifications';
+import { withdrawalCancelled } from '@/lib/server/notifications/templates';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 import { lockUserTx } from '@/lib/server/withdrawals/lock';
@@ -40,7 +42,10 @@ const CANCELLABLE: ReadonlySet<string> = new Set(['PENDING', 'PROCESSING']);
 type Discriminator =
   | { kind: 'NOT_FOUND' }
   | { kind: 'NOT_CANCELLABLE' }
-  | { kind: 'OK'; withdrawal: { id: string; status: string; userId: string } };
+  | {
+      kind: 'OK';
+      withdrawal: { id: string; status: string; userId: string; amount: number; currency: string };
+    };
 
 export async function POST(
   req: NextRequest,
@@ -148,6 +153,25 @@ export async function POST(
         { status: 409 },
       );
     }
+    // Post-commit notification (same pattern as POST /api/withdrawals —
+    // createNotification takes a standalone PrismaClient, not the tx client
+    // that just committed). Best-effort: the cancellation is already
+    // committed regardless of notification outcome.
+    try {
+      await createNotification(
+        prisma,
+        withdrawalCancelled(
+          result.withdrawal.userId,
+          result.withdrawal.id,
+          result.withdrawal.amount,
+          result.withdrawal.currency,
+          parsed.data.reason,
+        ),
+      );
+    } catch {
+      // Swallow — see comment above.
+    }
+
     return NextResponse.json({ withdrawal: result.withdrawal }, { status: 200 });
   });
 }

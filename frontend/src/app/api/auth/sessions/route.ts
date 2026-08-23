@@ -24,7 +24,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         where: { userId: auth.user.sub, revokedAt: null },
         orderBy: { lastSeenAt: 'desc' },
         take: 20,
-        select: { id: true, userAgent: true, ip: true, createdAt: true, lastSeenAt: true },
+        select: {
+          id: true,
+          userAgent: true,
+          ip: true,
+          city: true,
+          country: true,
+          createdAt: true,
+          lastSeenAt: true,
+        },
       }),
       getCurrentSessionId(),
     ]);

@@ -176,7 +176,7 @@ export default function InvoiceDetailPage() {
 
   if (!user) return null;
 
-  const providerIdentity = resolveDocumentIdentity(user);
+  const providerIdentity = resolveDocumentIdentity(user, isProActive);
 
   async function copyClientLink() {
     if (!invoice) return;
@@ -292,7 +292,7 @@ export default function InvoiceDetailPage() {
           <div className="mb-6 overflow-hidden rounded-lg border border-border bg-canvas shadow-card lg:col-start-1 lg:row-start-1 lg:mb-0 print:border-0 print:shadow-none">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-6">
               <div className="flex items-center gap-3">
-                {isProActive && providerIdentity.logoUrl ? (
+                {providerIdentity.logoUrl ? (
                   <img
                     src={providerIdentity.logoUrl}
                     alt=""

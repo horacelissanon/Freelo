@@ -23,9 +23,11 @@ interface NavItem {
 
 const GENERAL_NAV: NavItem[] = [
   { href: '/admin', label: "Vue d'ensemble", icon: 'layout-dashboard' },
+  { href: '/admin/alerts', label: 'Alertes', icon: 'alert-circle' },
   { href: '/admin/users', label: 'Utilisateurs', icon: 'users' },
   { href: '/admin/subscriptions', label: 'Abonnements', icon: 'credit-card' },
   { href: '/admin/plans', label: 'Plans', icon: 'layers' },
+  { href: '/admin/coupons', label: 'Coupons', icon: 'tag' },
   { href: '/admin/transactions', label: 'Facturation', icon: 'banknote' },
   { href: '/admin/support', label: 'Support', icon: 'message-circle' },
 ];
@@ -179,9 +181,31 @@ export default function SuperAdminLayout({ children }: { children: ReactNode }) 
   }, [pathname]);
 
   if (loading || !user || user.role === 'USER') {
+    // Mirrors the real shell's shape (sidebar rail + content header/cards)
+    // instead of a spinner or plain "Chargement…" text — role isn't known
+    // yet at this point (still resolving/redirecting a USER away), so this
+    // is deliberately generic rather than mimicking the exact nav items.
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0d12]">
-        <p className="font-body text-sm text-white/50">Chargement…</p>
+      <div className="min-h-screen bg-background lg:flex" aria-busy="true" aria-live="polite">
+        <div className="hidden lg:flex lg:w-64 lg:flex-shrink-0 lg:flex-col lg:gap-6 lg:bg-[#12141a] lg:px-4 lg:py-6">
+          <div className="flex items-center gap-2.5 px-2">
+            <div className="h-9 w-9 flex-shrink-0 animate-pulse rounded-lg bg-white/10" />
+            <div className="h-4 w-24 animate-pulse rounded bg-white/10" />
+          </div>
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-9 animate-pulse rounded-lg bg-white/5" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 p-4 sm:p-6 lg:p-8">
+          <div className="mb-6 h-28 animate-pulse rounded-2xl bg-muted" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

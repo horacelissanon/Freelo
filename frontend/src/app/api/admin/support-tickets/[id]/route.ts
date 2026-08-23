@@ -14,6 +14,11 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAdmin } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { logAdminAction } from '@/lib/server/admin/audit';
+import { createNotification } from '@/lib/server/notifications';
+import {
+  supportTicketResolved,
+  supportTicketInProgress,
+} from '@/lib/server/notifications/templates';
 import { enforceAdminRateLimit } from '@/lib/server/middleware/rate-limit-by-userid';
 import { makeRequestContext, withRequestContext } from '@/lib/server/observability/request-context';
 
@@ -56,7 +61,7 @@ export async function PATCH(
     const updated = await prisma.supportTicket.update({
       where: { id },
       data: { status: parsed.data.status },
-      select: { id: true, status: true },
+      select: { id: true, status: true, updatedAt: true },
     });
 
     await logAdminAction(prisma, {
@@ -66,6 +71,25 @@ export async function PATCH(
       targetId: id,
       metadata: { from: existing.status, to: updated.status },
     });
+
+    if (updated.status !== existing.status) {
+      try {
+        const updatedAtIso = updated.updatedAt.toISOString();
+        if (updated.status === 'RESOLVED') {
+          await createNotification(
+            prisma,
+            supportTicketResolved(existing.userId, id, existing.subject, updatedAtIso),
+          );
+        } else if (updated.status === 'IN_PROGRESS') {
+          await createNotification(
+            prisma,
+            supportTicketInProgress(existing.userId, id, existing.subject, updatedAtIso),
+          );
+        }
+      } catch {
+        // Best-effort — the status change is already committed.
+      }
+    }
 
     return NextResponse.json(
       { ticket: updated },

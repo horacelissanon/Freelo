@@ -24,6 +24,8 @@ interface OverviewResponse {
     emailPending: number;
     emailDead: number;
     lockoutCount: number;
+    openAlertsCount: number;
+    criticalAlertsCount: number;
   };
   support: { openTickets: number; urgentOpenTickets: number };
   recentUsers: {
@@ -114,6 +116,79 @@ function StatCard({
       </div>
       <p className="mt-2 font-headings text-2xl font-bold text-foreground">{value}</p>
       {children}
+    </div>
+  );
+}
+
+// Mirrors the real layout below (4 stat cards, MRR chart + plan split,
+// 2 list cards, tickets, system health) instead of generic placeholder
+// boxes, so nothing reflows into a visibly different shape once data
+// arrives — same intent as PageStates.tsx's LoadingState, just tailored to
+// this page's specific grid since a 3-item list skeleton wouldn't fit it.
+function Pulse({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-muted ${className}`} />;
+}
+
+function OverviewSkeleton() {
+  return (
+    <div aria-busy="true" aria-live="polite">
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={cardClass}>
+            <div className="flex items-start justify-between gap-2">
+              <Pulse className="h-3 w-20" />
+              <Pulse className="h-8 w-8 rounded-lg" />
+            </div>
+            <Pulse className="mt-3 h-6 w-16" />
+          </div>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className={`${cardClass} lg:col-span-2`}>
+          <Pulse className="mb-4 h-4 w-40" />
+          <Pulse className="h-40 w-full rounded-lg" />
+        </div>
+        <div className={cardClass}>
+          <Pulse className="mb-4 h-4 w-32" />
+          <Pulse className="h-3 w-full rounded-full" />
+          <div className="mt-3 flex flex-col gap-2.5">
+            <Pulse className="h-4 w-full" />
+            <Pulse className="h-4 w-full" />
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {[0, 1].map((i) => (
+          <div key={i} className={cardClass}>
+            <Pulse className="mb-4 h-4 w-44" />
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2].map((row) => (
+                <Pulse key={row} className="h-10 w-full" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className={`${cardClass} mb-4`}>
+        <Pulse className="mb-4 h-4 w-40" />
+        <div className="flex flex-col gap-3">
+          {[0, 1].map((row) => (
+            <Pulse key={row} className="h-10 w-full" />
+          ))}
+        </div>
+      </div>
+
+      <div className={cardClass}>
+        <Pulse className="mb-3 h-4 w-32" />
+        <div className="flex flex-col gap-3">
+          {[0, 1, 2].map((row) => (
+            <Pulse key={row} className="h-6 w-full" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -256,7 +331,7 @@ function MrrChart({
 export default function AdminOverviewPage() {
   const { user } = useAuth();
   const { data, loading, error } = useApi<OverviewResponse>('/api/admin/overview');
-  const { data: recentTickets } = useApi<{ items: RecentTicket[] }>(
+  const { data: recentTickets, loading: ticketsLoading } = useApi<{ items: RecentTicket[] }>(
     '/api/admin/support-tickets?limit=5',
   );
 
@@ -278,11 +353,7 @@ export default function AdminOverviewPage() {
       </div>
 
       {loading ? (
-        <div className="flex flex-col gap-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
+        <OverviewSkeleton />
       ) : error || !data ? (
         <div className={`${cardClass} text-center`}>
           <p className="font-body text-sm text-muted-foreground">
@@ -469,7 +540,13 @@ export default function AdminOverviewPage() {
                 Tout voir
               </Link>
             </div>
-            {!recentTickets || recentTickets.items.length === 0 ? (
+            {ticketsLoading ? (
+              <div className="flex flex-col gap-3">
+                {[0, 1].map((row) => (
+                  <Pulse key={row} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : !recentTickets || recentTickets.items.length === 0 ? (
               <p className="font-body text-sm text-muted-foreground">
                 Aucun ticket pour l&apos;instant.
               </p>
@@ -533,9 +610,22 @@ export default function AdminOverviewPage() {
                     : 'Aucun'
                 }
               />
+              <HealthRow
+                label="Alertes plateforme"
+                ok={data.systemHealth.criticalAlertsCount === 0}
+                detail={
+                  data.systemHealth.openAlertsCount > 0
+                    ? `${data.systemHealth.openAlertsCount} ouverte(s)${
+                        data.systemHealth.criticalAlertsCount > 0
+                          ? ` dont ${data.systemHealth.criticalAlertsCount} critique(s)`
+                          : ''
+                      }`
+                    : 'Aucune'
+                }
+              />
             </div>
             <Link
-              href="/admin/performance"
+              href="/admin/alerts"
               className="mt-3 flex items-center gap-1.5 font-body text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               Voir le détail
