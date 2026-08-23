@@ -11,6 +11,7 @@ import { displayAmount } from '@/lib/displayAmount';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ProjectRow, type ProjectRowData } from '@/components/dashboard/ProjectRow';
 import { AlertBanner } from '@/components/dashboard/AlertBanner';
+import { ProUpsellBanner } from '@/components/dashboard/ProUpsellBanner';
 import { NotificationBell } from '@/components/dashboard/NotificationBell';
 import { UnpaidInvoicesPanel } from '@/components/dashboard/UnpaidInvoicesPanel';
 import { RevenueTrendCard } from '@/components/dashboard/RevenueTrendCard';
@@ -82,6 +83,10 @@ export default function DashboardPage() {
   const invoices = useApi<{ items: InvoiceApiRow[] }>('/api/invoices?limit=50');
   const { data: fx } = useApi<{ XOF: number; EUR: number; USD: number }>('/api/fx-rates');
   const liveRates = fx ? { XOF: fx.XOF, EUR: fx.EUR, USD: fx.USD } : null;
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
 
   // Global currency-display switcher — recomputed from the same
   // amountDefault/amountsByCurrency pair the API already returns, never a
@@ -203,13 +208,19 @@ export default function DashboardPage() {
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-[var(--color-primary)] p-6 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide uppercase">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Tableau de bord
+          </span>
+          <h1 className="mt-3 font-headings text-2xl font-bold sm:text-3xl">
             Bonjour, {firstName}
           </h1>
-          <p className="font-body text-sm text-muted-foreground capitalize">
-            {formatLongDate(new Date())}
+          <p className="mt-1 font-body text-sm text-white/60">
+            <span className="capitalize">{formatLongDate(new Date())}</span>
+            {stats.data &&
+              ` · ${stats.data.activeProjects.count} projet${stats.data.activeProjects.count > 1 ? 's' : ''} actif${stats.data.activeProjects.count > 1 ? 's' : ''}`}
           </p>
         </div>
         {/* Desktop only — mobile gets the bell in the persistent top bar
@@ -222,6 +233,7 @@ export default function DashboardPage() {
             notifications={notifications.data?.items ?? []}
             onMarkAllRead={() => void markAllNotificationsRead()}
             onMarkRead={(id) => void markNotificationRead(id)}
+            triggerClassName="bg-white/10 text-white hover:bg-white/20"
           />
         </div>
       </div>
@@ -229,6 +241,12 @@ export default function DashboardPage() {
       {alert && (
         <div className="mb-6">
           <AlertBanner text={alert.text} href={alert.href} />
+        </div>
+      )}
+
+      {subscriptionData && !isProActive && (
+        <div className="mb-6">
+          <ProUpsellBanner />
         </div>
       )}
 

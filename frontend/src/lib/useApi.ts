@@ -6,6 +6,14 @@ import { api } from './api';
 // In-memory stale-while-revalidate cache.
 const cache = new Map<string, { data: unknown; ts: number }>();
 
+// In-flight request de-dup — React 19 dev Strict Mode double-mounts every
+// component, and pages routinely mount several independent useApi() calls
+// for the same path (e.g. Sidebar + page both reading /api/billing/subscription).
+// Without this, each of those fires its own network request simultaneously,
+// multiplying DB load for no reason. Callers racing on the same path share
+// one in-flight promise instead.
+const inFlight = new Map<string, Promise<unknown>>();
+
 const STALE_TIME = 2 * 60 * 1000;
 
 // Broadcasts cache invalidation so mounted useApi() instances elsewhere in
@@ -65,7 +73,16 @@ export function useApi<T>(path: string, options: UseApiOptions = {}): UseApiResu
       if (showLoading) setLoading(true);
       setError(null);
       try {
-        const result = await api<T>(pathRef.current);
+        const path = pathRef.current;
+        let promise = inFlight.get(path) as Promise<T> | undefined;
+        if (!promise) {
+          promise = api<T>(path);
+          inFlight.set(path, promise);
+          void promise.finally(() => {
+            if (inFlight.get(path) === promise) inFlight.delete(path);
+          });
+        }
+        const result = await promise;
         if (mountedRef.current && fetchIdRef.current === currentFetchId) {
           setData(result);
           cache.set(pathRef.current, { data: result, ts: Date.now() });

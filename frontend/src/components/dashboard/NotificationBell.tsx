@@ -55,11 +55,16 @@ export function NotificationBell({
   notifications,
   onMarkAllRead,
   onMarkRead,
+  /** Overrides the trigger button's default bg-muted styling — needed when
+   *  the bell sits on a dark surface (e.g. the dashboard's gradient header)
+   *  instead of the persistent top bar's normal canvas background. */
+  triggerClassName = 'bg-muted text-muted-foreground',
 }: {
   unreadCount: number;
   notifications: NotificationBellItem[];
   onMarkAllRead: () => void;
   onMarkRead?: (id: string) => void;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -70,7 +75,7 @@ export function NotificationBell({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
-        className="flex h-10 items-center gap-2 rounded-md bg-muted px-3 text-sm text-muted-foreground"
+        className={`flex h-10 items-center gap-2 rounded-md px-3 text-sm ${triggerClassName}`}
       >
         <Icon i="bell" size={16} />
         {unreadCount > 0 && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-primary" />}

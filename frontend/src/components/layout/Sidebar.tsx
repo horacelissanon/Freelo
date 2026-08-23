@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 import { MoneyMaskToggle } from '@/components/MoneyMaskToggle';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApi } from '@/lib/useApi';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useSidebarColor } from '@/contexts/SidebarColorContext';
 import type { SidebarShape } from '@/contexts/SidebarShapeContext';
@@ -80,13 +81,24 @@ function SidebarBody({
   const pathname = usePathname();
   const { user, logout, loggingOut } = useAuth();
   const { glass } = useBottomNavStyle();
-  const { sidebarColor } = useSidebarColor();
+  // Loaded lazily here (not lifted to a shared context) — only this sidebar
+  // card needs it, and `subscriptionData` staying null until it resolves is
+  // what keeps a Pro account from flashing the "Passe en Pro" pitch below.
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
+  const showProPitch = !collapsed && subscriptionData && !isProActive;
+  const { effectiveSidebarColor } = useSidebarColor();
   // A light menu background (freelance picked a pale/white "Couleur du
   // menu") automatically swaps the solid active-item fill for a soft
   // pastel-tinted pill instead — same read as the "sobre et pro" look,
   // derived entirely from the existing background/accent settings rather
-  // than a new dedicated toggle.
-  const sober = isLightColor(sidebarColor);
+  // than a new dedicated toggle. Uses the effective (theme-resolved) color,
+  // not the raw stored pick — in dark mode the "Sobre & clair" white preset
+  // renders as a dark substitute (SidebarColorContext.tsx), so this must
+  // agree with what's actually painted or the pill styling would mismatch.
+  const sober = isLightColor(effectiveSidebarColor);
   const floating = shape === 'capsule' || shape === 'dock';
   const itemShape = floating || sober ? 'rounded-full' : 'rounded-lg';
   const outerRadius = floating ? (collapsed ? 'rounded-full' : 'rounded-[28px]') : 'rounded-r-2xl';
@@ -182,22 +194,44 @@ function SidebarBody({
       <div
         className={`relative mt-2 flex flex-shrink-0 flex-col gap-1 ${collapsed ? 'items-center' : ''}`}
       >
-        {/* Amber/orange stays permanently visible (not just on hover/active,
-            unlike every other nav item) — same "don't blend into the rest
-            of the workspace" reasoning as FacturationTab.tsx itself. Lives
-            in the main nav instead of buried as a settings tab so the
-            upgrade path is always one click away. */}
-        <Link
-          href="/settings?tab=abonnement"
-          onClick={onNavigate}
-          title={collapsed ? 'Abonnement' : undefined}
-          className={`flex items-center gap-3 ${itemShape} font-body text-sm font-medium text-amber-500 hover:bg-amber-500/10 dark:text-amber-400 ${
-            collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
-          }`}
-        >
-          <Icon i="credit-card" size={16} />
-          {!collapsed && 'Abonnement'}
-        </Link>
+        {/* Filled amber/orange banner (same gradient as FacturationTab.tsx's
+            "Abonnement actuel" card and the dashboard's ProUpsellBanner) —
+            stays permanently visible, not just on hover/active, unlike every
+            other nav item, and reads as a banner rather than a plain link so
+            it doesn't blend into the rest of the workspace. Lives in the
+            main nav instead of buried as a settings tab so the upgrade path
+            is always one click away. Free accounts get a richer 2-line
+            pitch card instead of the plain link — reuses this same slot
+            rather than adding a second Pro-upsell element in the sidebar (a
+            Pro account, or a still-loading subscription check, keeps the
+            plain link). */}
+        {showProPitch ? (
+          <Link
+            href="/settings?tab=abonnement"
+            onClick={onNavigate}
+            className={`flex flex-col gap-0.5 bg-gradient-to-br from-amber-500 to-orange-600 ${itemShape === 'rounded-full' ? 'rounded-2xl' : itemShape} px-3 py-2.5 text-white shadow-card`}
+          >
+            <span className="flex items-center gap-2 font-body text-sm font-semibold">
+              <Icon i="credit-card" size={16} className="text-white" />
+              Passe en Pro
+            </span>
+            <span className="font-body text-xs text-white/80">
+              Devises EUR/USD, logo, plus de clients
+            </span>
+          </Link>
+        ) : (
+          <Link
+            href="/settings?tab=abonnement"
+            onClick={onNavigate}
+            title={collapsed ? 'Abonnement' : undefined}
+            className={`flex items-center gap-3 ${itemShape} font-body text-sm font-medium text-amber-500 hover:bg-amber-500/10 dark:text-amber-400 ${
+              collapsed ? 'h-11 w-11 justify-center' : 'px-3 py-2.5'
+            }`}
+          >
+            <Icon i="credit-card" size={16} />
+            {!collapsed && 'Abonnement'}
+          </Link>
+        )}
         {user && (
           <Link
             href="/settings?tab=compte"

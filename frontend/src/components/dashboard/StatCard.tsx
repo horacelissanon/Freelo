@@ -19,8 +19,8 @@ export function StatCard({ label, value, unit, icon, trend, masked }: StatCardPr
         <span className="line-clamp-2 font-body text-xs text-muted-foreground sm:text-sm">
           {label}
         </span>
-        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-secondary">
-          <Icon i={icon} size={14} />
+        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-primary/10">
+          <Icon i={icon} size={14} className="text-primary" />
         </div>
       </div>
       <div className="flex flex-wrap items-end gap-1.5">
