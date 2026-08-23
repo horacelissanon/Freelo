@@ -4,6 +4,13 @@
 // (nom d'entreprise/adresse/NIF/RCCM). Shared between the client-side
 // invoice detail page and the server-side /api/track/[token] route so both
 // resolve the same way. Pure — no server-only import.
+//
+// The whole COMPANY identity — not just the logo — is a Pro perk: a FREE
+// account always resolves as PERSONAL on the actual document regardless of
+// which toggle they picked, so `isPro` is required, not optional. Callers
+// keep the freelancer's COMPANY fields fully editable/saved either way
+// (same as the logo already was) — only what renders on a real document is
+// gated, so nothing is lost if they upgrade later.
 
 export type DocumentIdentity = 'PERSONAL' | 'COMPANY';
 
@@ -30,15 +37,14 @@ export interface ResolvedDocumentIdentity {
   taxId: string | null;
   commerceRegistry: string | null;
   slogan: string | null;
-  // COMPANY-only, same as address/taxId/commerceRegistry — always resolved
-  // here regardless of plan; it's a Pro-only perk, so callers must additionally
-  // gate this on isProActive() before using it (this function has no DB
-  // access and can't check the subscription itself).
   logoUrl: string | null;
 }
 
-export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedDocumentIdentity {
-  if (user.documentIdentity === 'PERSONAL') {
+export function resolveDocumentIdentity(
+  user: DocumentIdentitySource,
+  isPro: boolean,
+): ResolvedDocumentIdentity {
+  if (user.documentIdentity === 'PERSONAL' || !isPro) {
     return {
       name: user.name || user.email,
       bio: user.bio,
@@ -50,11 +56,11 @@ export function resolveDocumentIdentity(user: DocumentIdentitySource): ResolvedD
       logoUrl: null,
     };
   }
-  // COMPANY: fall back to the personal name when no studio name was filled
-  // in yet, so a document never ships with a blank header. Phone comes from
-  // the dedicated `companyPhone` field, never the personal `phone` — a
-  // freelancer showing their company identity may not want their personal
-  // number on client-facing documents.
+  // COMPANY + Pro: fall back to the personal name when no studio name was
+  // filled in yet, so a document never ships with a blank header. Phone
+  // comes from the dedicated `companyPhone` field, never the personal
+  // `phone` — a freelancer showing their company identity may not want
+  // their personal number on client-facing documents.
   return {
     name: user.studioName || user.name || user.email,
     bio: user.bio,

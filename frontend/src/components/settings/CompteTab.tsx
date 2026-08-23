@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { PlanLimitPrompt } from '@/components/ui/PlanLimitPrompt';
+import { ProBadge } from '@/components/ui/ProBadge';
 import { DefaultPaymentMethodsSection } from '@/components/settings/DefaultPaymentMethodsSection';
 import { CURRENCIES } from '@/lib/constants';
 
@@ -341,12 +342,13 @@ export function CompteTab({ user }: { user: User }) {
         </div>
 
         <div className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card">
-          <div>
+          <div className="flex items-center gap-2">
             <h2 className="font-headings text-lg font-semibold text-foreground">Entreprise</h2>
-            <p className="font-body text-xs text-muted-foreground">
-              Ces informations apparaissent sur tes devis et factures.
-            </p>
+            {!isProActive && <ProBadge />}
           </div>
+          <p className="-mt-3 font-body text-xs text-muted-foreground">
+            Ces informations apparaissent sur tes devis et factures.
+          </p>
 
           <div>
             <p className="font-body text-sm font-medium text-foreground">
@@ -386,6 +388,11 @@ export function CompteTab({ user }: { user: User }) {
                 Entreprise
               </button>
             </div>
+            {!isProActive && (
+              <div className="mt-3">
+                <PlanLimitPrompt message="Le nom, le logo et les coordonnées de ton entreprise s'affichent sur tes devis, factures et la page de suivi avec le forfait Pro — en attendant, tes clients voient ton identité personnelle. Renseigne les champs ci-dessous dès maintenant, ils seront prêts au moment de passer en Pro." />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -434,9 +441,6 @@ export function CompteTab({ user }: { user: User }) {
                 className="hidden"
               />
             </div>
-            {!isProActive && (
-              <PlanLimitPrompt message="Le logo s'affiche sur tes devis, factures et la page de suivi avec le forfait Pro." />
-            )}
           </div>
 
           <label className="flex flex-col gap-1.5 font-body text-sm text-foreground">

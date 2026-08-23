@@ -24,6 +24,8 @@ interface PlanConfig {
   currency: string;
   maxClients: number | null;
   maxActiveProjects: number | null;
+  maxInvoices: number | null;
+  maxQuotes: number | null;
   features: string[];
 }
 
@@ -107,6 +109,8 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
   // FREE-plan draft fields
   const [maxClients, setMaxClients] = useState(0);
   const [maxActiveProjects, setMaxActiveProjects] = useState(0);
+  const [maxInvoices, setMaxInvoices] = useState(0);
+  const [maxQuotes, setMaxQuotes] = useState(0);
   // PRO-plan draft fields
   const [monthlyAmount, setMonthlyAmount] = useState(0);
   const [yearlyAmount, setYearlyAmount] = useState(0);
@@ -118,6 +122,8 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
     setEditing(plan);
     setMaxClients(config.maxClients ?? 0);
     setMaxActiveProjects(config.maxActiveProjects ?? 0);
+    setMaxInvoices(config.maxInvoices ?? 0);
+    setMaxQuotes(config.maxQuotes ?? 0);
     setMonthlyAmount(config.monthlyAmount ?? 0);
     setYearlyAmount(config.yearlyAmount ?? 0);
     setCurrency(config.currency);
@@ -133,7 +139,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
     const cleanFeatures = features.map((f) => f.trim()).filter(Boolean);
     const body =
       editing === 'FREE'
-        ? { maxClients, maxActiveProjects, features: cleanFeatures }
+        ? { maxClients, maxActiveProjects, maxInvoices, maxQuotes, features: cleanFeatures }
         : { monthlyAmount, yearlyAmount, currency, features: cleanFeatures };
     setSubmitting(true);
     try {
@@ -172,7 +178,7 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
               </button>
             )}
           </div>
-          <div className="flex gap-4 font-body text-sm text-foreground">
+          <div className="flex flex-wrap gap-4 font-body text-sm text-foreground">
             <span>
               <span className="font-semibold text-foreground">{data.free.maxClients ?? '∞'}</span>{' '}
               client(s)
@@ -182,6 +188,14 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
                 {data.free.maxActiveProjects ?? '∞'}
               </span>{' '}
               projet(s) actif(s)
+            </span>
+            <span>
+              <span className="font-semibold text-foreground">{data.free.maxQuotes ?? '∞'}</span>{' '}
+              devis
+            </span>
+            <span>
+              <span className="font-semibold text-foreground">{data.free.maxInvoices ?? '∞'}</span>{' '}
+              facture(s)
             </span>
           </div>
           <FeatureList features={data.free.features} />
@@ -244,6 +258,30 @@ export function PlansTab({ canEdit }: { canEdit: boolean }) {
                     min={0}
                     value={maxActiveProjects}
                     onChange={(e) => setMaxActiveProjects(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-body text-xs font-medium text-muted-foreground">
+                    Nombre maximum de devis
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={maxQuotes}
+                    onChange={(e) => setMaxQuotes(Number(e.target.value))}
+                    className={inputClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="font-body text-xs font-medium text-muted-foreground">
+                    Nombre maximum de factures
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={maxInvoices}
+                    onChange={(e) => setMaxInvoices(Number(e.target.value))}
                     className={inputClass}
                   />
                 </label>

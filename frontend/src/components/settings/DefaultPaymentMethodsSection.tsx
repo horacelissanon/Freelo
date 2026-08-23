@@ -74,8 +74,8 @@ export function DefaultPaymentMethodsSection() {
       <ContentBlockList
         title="Tes moyens de paiement"
         icon="credit-card"
-        primaryPlaceholder="Ex. Wave"
-        secondaryPlaceholder="Ex. 07 XX XX XX XX"
+        primaryPlaceholder="Ex. MTN Mobile Money, Moov Money"
+        secondaryPlaceholder="Ex. 01 97 00 00 00"
         addLabel="Ajouter un moyen de paiement"
         blocks={blocks}
         onChange={setBlocks}

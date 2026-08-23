@@ -26,7 +26,7 @@ interface AdminUserRow {
   status: Status;
   emailVerifiedAt: string | null;
   createdAt: string;
-  subscription: { plan: Plan } | null;
+  subscription: { plan: Plan; isProActive: boolean } | null;
   sessions: { lastSeenAt: string }[];
 }
 
@@ -58,10 +58,12 @@ const inputClass =
 type PendingAction =
   | { kind: 'role'; user: AdminUserRow; newRole: Role }
   | { kind: 'suspend'; user: AdminUserRow }
-  | { kind: 'restore'; user: AdminUserRow };
+  | { kind: 'restore'; user: AdminUserRow }
+  | { kind: 'grant_pro'; user: AdminUserRow }
+  | { kind: 'revoke_pro'; user: AdminUserRow };
 
-// Server error codes surfaced by PATCH .../role and .../status — see
-// frontend/src/app/api/admin/users/[id]/{role,status}/route.ts.
+// Server error codes surfaced by PATCH .../role, .../status and
+// .../subscription — see frontend/src/app/api/admin/users/[id]/{role,status,subscription}/route.ts.
 const ERROR_MESSAGES: Record<string, string> = {
   LAST_SUPERADMIN: 'Impossible de rétrograder le dernier super-administrateur.',
   RESTORE_REQUIRES_SUPERADMIN: 'Seul un super-administrateur peut réactiver ce compte.',
@@ -142,6 +144,22 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
           prev.map((u) => (u.id === res.user.id ? { ...u, role: res.user.role } : u)),
         );
         toast(`Rôle mis à jour : ${ROLE_LABELS[res.user.role]}.`);
+      } else if (pending.kind === 'grant_pro' || pending.kind === 'revoke_pro') {
+        const res = await api<{ subscription: { plan: Plan; isProActive: boolean } }>(
+          `/api/admin/users/${pending.user.id}/subscription`,
+          {
+            method: 'PATCH',
+            body: {
+              action: pending.kind === 'grant_pro' ? 'grant' : 'revoke',
+              ...(reason.trim() ? { reason: reason.trim() } : {}),
+            },
+          },
+        );
+        const userId = pending.user.id;
+        setItems((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, subscription: res.subscription } : u)),
+        );
+        toast(pending.kind === 'grant_pro' ? 'Compte passé en Pro.' : 'Abonnement Pro annulé.');
       } else {
         const status: Status = pending.kind === 'suspend' ? 'SUSPENDED' : 'ACTIVE';
         const res = await api<{ user: { id: string; status: Status } }>(
@@ -218,6 +236,8 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                 !isSelf &&
                 (u.role !== 'SUPERADMIN' || viewerRole === 'SUPERADMIN');
               const canRestore = u.status === 'SUSPENDED' && viewerRole === 'SUPERADMIN' && !isSelf;
+              const canManageSubscription = viewerRole === 'SUPERADMIN' && !isSelf;
+              const isPro = u.subscription?.isProActive ?? false;
               return (
                 <div
                   key={u.id}
@@ -250,9 +270,9 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                     {u.status === 'ACTIVE' ? 'Actif' : 'Suspendu'}
                   </span>
                   <span
-                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${PLAN_COLORS[u.subscription?.plan ?? 'FREE']}`}
+                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${PLAN_COLORS[isPro ? 'PRO' : 'FREE']}`}
                   >
-                    {u.subscription?.plan === 'PRO' ? 'Pro' : 'Gratuit'}
+                    {isPro ? 'Pro' : 'Gratuit'}
                   </span>
                   <span className="flex-shrink-0 font-body text-xs text-muted-foreground">
                     {u.sessions[0] ? relativeTime(u.sessions[0].lastSeenAt) : 'Jamais connecté'}
@@ -289,6 +309,24 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                       Réactiver
                     </button>
                   )}
+                  {canManageSubscription &&
+                    (isPro ? (
+                      <button
+                        type="button"
+                        onClick={() => setPending({ kind: 'revoke_pro', user: u })}
+                        className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
+                      >
+                        Repasser en Gratuit
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setPending({ kind: 'grant_pro', user: u })}
+                        className="flex-shrink-0 rounded-md border border-emerald-600 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                      >
+                        Passer en Pro
+                      </button>
+                    ))}
                 </div>
               );
             })}
@@ -316,7 +354,11 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
               ? 'Changer le rôle'
               : pending.kind === 'suspend'
                 ? 'Suspendre le compte'
-                : 'Réactiver le compte'
+                : pending.kind === 'restore'
+                  ? 'Réactiver le compte'
+                  : pending.kind === 'grant_pro'
+                    ? 'Passer le compte en Pro'
+                    : 'Repasser le compte en Gratuit'
           }
           onClose={closePending}
         >
@@ -340,12 +382,26 @@ export function UsersTab({ viewerRole, viewerId }: { viewerRole: Role; viewerId:
                 ?
               </>
             )}
+            {pending.kind === 'grant_pro' && (
+              <>
+                Offrir un mois de Pro à <span className="font-medium">{pending.user.email}</span> ?
+                C&apos;est un geste commercial/support — aucun paiement n&apos;est déclenché.
+              </>
+            )}
+            {pending.kind === 'revoke_pro' && (
+              <>
+                Repasser <span className="font-medium">{pending.user.email}</span> en plan Gratuit ?
+                Son accès Pro s&apos;arrête immédiatement.
+              </>
+            )}
           </p>
-          {pending.kind === 'suspend' && (
+          {(pending.kind === 'suspend' ||
+            pending.kind === 'grant_pro' ||
+            pending.kind === 'revoke_pro') && (
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Raison (optionnel)"
+              placeholder="Commentaire (optionnel)"
               rows={3}
               maxLength={500}
               className={`${inputClass} mb-4 w-full resize-none`}

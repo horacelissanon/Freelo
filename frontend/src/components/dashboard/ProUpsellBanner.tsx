@@ -12,7 +12,7 @@ export function ProUpsellBanner() {
       href="/settings?tab=abonnement"
       className="flex items-center gap-3 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-3 font-body text-sm font-medium text-white shadow-card"
     >
-      <Icon i="credit-card" size={16} className="flex-shrink-0 text-white" />
+      <Icon i="crown" size={16} className="flex-shrink-0 text-white" />
       <span className="flex-1">
         Passe en Pro pour les factures en EUR/USD, ton logo sur tes documents et plus de clients.
       </span>

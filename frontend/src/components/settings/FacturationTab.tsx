@@ -13,14 +13,17 @@
 // doesn't blend in and get skimmed past.
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useApi, invalidateCache } from '@/lib/useApi';
 import { useToast } from '@/contexts/ToastContext';
 import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
+import { ProBadge } from '@/components/ui/ProBadge';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
 import { formatPrice, formatLongDate } from '@/lib/utils';
+import { applyDiscount } from '@/lib/discount';
+import { resolvePendingTransaction } from '@/lib/billingSuccess';
 
 type BillingCycle = 'MONTHLY' | 'YEARLY';
 
@@ -50,7 +53,14 @@ interface SubscriptionData {
   usage: {
     clients: number;
     activeProjects: number;
-    limits: { maxClients: number; maxActiveProjects: number };
+    invoices: number;
+    quotes: number;
+    limits: {
+      maxClients: number;
+      maxActiveProjects: number;
+      maxInvoices: number;
+      maxQuotes: number;
+    };
   };
   transactions: {
     id: string;
@@ -58,11 +68,35 @@ interface SubscriptionData {
     currency: string;
     billingCycle: string;
     status: 'PENDING' | 'PAID' | 'FAILED';
+    couponCode: string | null;
     createdAt: string;
   }[];
 }
 
 const SUBSCRIPTION_PATH = '/api/billing/subscription';
+
+// sessionStorage (not localStorage) — scoped to this tab, survives the
+// FedaPay redirect-away-and-back, and self-clears once the browser tab
+// closes so an abandoned checkout doesn't linger forever.
+const PENDING_TX_KEY = 'merrudit:pending-subscription-tx';
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLL_ATTEMPTS = 12; // ~30s — the webhook confirms asynchronously
+
+interface AppliedCoupon {
+  code: string;
+  discountType: 'PERCENT' | 'AMOUNT';
+  percentOff: number | null;
+  amountOff: number | null;
+  billingCycle: 'MONTHLY' | 'YEARLY' | null;
+}
+
+interface SuccessInfo {
+  billingCycle: 'MONTHLY' | 'YEARLY';
+  amount: number;
+  currency: string;
+  couponCode: string | null;
+  currentPeriodEnd: string | null;
+}
 
 const TX_STATUS_LABEL: Record<string, string> = {
   PAID: 'Payé',
@@ -119,15 +153,75 @@ export function FacturationTab() {
   const [canceling, setCanceling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
+  // Coupon — validated live via GET /api/coupons/validate as a preview;
+  // POST /api/billing/subscribe re-validates it server-side before ever
+  // charging anything, so a stale/tampered client value here can't apply
+  // a discount that isn't honored.
+  const [couponInput, setCouponInput] = useState('');
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+
+  // Post-checkout success screen — see billingSuccess.ts's header for why
+  // this polls instead of trusting the FedaPay redirect URL directly.
+  const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
+  const pollAttemptsRef = useRef(0);
+
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponChecking(true);
+    setCouponError(null);
+    try {
+      const res = await api<{
+        code: string;
+        discountType: 'PERCENT' | 'AMOUNT';
+        percentOff: number | null;
+        amountOff: number | null;
+        billingCycle: 'MONTHLY' | 'YEARLY' | null;
+      }>(`/api/coupons/validate?code=${encodeURIComponent(code)}`);
+      setAppliedCoupon({
+        code: res.code,
+        discountType: res.discountType,
+        percentOff: res.percentOff,
+        amountOff: res.amountOff,
+        billingCycle: res.billingCycle,
+      });
+      const discountLabel =
+        res.discountType === 'AMOUNT'
+          ? `-${formatPrice(res.amountOff ?? 0, 'FCFA')}`
+          : `-${res.percentOff}%`;
+      const cycleLabel =
+        res.billingCycle === 'MONTHLY'
+          ? ' — valable sur le mensuel uniquement'
+          : res.billingCycle === 'YEARLY'
+            ? ' — valable sur l’annuel uniquement'
+            : '';
+      toast(`Code promo « ${res.code} » appliqué (${discountLabel})${cycleLabel}.`, 'success');
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
+    } finally {
+      setCouponChecking(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError(null);
+  }
+
   async function subscribe(billingCycle: BillingCycle) {
     setPendingCycle(billingCycle);
     try {
-      const res = await api<{ paymentUrl: string | null }>('/api/billing/subscribe', {
+      const res = await api<{ id: string; paymentUrl: string | null }>('/api/billing/subscribe', {
         method: 'POST',
-        body: { billingCycle },
+        body: { billingCycle, ...(appliedCoupon ? { couponCode: appliedCoupon.code } : {}) },
         headers: { 'idempotency-key': crypto.randomUUID() },
       });
       if (res.paymentUrl) {
+        sessionStorage.setItem(PENDING_TX_KEY, res.id);
         window.location.href = res.paymentUrl;
         return;
       }
@@ -138,6 +232,47 @@ export function FacturationTab() {
       setPendingCycle(null);
     }
   }
+
+  // Resolves the checkout started before the FedaPay redirect: shows the
+  // success modal once the webhook has flipped it to PAID, a toast if it
+  // FAILED, or keeps polling (bounded) while confirmation is still in
+  // flight — see billingSuccess.ts.
+  useEffect(() => {
+    const pendingId = sessionStorage.getItem(PENDING_TX_KEY);
+    if (!pendingId || !data) return;
+
+    const outcome = resolvePendingTransaction(data.transactions, pendingId);
+    if (outcome === 'PAID') {
+      const tx = data.transactions.find((t) => t.id === pendingId)!;
+      sessionStorage.removeItem(PENDING_TX_KEY);
+      pollAttemptsRef.current = 0;
+      setSuccessInfo({
+        billingCycle: tx.billingCycle as BillingCycle,
+        amount: tx.amount,
+        currency: tx.currency,
+        couponCode: tx.couponCode,
+        currentPeriodEnd: data.subscription.currentPeriodEnd,
+      });
+      return;
+    }
+    if (outcome === 'FAILED') {
+      sessionStorage.removeItem(PENDING_TX_KEY);
+      pollAttemptsRef.current = 0;
+      toast("Le paiement n'a pas abouti. Tu peux réessayer.", 'error');
+      return;
+    }
+    // PENDING or NOT_FOUND (webhook hasn't landed yet) — poll a bounded
+    // number of times, then give up quietly; the billing history below
+    // will reflect the final status whenever it resolves.
+    if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
+      sessionStorage.removeItem(PENDING_TX_KEY);
+      pollAttemptsRef.current = 0;
+      return;
+    }
+    pollAttemptsRef.current += 1;
+    const timer = setTimeout(() => void refresh(), POLL_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [data, refresh, toast]);
 
   async function cancelSubscription() {
     setCanceling(true);
@@ -164,6 +299,14 @@ export function FacturationTab() {
   const proMonthly = plans.pro.monthlyAmount ?? 0;
   const proYearly = plans.pro.yearlyAmount ?? 0;
   const yearlySavings = proMonthly * 12 - proYearly;
+  const couponAppliesMonthly = !!appliedCoupon && appliedCoupon.billingCycle !== 'YEARLY';
+  const couponAppliesYearly = !!appliedCoupon && appliedCoupon.billingCycle !== 'MONTHLY';
+  const discountedMonthly = couponAppliesMonthly
+    ? applyDiscount(proMonthly, appliedCoupon!)
+    : proMonthly;
+  const discountedYearly = couponAppliesYearly
+    ? applyDiscount(proYearly, appliedCoupon!)
+    : proYearly;
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,7 +336,7 @@ export function FacturationTab() {
             )}
             {!isPro && (
               <span className="font-body text-sm text-amber-50">
-                Passe en Pro pour débloquer clients, projets et paiements illimités.
+                Passe en Pro pour débloquer clients, projets, devis et factures illimités.
               </span>
             )}
           </div>
@@ -222,8 +365,9 @@ export function FacturationTab() {
               type="button"
               onClick={() => subscribe('MONTHLY')}
               disabled={pendingCycle !== null}
-              className="rounded-md bg-white px-5 py-2.5 font-body text-sm font-semibold text-amber-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md bg-white px-5 py-2.5 font-body text-sm font-semibold text-amber-700 disabled:opacity-50"
             >
+              <Icon i="crown" size={14} />
               {pendingCycle ? 'Redirection…' : 'Passer en Pro'}
             </button>
           )}
@@ -240,6 +384,12 @@ export function FacturationTab() {
                 max={usage.limits.maxActiveProjects}
               />
             </div>
+            <div className="rounded-md bg-white/15 px-3 py-2.5 backdrop-blur-sm">
+              <UsageBar label="Devis" value={usage.quotes} max={usage.limits.maxQuotes} />
+            </div>
+            <div className="rounded-md bg-white/15 px-3 py-2.5 backdrop-blur-sm">
+              <UsageBar label="Factures" value={usage.invoices} max={usage.limits.maxInvoices} />
+            </div>
           </div>
         )}
       </section>
@@ -249,6 +399,78 @@ export function FacturationTab() {
           clearly their own choice. */}
       <section className="flex flex-col gap-3">
         <span className="font-headings text-base font-semibold text-foreground">Plans</span>
+
+        {!isPro && (
+          <div className="rounded-lg border border-dashed border-border bg-canvas p-4">
+            {appliedCoupon ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-2 font-body text-sm text-foreground">
+                  <Icon i="tag" size={15} className="text-amber-500" />
+                  Code <span className="font-semibold">{appliedCoupon.code}</span> appliqué —{' '}
+                  <span className="font-semibold text-amber-600">
+                    {appliedCoupon.discountType === 'AMOUNT'
+                      ? `-${formatPrice(appliedCoupon.amountOff ?? 0, 'FCFA')}`
+                      : `-${appliedCoupon.percentOff}%`}
+                  </span>
+                  {appliedCoupon.billingCycle && (
+                    <span className="font-body text-xs text-muted-foreground">
+                      ({appliedCoupon.billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'} uniquement)
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={removeCoupon}
+                  className="font-body text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor="coupon-code"
+                  className="font-body text-xs font-medium text-muted-foreground"
+                >
+                  Code promo
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    id="coupon-code"
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void applyCoupon();
+                      }
+                    }}
+                    placeholder="EX: SAVE10"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-input px-3 py-2 font-body text-sm text-foreground focus:ring-2 focus:ring-amber-500/30 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void applyCoupon()}
+                    disabled={couponChecking || !couponInput.trim()}
+                    className="rounded-md border border-amber-500 px-4 py-2 font-body text-sm font-medium text-amber-600 disabled:opacity-50"
+                  >
+                    {couponChecking ? 'Vérification…' : 'Appliquer'}
+                  </button>
+                </div>
+                {couponError && (
+                  <p role="alert" className="font-body text-xs text-tag-red-fg">
+                    {couponError}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {/* Gratuit */}
           <div className="flex flex-col gap-4 rounded-lg border border-border bg-canvas p-5 shadow-card">
@@ -294,12 +516,18 @@ export function FacturationTab() {
             }`}
           >
             <div className="flex flex-col gap-1">
-              <span className="font-headings text-base font-semibold text-foreground">
+              <span className="flex items-center gap-2 font-headings text-base font-semibold text-foreground">
                 Pro — Mensuel
+                <ProBadge />
               </span>
               <div className="flex items-baseline gap-1.5">
+                {couponAppliesMonthly && (
+                  <span className="font-body text-sm text-muted-foreground line-through">
+                    {formatPrice(proMonthly)}
+                  </span>
+                )}
                 <span className="font-headings text-2xl font-bold text-foreground">
-                  {formatPrice(proMonthly)}
+                  {formatPrice(discountedMonthly)}
                 </span>
                 <span className="font-body text-xs text-muted-foreground">FCFA / mois</span>
               </div>
@@ -335,8 +563,9 @@ export function FacturationTab() {
                 type="button"
                 onClick={() => subscribe('MONTHLY')}
                 disabled={pendingCycle !== null}
-                className="mt-auto rounded-md bg-amber-500 px-4 py-2.5 font-body text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+                className="mt-auto flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2.5 font-body text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
+                <Icon i="crown" size={14} />
                 {pendingCycle === 'MONTHLY' ? 'Redirection…' : 'Passer en Pro — mensuel'}
               </button>
             )}
@@ -354,12 +583,18 @@ export function FacturationTab() {
               Meilleure offre
             </span>
             <div className="flex flex-col gap-1">
-              <span className="font-headings text-base font-semibold text-foreground">
+              <span className="flex items-center gap-2 font-headings text-base font-semibold text-foreground">
                 Pro — Annuel
+                <ProBadge />
               </span>
               <div className="flex items-baseline gap-1.5">
+                {couponAppliesYearly && (
+                  <span className="font-body text-sm text-muted-foreground line-through">
+                    {formatPrice(proYearly)}
+                  </span>
+                )}
                 <span className="font-headings text-2xl font-bold text-foreground">
-                  {formatPrice(proYearly)}
+                  {formatPrice(discountedYearly)}
                 </span>
                 <span className="font-body text-xs text-muted-foreground">FCFA / an</span>
               </div>
@@ -395,8 +630,9 @@ export function FacturationTab() {
                 type="button"
                 onClick={() => subscribe('YEARLY')}
                 disabled={pendingCycle !== null}
-                className="mt-auto rounded-md bg-amber-500 px-4 py-2.5 font-body text-sm font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                className="mt-auto flex items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2.5 font-body text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
               >
+                <Icon i="crown" size={14} />
                 {pendingCycle === 'YEARLY' ? 'Redirection…' : 'Passer en Pro — annuel'}
               </button>
             )}
@@ -446,6 +682,7 @@ export function FacturationTab() {
                     </span>
                     <span className="font-body text-xs text-muted-foreground">
                       {formatLongDate(tx.createdAt)}
+                      {tx.couponCode ? ` · Code ${tx.couponCode}` : ''}
                     </span>
                   </div>
                 </div>
@@ -508,6 +745,56 @@ export function FacturationTab() {
               {canceling ? 'Annulation…' : "Confirmer l'annulation"}
             </button>
           </div>
+        </Modal>
+      )}
+
+      {successInfo && (
+        <Modal title="Abonnement Pro activé" onClose={() => setSuccessInfo(null)}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-tag-green">
+              <Icon i="check-circle" size={28} className="text-tag-green-fg" />
+            </div>
+            <p className="font-body text-sm text-muted-foreground">
+              Ton paiement a été confirmé — bienvenue dans Merrudit Pro.
+            </p>
+          </div>
+          <div className="mt-5 flex flex-col divide-y divide-border rounded-lg border border-border">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="font-body text-xs text-muted-foreground">Formule</span>
+              <span className="font-body text-sm font-medium text-foreground">
+                Pro — {successInfo.billingCycle === 'MONTHLY' ? 'Mensuel' : 'Annuel'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="font-body text-xs text-muted-foreground">Montant payé</span>
+              <span className="font-body text-sm font-medium text-foreground">
+                {formatPrice(successInfo.amount)} {successInfo.currency}
+              </span>
+            </div>
+            {successInfo.couponCode && (
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="font-body text-xs text-muted-foreground">Code promo</span>
+                <span className="font-body text-sm font-medium text-foreground">
+                  {successInfo.couponCode}
+                </span>
+              </div>
+            )}
+            {successInfo.currentPeriodEnd && (
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="font-body text-xs text-muted-foreground">Renouvellement</span>
+                <span className="font-body text-sm font-medium text-foreground">
+                  {formatLongDate(successInfo.currentPeriodEnd)}
+                </span>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setSuccessInfo(null)}
+            className="mt-5 w-full rounded-md bg-amber-500 px-4 py-2.5 font-body text-sm font-medium text-white hover:bg-amber-600"
+          >
+            Continuer
+          </button>
         </Modal>
       )}
     </div>

@@ -31,7 +31,9 @@ import { useAuth, type User } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi, invalidateCache } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingState } from '@/components/ui/PageStates';
 import { formatLongDate } from '@/lib/utils';
+import { describeDevice, describeLocation, type DeviceKind } from '@/lib/sessionDisplay';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
@@ -40,6 +42,8 @@ interface SessionRow {
   id: string;
   userAgent: string | null;
   ip: string | null;
+  city: string | null;
+  country: string | null;
   createdAt: string;
   lastSeenAt: string;
   current: boolean;
@@ -47,24 +51,12 @@ interface SessionRow {
 
 const SESSIONS_PATH = '/api/auth/sessions';
 
-function describeDevice(ua: string | null): string {
-  if (!ua) return 'Appareil inconnu';
-  let browser = 'Navigateur';
-  if (/edg\//i.test(ua)) browser = 'Edge';
-  else if (/chrome\//i.test(ua) && !/chromium/i.test(ua)) browser = 'Chrome';
-  else if (/firefox\//i.test(ua)) browser = 'Firefox';
-  else if (/safari\//i.test(ua) && !/chrome/i.test(ua)) browser = 'Safari';
-
-  let os = 'Appareil';
-  if (/iphone/i.test(ua)) os = 'iPhone';
-  else if (/ipad/i.test(ua)) os = 'iPad';
-  else if (/android/i.test(ua)) os = 'Android';
-  else if (/mac os x/i.test(ua)) os = 'macOS';
-  else if (/windows/i.test(ua)) os = 'Windows';
-  else if (/linux/i.test(ua)) os = 'Linux';
-
-  return `${browser} — ${os}`;
-}
+const DEVICE_ICON: Record<DeviceKind, string> = {
+  desktop: 'monitor',
+  mobile: 'smartphone',
+  tablet: 'tablet',
+  unknown: 'help-circle',
+};
 
 function SessionsSection() {
   const { data, loading, refresh } = useApi<{ sessions: SessionRow[] }>(SESSIONS_PATH);
@@ -112,46 +104,55 @@ function SessionsSection() {
         </p>
       </div>
       {loading ? (
-        <p className="font-body text-sm text-muted-foreground">Chargement…</p>
+        <LoadingState />
       ) : sessions.length === 0 ? (
         <p className="font-body text-sm text-muted-foreground">Aucune session active détectée.</p>
       ) : (
         <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
-          {sessions.map((s) => (
-            <div
-              key={s.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3"
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
-                  <Icon i="smartphone" size={14} className="text-muted-foreground" />
+          {sessions.map((s) => {
+            const device = describeDevice(s.userAgent);
+            const location = describeLocation(s.city, s.country);
+            return (
+              <div
+                key={s.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-3"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <Icon
+                      i={DEVICE_ICON[device.kind]}
+                      size={14}
+                      className="text-muted-foreground"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
+                      <span className="truncate">{device.label}</span>
+                      {s.current && (
+                        <span className="flex-shrink-0 rounded-full bg-tag-green px-2 py-0.5 font-body text-[11px] font-medium text-tag-green-fg">
+                          Actuellement
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-body text-xs text-muted-foreground">
+                      {location ? `${location} · ` : s.ip ? `${s.ip} · ` : ''}Actif{' '}
+                      {formatLongDate(s.lastSeenAt)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 font-body text-sm font-medium text-foreground">
-                    <span className="truncate">{describeDevice(s.userAgent)}</span>
-                    {s.current && (
-                      <span className="flex-shrink-0 rounded-full bg-tag-green px-2 py-0.5 font-body text-[11px] font-medium text-tag-green-fg">
-                        Actuellement
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-body text-xs text-muted-foreground">
-                    {s.ip ? `${s.ip} · ` : ''}Actif {formatLongDate(s.lastSeenAt)}
-                  </span>
-                </div>
+                {!s.current && (
+                  <button
+                    type="button"
+                    onClick={() => revokeOne(s.id)}
+                    disabled={pendingId === s.id}
+                    className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-tag-red-fg disabled:opacity-50"
+                  >
+                    {pendingId === s.id ? 'Déconnexion…' : 'Fermer'}
+                  </button>
+                )}
               </div>
-              {!s.current && (
-                <button
-                  type="button"
-                  onClick={() => revokeOne(s.id)}
-                  disabled={pendingId === s.id}
-                  className="flex-shrink-0 rounded-md border border-border px-3 py-1.5 font-body text-xs font-medium text-tag-red-fg disabled:opacity-50"
-                >
-                  {pendingId === s.id ? 'Déconnexion…' : 'Fermer'}
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {otherCount > 0 && (

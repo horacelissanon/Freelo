@@ -84,6 +84,8 @@ import {
   FileSpreadsheet,
   Wallet,
   Archive,
+  Tablet,
+  Crown,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -169,6 +171,8 @@ const ICONS: Record<string, LucideIcon> = {
   'file-spreadsheet': FileSpreadsheet,
   wallet: Wallet,
   archive: Archive,
+  tablet: Tablet,
+  crown: Crown,
 };
 
 export interface IconProps {

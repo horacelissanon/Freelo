@@ -17,6 +17,8 @@ export interface PlanConfigShape {
   currency: string;
   maxClients: number | null;
   maxActiveProjects: number | null;
+  maxInvoices: number | null;
+  maxQuotes: number | null;
   features: string[];
   updatedAt: string;
 }
@@ -24,6 +26,11 @@ export interface PlanConfigShape {
 // Today's real figures — used only to seed a plan's row the first time it's
 // read (mirrors getOrCreateSubscription's upsert-on-read pattern), so
 // behavior is byte-for-byte unchanged until a Super Admin actually edits it.
+// Feature text is scoped to what's actually enforced/operational today —
+// Bictorys (online payment) and Cloudinary (file upload, logo image) are
+// unconfigured in every environment right now, so those aren't claimed here
+// even though the gating code for them exists and is ready to activate the
+// moment their env vars are set.
 const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
   FREE: {
     plan: 'FREE',
@@ -32,11 +39,13 @@ const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
     currency: 'XOF',
     maxClients: 1,
     maxActiveProjects: 2,
+    maxInvoices: 1,
+    maxQuotes: 1,
     features: [
       '1 client',
       '2 projets actifs',
-      'Devis & factures en FCFA',
-      'Lien de suivi en lecture seule',
+      '1 devis et 1 facture, en FCFA',
+      'Lien de suivi avec commentaires client',
     ],
   },
   PRO: {
@@ -46,11 +55,15 @@ const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
     currency: 'XOF',
     maxClients: null,
     maxActiveProjects: null,
+    maxInvoices: null,
+    maxQuotes: null,
     features: [
       'Clients & projets illimités',
-      'Devis & factures en FCFA, EUR, USD',
-      'Lien de suivi interactif avec tes moyens de paiement indiqués',
-      'Sans filigrane sur les documents',
+      'Devis & factures illimités, en FCFA, EUR, USD',
+      'Nom d’entreprise, adresse et infos fiscales sur tes documents',
+      'Export Excel et PDF',
+      'Personnalisation de l’espace de travail',
+      'Sans badge « Créé avec Freelo » sur ton lien de suivi',
     ],
   },
 };
@@ -65,6 +78,8 @@ export async function getPlanConfig(prisma: PrismaClient, plan: Plan): Promise<P
       currency: existing.currency,
       maxClients: existing.maxClients,
       maxActiveProjects: existing.maxActiveProjects,
+      maxInvoices: existing.maxInvoices,
+      maxQuotes: existing.maxQuotes,
       features: existing.features,
       updatedAt: existing.updatedAt.toISOString(),
     };
@@ -82,6 +97,8 @@ export async function getPlanConfig(prisma: PrismaClient, plan: Plan): Promise<P
     currency: created.currency,
     maxClients: created.maxClients,
     maxActiveProjects: created.maxActiveProjects,
+    maxInvoices: created.maxInvoices,
+    maxQuotes: created.maxQuotes,
     features: created.features,
     updatedAt: created.updatedAt.toISOString(),
   };

@@ -1,16 +1,9 @@
-'use client';
-
-// "Pensé pour" persona cards — client component because the right-to-left
-// auto-scroll needs to duplicate the card track for a seamless CSS loop
-// (see the `animate-marquee` keyframe in globals.css), and that duplication
-// should only happen once we know prefers-reduced-motion allows it. Falls
-// back to a static, non-duplicated layout by default (SSR + no-JS visitors,
-// and anyone with reduced motion) — same progressive-enhancement pattern as
-// ScrollReveal elsewhere on this page. Every card carries an explicit
-// "Profil type" badge instead of a star rating: these are illustrative
-// target personas, not attributed customer reviews (see page.tsx's header
-// comment) — first-person copy is a style choice, not a verified-review claim.
-import { useEffect, useState } from 'react';
+// "Pensé pour" persona cards — static side-by-side layout, no marquee/loop
+// (only 2 personas now, so scrolling had nothing left to justify it). Every
+// card carries an explicit "Profil type" badge instead of a star rating:
+// these are illustrative target personas, not attributed customer reviews
+// (see page.tsx's header comment) — first-person copy is a style choice,
+// not a verified-review claim. Server-rendered, no client JS needed.
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 
@@ -48,31 +41,11 @@ function PersonaCard({ persona }: { persona: Persona }) {
 }
 
 export function PersonasMarquee({ personas }: { personas: Persona[] }) {
-  const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setAnimate(true);
-    }
-  }, []);
-
-  if (!animate) {
-    return (
-      <div className="mx-auto mt-10 flex max-w-3xl flex-col items-center gap-5 sm:flex-row sm:justify-center">
-        {personas.map((persona) => (
-          <PersonaCard key={persona.name} persona={persona} />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="group relative mt-10 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-      <div className="animate-marquee flex w-max gap-5 group-hover:[animation-play-state:paused]">
-        {[...personas, ...personas].map((persona, i) => (
-          <PersonaCard key={`${persona.name}-${i}`} persona={persona} />
-        ))}
-      </div>
+    <div className="mx-auto mt-10 flex max-w-3xl flex-col items-center gap-5 sm:flex-row sm:justify-center">
+      {personas.map((persona) => (
+        <PersonaCard key={persona.name} persona={persona} />
+      ))}
     </div>
   );
 }

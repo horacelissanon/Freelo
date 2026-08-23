@@ -1118,7 +1118,7 @@ export function QuoteBuilderForm({
                 >
                   <input
                     type="text"
-                    placeholder="Moyen de paiement (ex : Wave, Orange Money, Virement)"
+                    placeholder="Moyen de paiement (ex : MTN Mobile Money, Moov Money, Virement)"
                     value={block.primaryText}
                     onChange={(e) =>
                       setPaymentBlocks((prev) =>

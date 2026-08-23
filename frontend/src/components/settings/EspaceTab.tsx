@@ -7,12 +7,21 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 import { useBottomNavStyle, type BottomNavGlass } from '@/contexts/BottomNavStyleContext';
 import { useAccentColor, ACCENT_PRESET_HEX, type AccentColor } from '@/contexts/AccentColorContext';
-import { useSidebarColor, DEFAULT_SIDEBAR_COLOR } from '@/contexts/SidebarColorContext';
+import {
+  useSidebarColor,
+  DEFAULT_SIDEBAR_COLOR,
+  LIGHT_SIDEBAR_HEX,
+} from '@/contexts/SidebarColorContext';
 import { useSidebarShape, type SidebarShape } from '@/contexts/SidebarShapeContext';
 import { useMobileNavStyle, type MobileNavStyle } from '@/contexts/MobileNavStyleContext';
 import { contrastRatio } from '@/lib/color';
 import { Toggle } from '@/components/ui/Toggle';
 import { Icon } from '@/components/ui/Icon';
+import { Modal } from '@/components/ui/Modal';
+import { ProBadge } from '@/components/ui/ProBadge';
+import Link from 'next/link';
+import { useApi } from '@/lib/useApi';
+import type { ReactNode } from 'react';
 
 const THEME_MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Clair' },
@@ -54,7 +63,9 @@ const COLOR_DUOS: { name: string; sidebar: string; accent: AccentPreset }[] = [
 // look. Unlike COLOR_DUOS it never touches the accent: the pill's color
 // stays whichever accent the freelance already picked, per their request
 // that "la couleur de sélection varie selon la couleur du thème choisi".
-const LIGHT_SIDEBAR_HEX = '#f8fafc';
+// LIGHT_SIDEBAR_HEX itself now lives in SidebarColorContext.tsx (imported
+// above) — it also drives that preset's dark-mode substitution, so the
+// picker here and that swap logic can't drift apart.
 
 // Purely indicative — never blocks the freelance's choice, just flags when
 // the active-nav-item accent risks blending into the menu background.
@@ -218,6 +229,41 @@ function DuoSwatch({ sidebar, accent }: { sidebar: string; accent: string }) {
   );
 }
 
+// Keeps the real controls visible (so a Free freelance sees exactly what
+// they're missing), dimmed and inert, with one small crown badge — same
+// crown as the Pro plan cards on FacturationTab.tsx, so the two read as
+// the same "this is what it unlocks" signal instead of a wall of 5
+// repeated upsell boxes. The badge covers the whole section (not just its
+// own pill) so clicking anywhere in a locked block surfaces the shared
+// upgrade modal below, per "cliquer sur un bouton pro affiche passer en
+// Pro" rather than always showing the pitch inline.
+function ProLockedSection({
+  locked,
+  onLockedClick,
+  children,
+}: {
+  locked: boolean;
+  onLockedClick: () => void;
+  children: ReactNode;
+}) {
+  if (!locked) return <>{children}</>;
+  return (
+    <div className="relative">
+      <div className="pointer-events-none opacity-40 select-none" aria-hidden="true">
+        {children}
+      </div>
+      <button
+        type="button"
+        onClick={onLockedClick}
+        aria-label="Fonctionnalité réservée au plan Pro — cliquer pour en savoir plus"
+        className="absolute inset-0 flex items-start justify-end p-3"
+      >
+        <ProBadge />
+      </button>
+    </div>
+  );
+}
+
 export function EspaceTab({ user }: { user: User }) {
   const { refresh } = useAuth();
   const { toast } = useToast();
@@ -229,6 +275,12 @@ export function EspaceTab({ user }: { user: User }) {
   const { sidebarColor, setSidebarColor } = useSidebarColor();
   const { shape, setShape } = useSidebarShape();
   const { navStyle, setNavStyle } = useMobileNavStyle();
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
+  const locked = !!subscriptionData && !isProActive;
+  const [proModalOpen, setProModalOpen] = useState(false);
 
   const [togglePending, setTogglePending] = useState<
     'showPaidInvoicesDefault' | 'publicPortalEnabled' | null
@@ -336,280 +388,315 @@ export function EspaceTab({ user }: { user: User }) {
             label="Lien client public"
           />
         </div>
-        <div className="flex flex-col gap-3 py-4 last:pb-0">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-col">
-              <span className="font-body text-sm font-medium text-foreground">
-                Menu liquid glass
-              </span>
-              <span className="font-body text-xs text-muted-foreground">
-                Rend le menu translucide et flouté, façon verre liquide, en gardant sa teinte verte
-                — s&apos;applique au menu du bas sur mobile et à la sidebar sur ordinateur.
-                Désactivé, le menu actuel s&apos;applique — c&apos;est le réglage par défaut.
-              </span>
-            </div>
-            <Toggle
-              checked={glass !== 'off'}
-              onChange={(v) => setGlass(v ? glassVariant : 'off')}
-              label="Menu liquid glass"
-            />
-          </div>
-          {glass !== 'off' && (
-            <div className="flex gap-2 pl-0">
-              {(['transparent', 'tinted'] as const).map((variant) => (
-                <button
-                  key={variant}
-                  type="button"
-                  onClick={() => setGlass(variant)}
-                  className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium ${
-                    glass === variant
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-canvas text-foreground'
-                  }`}
-                >
-                  {variant === 'transparent' ? 'Transparent' : 'Teinté'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-          <h2 className="font-headings text-lg font-semibold text-foreground">Couleur du menu</h2>
-          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-            La couleur de fond du menu latéral (et du menu du bas sur mobile).
-          </p>
-
-          <p className="mb-2 font-body text-xs font-medium text-foreground">Combinaisons</p>
-          <div className="flex flex-wrap gap-3">
-            {COLOR_DUOS.map((duo) => {
-              const isActive =
-                sidebarColor.toLowerCase() === duo.sidebar.toLowerCase() && accent === duo.accent;
-              return (
-                <button
-                  key={duo.name}
-                  type="button"
-                  onClick={() => {
-                    setSidebarColor(duo.sidebar);
-                    setAccent(duo.accent);
-                    void persistAccentColor(ACCENT_PRESET_HEX[duo.accent]);
-                    toast(`Palette « ${duo.name} » appliquée.`, 'success');
-                  }}
-                  aria-pressed={isActive}
-                  title={duo.name}
-                  className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
-                    isActive ? 'ring-foreground' : 'ring-transparent'
-                  }`}
-                >
-                  <DuoSwatch sidebar={duo.sidebar} accent={ACCENT_PRESET_HEX[duo.accent]} />
-                  <span className="font-body text-[11px] text-muted-foreground">{duo.name}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => {
-                setSidebarColor(LIGHT_SIDEBAR_HEX);
-                toast('Palette « Sobre & clair » appliquée.', 'success');
-              }}
-              aria-pressed={sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX}
-              title="Sobre & clair"
-              className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
-                sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX
-                  ? 'ring-foreground'
-                  : 'ring-transparent'
-              }`}
-            >
-              <DuoSwatch sidebar={LIGHT_SIDEBAR_HEX} accent={accentHex} />
-              <span className="font-body text-[11px] text-muted-foreground">Sobre &amp; clair</span>
-            </button>
-          </div>
-
-          <p className="mt-5 mb-2 font-body text-xs font-medium text-foreground">
-            Ou personnalise le fond à volonté
-          </p>
-          <div className="flex items-center gap-3">
-            <label className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border">
-              <input
-                type="color"
-                value={sidebarColor}
-                onChange={(e) => setSidebarColor(e.target.value)}
-                onBlur={() => toast('Couleur du menu mise à jour.', 'success')}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                aria-label="Choisir une couleur de fond personnalisée pour le menu"
+        <ProLockedSection locked={locked} onLockedClick={() => setProModalOpen(true)}>
+          <div className="flex flex-col gap-3 py-4 last:pb-0">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-col">
+                <span className="font-body text-sm font-medium text-foreground">
+                  Menu liquid glass
+                </span>
+                <span className="font-body text-xs text-muted-foreground">
+                  Rend le menu translucide et flouté, façon verre liquide, en gardant sa teinte
+                  verte — s&apos;applique au menu du bas sur mobile et à la sidebar sur ordinateur.
+                  Désactivé, le menu actuel s&apos;applique — c&apos;est le réglage par défaut.
+                </span>
+              </div>
+              <Toggle
+                checked={glass !== 'off'}
+                onChange={(v) => setGlass(v ? glassVariant : 'off')}
+                label="Menu liquid glass"
               />
-              <span
-                className="h-7 w-7 rounded-full border border-border"
-                style={{ backgroundColor: sidebarColor }}
-              />
-            </label>
-            <HexInput
-              value={sidebarColor}
-              onCommit={(hex) => {
-                setSidebarColor(hex);
-                toast('Couleur du menu mise à jour.', 'success');
-              }}
-              ariaLabel="Code hexadécimal du fond du menu"
-            />
-            {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSidebarColor(null);
-                  toast('Couleur du menu réinitialisée.', 'success');
-                }}
-                className="font-body text-xs font-medium text-muted-foreground underline"
-              >
-                Réinitialiser
-              </button>
+            </div>
+            {glass !== 'off' && (
+              <div className="flex gap-2 pl-0">
+                {(['transparent', 'tinted'] as const).map((variant) => (
+                  <button
+                    key={variant}
+                    type="button"
+                    onClick={() => setGlass(variant)}
+                    className={`rounded-full border px-3 py-1.5 font-body text-xs font-medium ${
+                      glass === variant
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-canvas text-foreground'
+                    }`}
+                  >
+                    {variant === 'transparent' ? 'Transparent' : 'Teinté'}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
+        </ProLockedSection>
+      </section>
 
-          {contrastRatio(sidebarColor, accentHex) < HARMONY_THRESHOLD && (
-            <p className="mt-4 flex items-start gap-2 rounded-md bg-tag-orange px-3 py-2.5 font-body text-xs text-tag-orange-fg">
-              <Icon i="info" size={14} className="mt-0.5 flex-shrink-0" />
-              Le fond du menu et la couleur d&apos;accent se ressemblent beaucoup : les éléments
-              actifs risquent de se fondre dans le menu. À titre indicatif seulement — ton choix
-              reste appliqué.
+      <ProLockedSection locked={locked} onLockedClick={() => setProModalOpen(true)}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+            <h2 className="font-headings text-lg font-semibold text-foreground">Couleur du menu</h2>
+            <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+              La couleur de fond du menu latéral (et du menu du bas sur mobile).
             </p>
-          )}
-        </section>
 
-        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-          <h2 className="font-headings text-lg font-semibold text-foreground">
-            Couleur d&apos;accent
-          </h2>
-          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-            S&apos;applique aux boutons, liens et éléments actifs de tout l&apos;espace de travail.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            {ACCENT_OPTIONS.map((opt) => (
+            <p className="mb-2 font-body text-xs font-medium text-foreground">Combinaisons</p>
+            <div className="flex flex-wrap gap-3">
+              {COLOR_DUOS.map((duo) => {
+                const isActive =
+                  sidebarColor.toLowerCase() === duo.sidebar.toLowerCase() && accent === duo.accent;
+                return (
+                  <button
+                    key={duo.name}
+                    type="button"
+                    onClick={() => {
+                      setSidebarColor(duo.sidebar);
+                      setAccent(duo.accent);
+                      void persistAccentColor(ACCENT_PRESET_HEX[duo.accent]);
+                      toast(`Palette « ${duo.name} » appliquée.`, 'success');
+                    }}
+                    aria-pressed={isActive}
+                    title={duo.name}
+                    className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                      isActive ? 'ring-foreground' : 'ring-transparent'
+                    }`}
+                  >
+                    <DuoSwatch sidebar={duo.sidebar} accent={ACCENT_PRESET_HEX[duo.accent]} />
+                    <span className="font-body text-[11px] text-muted-foreground">{duo.name}</span>
+                  </button>
+                );
+              })}
               <button
-                key={opt.value}
                 type="button"
                 onClick={() => {
-                  setAccent(opt.value);
-                  void persistAccentColor(opt.hex);
-                  toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
+                  setSidebarColor(LIGHT_SIDEBAR_HEX);
+                  toast('Palette « Sobre & clair » appliquée.', 'success');
                 }}
-                aria-label={opt.label}
-                aria-pressed={accent === opt.value}
-                className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
-                  accent === opt.value ? 'ring-foreground' : 'ring-transparent'
+                aria-pressed={sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX}
+                title="Sobre & clair"
+                className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                  sidebarColor.toLowerCase() === LIGHT_SIDEBAR_HEX
+                    ? 'ring-foreground'
+                    : 'ring-transparent'
                 }`}
-                style={{ backgroundColor: opt.hex }}
-                title={opt.label}
               >
-                {accent === opt.value && <Icon i="check-circle" size={16} className="text-white" />}
+                <DuoSwatch sidebar={LIGHT_SIDEBAR_HEX} accent={accentHex} />
+                <span className="font-body text-[11px] text-muted-foreground">
+                  Sobre &amp; clair
+                </span>
               </button>
-            ))}
-            <label
-              className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border"
-              title="Couleur personnalisée"
-            >
-              <input
-                type="color"
-                value={accentHex}
-                onChange={(e) => setCustomAccent(e.target.value)}
-                onBlur={(e) => {
-                  void persistAccentColor(e.target.value);
-                  toast("Couleur d'accent mise à jour.", 'success');
-                }}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                aria-label="Choisir une couleur d'accent personnalisée"
-              />
-              {accent === 'custom' ? (
+            </div>
+
+            <p className="mt-5 mb-2 font-body text-xs font-medium text-foreground">
+              Ou personnalise le fond à volonté
+            </p>
+            <div className="flex items-center gap-3">
+              <label className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border">
+                <input
+                  type="color"
+                  value={sidebarColor}
+                  onChange={(e) => setSidebarColor(e.target.value)}
+                  onBlur={() => toast('Couleur du menu mise à jour.', 'success')}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="Choisir une couleur de fond personnalisée pour le menu"
+                />
                 <span
                   className="h-7 w-7 rounded-full border border-border"
-                  style={{ backgroundColor: accentHex }}
+                  style={{ backgroundColor: sidebarColor }}
                 />
-              ) : (
-                <Icon i="palette" size={16} className="text-muted-foreground" />
+              </label>
+              <HexInput
+                value={sidebarColor}
+                onCommit={(hex) => {
+                  setSidebarColor(hex);
+                  toast('Couleur du menu mise à jour.', 'success');
+                }}
+                ariaLabel="Code hexadécimal du fond du menu"
+              />
+              {sidebarColor.toLowerCase() !== DEFAULT_SIDEBAR_COLOR.toLowerCase() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSidebarColor(null);
+                    toast('Couleur du menu réinitialisée.', 'success');
+                  }}
+                  className="font-body text-xs font-medium text-muted-foreground underline"
+                >
+                  Réinitialiser
+                </button>
               )}
-            </label>
-            <HexInput
-              value={accentHex}
-              onCommit={(hex) => {
-                setCustomAccent(hex);
-                void persistAccentColor(hex);
-                toast("Couleur d'accent mise à jour.", 'success');
+            </div>
+
+            {contrastRatio(sidebarColor, accentHex) < HARMONY_THRESHOLD && (
+              <p className="mt-4 flex items-start gap-2 rounded-md bg-tag-orange px-3 py-2.5 font-body text-xs text-tag-orange-fg">
+                <Icon i="info" size={14} className="mt-0.5 flex-shrink-0" />
+                Le fond du menu et la couleur d&apos;accent se ressemblent beaucoup : les éléments
+                actifs risquent de se fondre dans le menu. À titre indicatif seulement — ton choix
+                reste appliqué.
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+            <h2 className="font-headings text-lg font-semibold text-foreground">
+              Couleur d&apos;accent
+            </h2>
+            <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+              S&apos;applique aux boutons, liens et éléments actifs de tout l&apos;espace de
+              travail.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              {ACCENT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    setAccent(opt.value);
+                    void persistAccentColor(opt.hex);
+                    toast(`Couleur d'accent « ${opt.label} » appliquée.`, 'success');
+                  }}
+                  aria-label={opt.label}
+                  aria-pressed={accent === opt.value}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-canvas transition-shadow ${
+                    accent === opt.value ? 'ring-foreground' : 'ring-transparent'
+                  }`}
+                  style={{ backgroundColor: opt.hex }}
+                  title={opt.label}
+                >
+                  {accent === opt.value && (
+                    <Icon i="check-circle" size={16} className="text-white" />
+                  )}
+                </button>
+              ))}
+              <label
+                className="relative flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-border"
+                title="Couleur personnalisée"
+              >
+                <input
+                  type="color"
+                  value={accentHex}
+                  onChange={(e) => setCustomAccent(e.target.value)}
+                  onBlur={(e) => {
+                    void persistAccentColor(e.target.value);
+                    toast("Couleur d'accent mise à jour.", 'success');
+                  }}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  aria-label="Choisir une couleur d'accent personnalisée"
+                />
+                {accent === 'custom' ? (
+                  <span
+                    className="h-7 w-7 rounded-full border border-border"
+                    style={{ backgroundColor: accentHex }}
+                  />
+                ) : (
+                  <Icon i="palette" size={16} className="text-muted-foreground" />
+                )}
+              </label>
+              <HexInput
+                value={accentHex}
+                onCommit={(hex) => {
+                  setCustomAccent(hex);
+                  void persistAccentColor(hex);
+                  toast("Couleur d'accent mise à jour.", 'success');
+                }}
+                ariaLabel="Code hexadécimal de la couleur d'accent"
+              />
+            </div>
+          </section>
+        </div>
+      </ProLockedSection>
+
+      <ProLockedSection locked={locked} onLockedClick={() => setProModalOpen(true)}>
+        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <h2 className="font-headings text-lg font-semibold text-foreground">Forme du menu</h2>
+          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+            L&apos;allure de la sidebar sur ordinateur — la couleur choisie ci-dessus
+            s&apos;applique aux trois formes, et le menu du bas sur mobile prend automatiquement la
+            forme correspondante.
+          </p>
+          <div className="grid grid-cols-3 gap-3 sm:max-w-sm">
+            <SidebarShapeCard
+              label="Classique"
+              variant="classic"
+              active={shape === 'classic'}
+              sidebarColor={sidebarColor}
+              onClick={() => {
+                setShape('classic');
+                toast('Forme du menu : Classique.', 'success');
               }}
-              ariaLabel="Code hexadécimal de la couleur d'accent"
+            />
+            <SidebarShapeCard
+              label="Capsule"
+              variant="capsule"
+              active={shape === 'capsule'}
+              sidebarColor={sidebarColor}
+              onClick={() => {
+                setShape('capsule');
+                toast('Forme du menu : Capsule.', 'success');
+              }}
+            />
+            <SidebarShapeCard
+              label="Dock"
+              variant="dock"
+              active={shape === 'dock'}
+              sidebarColor={sidebarColor}
+              onClick={() => {
+                setShape('dock');
+                toast('Forme du menu : Dock.', 'success');
+              }}
             />
           </div>
         </section>
-      </div>
+      </ProLockedSection>
 
-      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-        <h2 className="font-headings text-lg font-semibold text-foreground">Forme du menu</h2>
-        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-          L&apos;allure de la sidebar sur ordinateur — la couleur choisie ci-dessus s&apos;applique
-          aux trois formes, et le menu du bas sur mobile prend automatiquement la forme
-          correspondante.
-        </p>
-        <div className="grid grid-cols-3 gap-3 sm:max-w-sm">
-          <SidebarShapeCard
-            label="Classique"
-            variant="classic"
-            active={shape === 'classic'}
-            sidebarColor={sidebarColor}
-            onClick={() => {
-              setShape('classic');
-              toast('Forme du menu : Classique.', 'success');
-            }}
-          />
-          <SidebarShapeCard
-            label="Capsule"
-            variant="capsule"
-            active={shape === 'capsule'}
-            sidebarColor={sidebarColor}
-            onClick={() => {
-              setShape('capsule');
-              toast('Forme du menu : Capsule.', 'success');
-            }}
-          />
-          <SidebarShapeCard
-            label="Dock"
-            variant="dock"
-            active={shape === 'dock'}
-            sidebarColor={sidebarColor}
-            onClick={() => {
-              setShape('dock');
-              toast('Forme du menu : Dock.', 'success');
-            }}
-          />
-        </div>
-      </section>
+      <ProLockedSection locked={locked} onLockedClick={() => setProModalOpen(true)}>
+        <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
+          <h2 className="font-headings text-lg font-semibold text-foreground">Navigation mobile</h2>
+          <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
+            Comment atteindre le menu sur téléphone : une barre flottante en bas de l&apos;écran, ou
+            un bouton en haut à gauche qui ouvre le menu latéral.
+          </p>
+          <div className="flex gap-3">
+            <MobileNavStyleCard
+              label="Menu du bas"
+              variant="bottom"
+              active={navStyle === 'bottom'}
+              onClick={() => {
+                setNavStyle('bottom');
+                toast('Navigation mobile : menu du bas.', 'success');
+              }}
+            />
+            <MobileNavStyleCard
+              label="Menu latéral"
+              variant="drawer"
+              active={navStyle === 'drawer'}
+              onClick={() => {
+                setNavStyle('drawer');
+                toast('Navigation mobile : menu latéral.', 'success');
+              }}
+            />
+          </div>
+        </section>
+      </ProLockedSection>
 
-      <section className="rounded-lg border border-border bg-canvas p-5 shadow-card">
-        <h2 className="font-headings text-lg font-semibold text-foreground">Navigation mobile</h2>
-        <p className="mt-1 mb-4 font-body text-xs text-muted-foreground">
-          Comment atteindre le menu sur téléphone : une barre flottante en bas de l&apos;écran, ou
-          un bouton en haut à gauche qui ouvre le menu latéral.
-        </p>
-        <div className="flex gap-3">
-          <MobileNavStyleCard
-            label="Menu du bas"
-            variant="bottom"
-            active={navStyle === 'bottom'}
-            onClick={() => {
-              setNavStyle('bottom');
-              toast('Navigation mobile : menu du bas.', 'success');
-            }}
-          />
-          <MobileNavStyleCard
-            label="Menu latéral"
-            variant="drawer"
-            active={navStyle === 'drawer'}
-            onClick={() => {
-              setNavStyle('drawer');
-              toast('Navigation mobile : menu latéral.', 'success');
-            }}
-          />
-        </div>
-      </section>
+      {proModalOpen && (
+        <Modal title="Fonctionnalité Pro" onClose={() => setProModalOpen(false)}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600">
+              <Icon i="crown" size={26} className="text-white" />
+            </div>
+            <p className="font-body text-sm text-muted-foreground">
+              La personnalisation de l&apos;apparence — couleurs, forme du menu, navigation mobile
+              et menu liquid glass — est réservée au plan Pro.
+            </p>
+          </div>
+          <Link
+            href="/settings?tab=abonnement"
+            onClick={() => setProModalOpen(false)}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-gradient-to-br from-amber-500 to-orange-600 px-4 py-2.5 font-body text-sm font-semibold text-white hover:opacity-90"
+          >
+            <Icon i="crown" size={14} />
+            Passer en Pro
+          </Link>
+        </Modal>
+      )}
     </div>
   );
 }

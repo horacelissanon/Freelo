@@ -29,14 +29,21 @@ export const CURRENCIES: { value: string; label: string }[] = [
 // (GET /api/projects/[id], GET /api/track/[token]) picks it up unchanged.
 export type PaymentMethod =
   | 'CASH'
+  | 'MTN_MOMO'
+  | 'MOOV_MONEY'
   | 'WAVE'
   | 'ORANGE_MONEY'
   | 'FREE_MONEY'
   | 'BANK_TRANSFER'
   | 'OTHER';
 
+// MTN Mobile Money and Moov Money lead the list — Bénin's actual dominant
+// mobile money operators. Wave/Orange Money/Free Money stay available for
+// freelancers with clients elsewhere in UEMOA, just no longer first.
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   CASH: 'Espèces',
+  MTN_MOMO: 'MTN Mobile Money',
+  MOOV_MONEY: 'Moov Money',
   WAVE: 'Wave',
   ORANGE_MONEY: 'Orange Money',
   FREE_MONEY: 'Free Money',

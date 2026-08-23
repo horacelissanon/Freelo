@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { icon: 'receipt', label: 'Factures', href: '/invoices?tab=factures' },
   { icon: 'bar-chart', label: 'Statistiques', href: '/stats' },
   { icon: 'star', label: 'Avis clients', href: '/reviews' },
+  { icon: 'message-circle', label: 'Support', href: '/settings?tab=support' },
 ] as const;
 
 interface SidebarProps {
@@ -212,7 +213,7 @@ function SidebarBody({
             className={`flex flex-col gap-0.5 bg-gradient-to-br from-amber-500 to-orange-600 ${itemShape === 'rounded-full' ? 'rounded-2xl' : itemShape} px-3 py-2.5 text-white shadow-card`}
           >
             <span className="flex items-center gap-2 font-body text-sm font-semibold">
-              <Icon i="credit-card" size={16} className="text-white" />
+              <Icon i="crown" size={16} className="text-white" />
               Passe en Pro
             </span>
             <span className="font-body text-xs text-white/80">

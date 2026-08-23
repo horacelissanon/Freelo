@@ -9,6 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useApi, invalidateCache } from '@/lib/useApi';
 import { Icon } from '@/components/ui/Icon';
+import { LoadingState } from '@/components/ui/PageStates';
 import { formatLongDate } from '@/lib/utils';
 
 type Priority = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -162,7 +163,7 @@ export function SupportTab() {
       <div className="rounded-lg border border-border bg-canvas shadow-card p-5">
         <h2 className="mb-3 font-headings text-base font-semibold text-foreground">Mes demandes</h2>
         {loading ? (
-          <p className="font-body text-sm text-muted-foreground">Chargement…</p>
+          <LoadingState />
         ) : !data || data.items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <Icon i="message-circle" size={22} className="text-muted-foreground" />

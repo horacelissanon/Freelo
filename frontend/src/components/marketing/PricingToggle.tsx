@@ -22,14 +22,16 @@ import { formatPrice } from '@/lib/utils';
 const FALLBACK_FREE_FEATURES = [
   '1 client',
   '2 projets actifs',
-  'Devis & factures en FCFA',
-  'Lien de suivi en lecture seule',
+  '1 devis et 1 facture, en FCFA',
+  'Lien de suivi avec commentaires client',
 ];
 const FALLBACK_PRO_FEATURES = [
   'Clients & projets illimités',
-  'Devis & factures en FCFA, EUR, USD',
-  'Lien de suivi interactif avec tes moyens de paiement indiqués',
-  'Sans filigrane sur les documents',
+  'Devis & factures illimités, en FCFA, EUR, USD',
+  'Nom d’entreprise, adresse et infos fiscales sur tes documents',
+  'Export Excel et PDF',
+  'Personnalisation de l’espace de travail',
+  'Sans badge « Créé avec Freelo » sur ton lien de suivi',
 ];
 const FALLBACK_MONTHLY_PRICE = 3500;
 const FALLBACK_ANNUAL_PRICE = 35000;
@@ -57,7 +59,12 @@ const FALLBACK_FX: Record<Currency, { perFcfa: number; symbol: string }> = {
   USD: { perFcfa: 1 / 610, symbol: '$' },
 };
 
-const cardClass = 'rounded-2xl p-6 shadow-card';
+// flex + h-full + flex-col: the grid below stretches both cards to the same
+// height (CSS Grid's default align-items:stretch), then this lets each
+// card's CTA pin to the bottom via mt-auto regardless of how many feature
+// bullets the other card has — keeps "Commencer gratuitement" and "Essayer
+// le plan Pro" on the same row instead of drifting apart.
+const cardClass = 'flex h-full flex-col rounded-2xl p-6 shadow-card';
 
 function FeatureList({
   items,
@@ -74,7 +81,11 @@ function FeatureList({
         : 'text-foreground';
   const iconClass = tone === 'inverted' ? 'text-primary-foreground' : 'text-primary';
   return (
-    <ul className="mt-4 flex flex-col gap-2.5">
+    // flex-1: absorbs the leftover height once the parent grid stretches
+    // both cards to match the taller one, so the CTA below always sits at a
+    // consistent mt-6 from the last bullet instead of drifting with list
+    // length — see cardClass's comment for why the cards match height at all.
+    <ul className="mt-4 flex flex-1 flex-col gap-2.5">
       {items.map((line) => (
         <li key={line} className={`flex items-start gap-2 font-body text-sm ${textClass}`}>
           <Icon i="check-circle" size={15} className={`mt-0.5 flex-shrink-0 ${iconClass}`} />
@@ -159,7 +170,7 @@ export function PricingToggle() {
           </p>
           <FeatureList items={freeFeatures} tone="muted" />
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             className="mt-6 block rounded-md border border-border px-4 py-2.5 text-center font-body text-sm font-medium text-foreground"
           >
             Commencer gratuitement
@@ -190,7 +201,7 @@ export function PricingToggle() {
           </p>
           <FeatureList items={proFeatures} tone="inverted" />
           <Link
-            href="/signup"
+            href="/login?mode=signup"
             className="mt-6 block rounded-md bg-canvas px-4 py-2.5 text-center font-body text-sm font-medium text-primary"
           >
             Essayer le plan Pro

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
+import { PlanLimitPrompt } from '@/components/ui/PlanLimitPrompt';
+import { useApi } from '@/lib/useApi';
 import { exportRowsToExcel } from '@/lib/export/excel';
 import { exportRowsToPdf } from '@/lib/export/pdf';
 import type { ExportColumn } from '@/lib/export/types';
@@ -22,6 +24,10 @@ export function ExportButtons<T>({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
 
   useEffect(() => {
     if (!open) return;
@@ -66,26 +72,31 @@ export function ExportButtons<T>({
         <span className="hidden sm:inline">Exporter</span>
       </button>
 
-      {open && (
-        <div className="absolute top-full right-0 z-30 mt-2 w-48 rounded-lg border border-border bg-canvas p-1.5 shadow-xl">
-          <button
-            type="button"
-            onClick={() => void handlePdf()}
-            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
-          >
-            <Icon i="file-text" size={16} className="text-muted-foreground" />
-            Exporter en PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleExcel()}
-            className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
-          >
-            <Icon i="file-spreadsheet" size={16} className="text-muted-foreground" />
-            Exporter en Excel
-          </button>
-        </div>
-      )}
+      {open &&
+        (isProActive ? (
+          <div className="absolute top-full right-0 z-30 mt-2 w-48 rounded-lg border border-border bg-canvas p-1.5 shadow-xl">
+            <button
+              type="button"
+              onClick={() => void handlePdf()}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+            >
+              <Icon i="file-text" size={16} className="text-muted-foreground" />
+              Exporter en PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExcel()}
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 font-body text-sm text-foreground hover:bg-secondary"
+            >
+              <Icon i="file-spreadsheet" size={16} className="text-muted-foreground" />
+              Exporter en Excel
+            </button>
+          </div>
+        ) : (
+          <div className="absolute top-full right-0 z-30 mt-2 w-64 shadow-xl">
+            <PlanLimitPrompt message="L'export Excel et PDF est réservé au plan Pro." />
+          </div>
+        ))}
     </div>
   );
 }

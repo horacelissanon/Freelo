@@ -131,6 +131,10 @@ export function InvoiceForm({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: subscriptionData } = useApi<{ subscription: { isProActive: boolean } }>(
+    '/api/billing/subscription',
+  );
+  const isProActive = subscriptionData?.subscription.isProActive ?? false;
   const { data: clientsData, loading: clientsLoading } = useApi<{ items: ClientOption[] }>(
     '/api/clients?limit=50',
   );
@@ -246,7 +250,7 @@ export function InvoiceForm({
   const lineItemsRef = useRef<HTMLDivElement>(null);
 
   const selectedClient = clients.find((c) => c.id === clientId);
-  const studioLabel = user ? resolveDocumentIdentity(user).name : '';
+  const studioLabel = user ? resolveDocumentIdentity(user, isProActive).name : '';
 
   function updateLineItem(index: number, field: keyof LineItemDraft, value: string) {
     setLineItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));

@@ -179,7 +179,11 @@ export async function api<T = unknown>(path: string, options: ApiOptions = {}): 
           try {
             const json = JSON.parse(text);
             errorBody = json as Record<string, unknown>;
-            errorMessage = (json as { error?: string }).error || errorMessage;
+            // Prefer `message` (human-readable, translated) over `error`
+            // (the stable code) — most routes return both, some older ones
+            // only set `error` to a human string, hence the fallback chain.
+            const { message, error } = json as { message?: string; error?: string };
+            errorMessage = message || error || errorMessage;
           } catch {
             errorMessage =
               response.status >= 500

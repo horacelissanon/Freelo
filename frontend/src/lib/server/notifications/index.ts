@@ -8,6 +8,19 @@
  * `fireWelcome(userId)`) live in `templates.ts`.
  */
 import type { PrismaClient, Notification, Prisma } from '@prisma/client';
+import { isChannelEnabled, type NotificationPrefs } from './prefs-merge';
+
+// Account-security event types always fire in-app regardless of the user's
+// NotificationPreferences — a user must not be able to silently miss "your
+// account was suspended" or "a PIN abuse pattern was detected on your
+// account" by having opted out of some other notification type. Kept in
+// sync with EMAIL_PREFERENCE_EXEMPT_TYPES in ./dispatch.ts.
+const IN_APP_PREFERENCE_EXEMPT_TYPES: ReadonlySet<string> = new Set([
+  'ACCOUNT_SUSPENDED',
+  'ACCOUNT_RESTORED',
+  'ROLE_CHANGED',
+  'WITHDRAWAL_PIN_ABUSE_WARNING',
+]);
 
 export interface CreateNotificationInput {
   userId: string;
@@ -29,6 +42,16 @@ export async function createNotification(
   prisma: PrismaClient,
   input: CreateNotificationInput,
 ): Promise<Notification | null> {
+  if (!IN_APP_PREFERENCE_EXEMPT_TYPES.has(input.type)) {
+    const prefsRow = await prisma.notificationPreferences.findUnique({
+      where: { userId: input.userId },
+      select: { prefs: true },
+    });
+    const prefs = (prefsRow?.prefs ?? null) as NotificationPrefs | null;
+    if (!isChannelEnabled(prefs, input.type, 'inApp')) {
+      return null;
+    }
+  }
   try {
     return await prisma.notification.create({
       data: {

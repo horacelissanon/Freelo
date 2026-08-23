@@ -226,7 +226,7 @@ export function ClientForm({
               Ville
               <input
                 type="text"
-                placeholder="Ex : Dakar, Plateau"
+                placeholder="Ex : Cotonou, Akpakpa"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 className={inputClass}
