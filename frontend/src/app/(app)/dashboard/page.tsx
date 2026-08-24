@@ -17,9 +17,10 @@ import { UnpaidInvoicesPanel } from '@/components/dashboard/UnpaidInvoicesPanel'
 import { RevenueTrendCard } from '@/components/dashboard/RevenueTrendCard';
 import { UpcomingDeadlinesCard } from '@/components/dashboard/UpcomingDeadlinesCard';
 import { Icon } from '@/components/ui/Icon';
+import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
-import type { ProjectStatus, InvoiceStatus } from '@/lib/constants';
+import { COMMUNITY_WHATSAPP_URL, type ProjectStatus, type InvoiceStatus } from '@/lib/constants';
 
 interface DashboardStats {
   revenue: {
@@ -223,18 +224,41 @@ export default function DashboardPage() {
               ` · ${stats.data.activeProjects.count} projet${stats.data.activeProjects.count > 1 ? 's' : ''} actif${stats.data.activeProjects.count > 1 ? 's' : ''}`}
           </p>
         </div>
-        {/* Desktop only — mobile gets the bell in the persistent top bar
-            ((app)/layout.tsx) and relies on BottomNav's central "+" for
-            quick creation. Quick-create actions live in the Client/Devis/
-            Projet row below instead of a duplicate header button. */}
-        <div className="hidden lg:flex lg:items-center lg:gap-3">
-          <NotificationBell
-            unreadCount={notifCount.data?.count ?? 0}
-            notifications={notifications.data?.items ?? []}
-            onMarkAllRead={() => void markAllNotificationsRead()}
-            onMarkRead={(id) => void markNotificationRead(id)}
-            triggerClassName="bg-white/10 text-white hover:bg-white/20"
-          />
+        <div className="flex items-center gap-3">
+          {/* WhatsApp brand green stands out against the dark banner on
+              purpose — this is meant to catch the eye, not blend in. The
+              pulse is a small corner dot (not the whole pill) so it never
+              scales past the card's rounded edge — an earlier version
+              pinged the entire button and the glow leaked outside the
+              banner on mobile, confirmed visually before landing on this. */}
+          <a
+            href={COMMUNITY_WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 font-body text-sm font-semibold text-white shadow-lg transition hover:bg-[#20bd5a]"
+          >
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
+            </span>
+            <WhatsAppIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Communauté WhatsApp</span>
+            <span className="sm:hidden">Communauté</span>
+          </a>
+
+          {/* Desktop only — mobile gets the bell in the persistent top bar
+              ((app)/layout.tsx) and relies on BottomNav's central "+" for
+              quick creation. Quick-create actions live in the Client/Devis/
+              Projet row below instead of a duplicate header button. */}
+          <div className="hidden lg:flex lg:items-center lg:gap-3">
+            <NotificationBell
+              unreadCount={notifCount.data?.count ?? 0}
+              notifications={notifications.data?.items ?? []}
+              onMarkAllRead={() => void markAllNotificationsRead()}
+              onMarkRead={(id) => void markNotificationRead(id)}
+              triggerClassName="bg-white/10 text-white hover:bg-white/20"
+            />
+          </div>
         </div>
       </div>
 

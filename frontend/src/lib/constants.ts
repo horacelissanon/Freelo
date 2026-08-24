@@ -6,6 +6,13 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 export const COOKIE_PREFIX = process.env.NEXT_PUBLIC_COOKIE_PREFIX ?? 'app';
 
+// Placeholder — no real WhatsApp group exists yet. Swap this for the real
+// invite link (chat.whatsapp.com/…) before real visitors/users see it.
+// Shared by the landing page's community section and the dashboard banner's
+// community button so there's a single place to update once the group
+// exists.
+export const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/REMPLACE-MOI';
+
 // ─────────────────────────────────────────────────────────────────────────
 // Merrudit (freelance CRM) — French labels + status→color mapping. Centralized
 // here per the banani-design-implementation skill's i18n rule (no strings
