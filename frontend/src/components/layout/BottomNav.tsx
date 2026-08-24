@@ -43,8 +43,11 @@ const SHAPE_OVERLAY_RADIUS: Record<SidebarShape, string> = {
   dock: 'rounded-full',
 };
 
+// "Accueil" (not "Tableau de bord", used on desktop) — the full label
+// wrapped/overflowed in this bar's narrow per-item width; single word
+// matches the other items (Projets, Clients) at this size.
 const LEFT_ITEMS = [
-  { icon: 'layout-dashboard', label: 'Tableau de bord', href: '/dashboard' },
+  { icon: 'layout-dashboard', label: 'Accueil', href: '/dashboard' },
   { icon: 'folder-open', label: 'Projets', href: '/projects' },
 ] as const;
 
