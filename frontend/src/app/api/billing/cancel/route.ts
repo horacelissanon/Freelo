@@ -1,5 +1,5 @@
 // POST /api/billing/cancel — stop auto-renewal reminders; stays Pro until
-// `currentPeriodEnd` (no refund logic since FedaPay never auto-charges —
+// `currentPeriodEnd` (no refund logic since SasPay never auto-charges —
 // every period was its own explicit, already-completed transaction).
 export const runtime = 'nodejs';
 

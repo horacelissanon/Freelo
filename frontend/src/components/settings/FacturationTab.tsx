@@ -1,8 +1,9 @@
 // Merrudit SaaS subscription (the freelancer paying to use the app itself —
-// distinct from Bictorys, which stays wired for the freelancer's own
-// clients paying them). Real data from GET /api/billing/subscription,
-// mutations via POST /api/billing/subscribe (FedaPay redirect checkout,
-// no silent recharge) and POST /api/billing/cancel. Exactly 2 plans per
+// same SasPay provider that's also wired for the freelancer's own clients
+// paying them via /api/orders + /api/track/[token]/pay). Real data from
+// GET /api/billing/subscription, mutations via POST /api/billing/subscribe
+// (SasPay redirect checkout, no silent recharge) and POST
+// /api/billing/cancel. Exactly 2 plans per
 // the PRD — Gratuit (0 FCFA) and Pro (3 500 FCFA/mois ou 35 000 FCFA/an) —
 // no Enterprise tier. Presented as 3 distinct cards (Gratuit / Pro mensuel /
 // Pro annuel) since the two Pro cadences have different commitments and
@@ -76,7 +77,7 @@ interface SubscriptionData {
 const SUBSCRIPTION_PATH = '/api/billing/subscription';
 
 // sessionStorage (not localStorage) — scoped to this tab, survives the
-// FedaPay redirect-away-and-back, and self-clears once the browser tab
+// SasPay redirect-away-and-back, and self-clears once the browser tab
 // closes so an abandoned checkout doesn't linger forever.
 const PENDING_TX_KEY = 'merrudit:pending-subscription-tx';
 const POLL_INTERVAL_MS = 2500;
@@ -163,7 +164,7 @@ export function FacturationTab() {
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
 
   // Post-checkout success screen — see billingSuccess.ts's header for why
-  // this polls instead of trusting the FedaPay redirect URL directly.
+  // this polls instead of trusting the SasPay redirect URL directly.
   const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
   const pollAttemptsRef = useRef(0);
 
@@ -233,7 +234,7 @@ export function FacturationTab() {
     }
   }
 
-  // Resolves the checkout started before the FedaPay redirect: shows the
+  // Resolves the checkout started before the SasPay redirect: shows the
   // success modal once the webhook has flipped it to PAID, a toast if it
   // FAILED, or keeps polling (bounded) while confirmation is still in
   // flight — see billingSuccess.ts.
@@ -641,7 +642,7 @@ export function FacturationTab() {
       </section>
 
       {/* Moyens de paiement — honest note, not a fabricated saved-cards UI:
-          checkout is a FedaPay redirect (see subscribe()), no card is ever
+          checkout is a SasPay redirect (see subscribe()), no card is ever
           stored on our side. */}
       <section className="flex items-start gap-3 rounded-lg border border-border bg-canvas p-4 shadow-card">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/60">
@@ -650,7 +651,7 @@ export function FacturationTab() {
         <div>
           <p className="font-body text-sm font-medium text-foreground">Moyens de paiement</p>
           <p className="font-body text-xs text-muted-foreground">
-            Le paiement se fait par redirection sécurisée vers FedaPay (carte ou mobile money).
+            Le paiement se fait par redirection sécurisée vers SasPay (carte ou mobile money).
             Aucune carte n&rsquo;est enregistrée sur nos serveurs.
           </p>
         </div>

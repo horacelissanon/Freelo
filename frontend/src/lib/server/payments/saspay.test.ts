@@ -101,6 +101,35 @@ describe('createSaspayProvider().charge', () => {
     });
   });
 
+  it('unwraps the real SasPay envelope ({ success, data: {...}, code }), not a flat body', async () => {
+    // Verified 2026-08-24 against the live SasPay API — successful
+    // checkout-session responses wrap the session under `data`, unlike
+    // the flat shape the other fixtures in this file use for brevity.
+    mockFetchOnce(201, {
+      success: true,
+      data: {
+        id: 'sess_envelope_1',
+        checkout_url: 'https://checkout.saspay.me/envelope-slug',
+        status: 'PENDING',
+      },
+      code: 201,
+    });
+    const provider = createSaspayProvider(ENV);
+    const result = await provider.charge({
+      amount: 3500,
+      currency: 'XOF',
+      customer: { email: 'a@test.local' },
+      successUrl: 'https://app.test/success',
+      failureUrl: 'https://app.test/failure',
+      externalRef: 'order_5',
+    });
+    expect(result).toEqual({
+      providerChargeId: 'sess_envelope_1',
+      paymentUrl: 'https://checkout.saspay.me/envelope-slug',
+      status: 'PENDING',
+    });
+  });
+
   it('throws with the provider message on a non-2xx response', async () => {
     mockFetchOnce(422, {
       message: 'La devise XOF ne correspond pas au pays CM.',

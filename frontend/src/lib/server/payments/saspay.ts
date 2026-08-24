@@ -188,8 +188,12 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
       throw new Error(`SasPay checkout session failed: ${message}`);
     }
 
-    const providerChargeId = String((data?.id as string | undefined) ?? '');
-    const paymentUrl = String((data?.checkout_url as string | undefined) ?? '');
+    // Successful responses are wrapped: { success, data: { id, checkout_url,
+    // status, ... }, code }. Errors observed so far are flat (message/code
+    // at top level) — hence the two different unwrap targets above/below.
+    const session = (data?.data as Record<string, unknown> | undefined) ?? data;
+    const providerChargeId = String((session?.id as string | undefined) ?? '');
+    const paymentUrl = String((session?.checkout_url as string | undefined) ?? '');
     if (!providerChargeId || !paymentUrl) {
       throw new Error('SasPay returned no session id or checkout_url');
     }
@@ -197,7 +201,7 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
     return {
       providerChargeId,
       paymentUrl,
-      status: classifyStatus(data?.status as string | undefined),
+      status: classifyStatus(session?.status as string | undefined),
     };
   }
 
