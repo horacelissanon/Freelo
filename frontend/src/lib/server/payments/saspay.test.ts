@@ -148,3 +148,35 @@ describe('createSaspayProvider().charge', () => {
     ).rejects.toThrow(/devise XOF/);
   });
 });
+
+describe('createSaspayProvider().verifyCheckoutSession', () => {
+  it('re-fetches the session by id and classifies a flat (unwrapped) status', async () => {
+    // GET /checkout-sessions/{id}/ returns the session flat, unlike POST
+    // /checkout-sessions/'s { data: {...} } envelope — verified live 2026-08-24.
+    mockFetchOnce(200, { id: 'sess_1', status: 'SUCCESS' });
+    const provider = createSaspayProvider(ENV);
+    const status = await provider.verifyCheckoutSession('sess_1');
+    expect(status).toBe('PAID');
+
+    const call = vi.mocked(fetch).mock.calls[0];
+    expect(call?.[0]).toBe('https://api.saspay.test/checkout-sessions/sess_1/');
+    const init = call?.[1] as RequestInit;
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sk_test_xxx');
+  });
+
+  it('classifies FAILED and PENDING statuses', async () => {
+    const provider = createSaspayProvider(ENV);
+
+    mockFetchOnce(200, { id: 'sess_2', status: 'FAILED' });
+    expect(await provider.verifyCheckoutSession('sess_2')).toBe('FAILED');
+
+    mockFetchOnce(200, { id: 'sess_3', status: 'PENDING' });
+    expect(await provider.verifyCheckoutSession('sess_3')).toBe('PENDING');
+  });
+
+  it('throws with the provider message on a non-2xx response', async () => {
+    mockFetchOnce(404, { message: 'Not found' });
+    const provider = createSaspayProvider(ENV);
+    await expect(provider.verifyCheckoutSession('missing')).rejects.toThrow(/Not found/);
+  });
+});

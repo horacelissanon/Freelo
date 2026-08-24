@@ -8,14 +8,21 @@
 // tests and the route module doesn't crash on import when env is missing.
 import 'server-only';
 import type { WebhookProvider } from './handler';
-import { createSaspayProvider, type SaspayWebhookPayload } from '../payments/saspay';
+import {
+  createSaspayProvider,
+  type SaspayProviderHandle,
+  type SaspayWebhookPayload,
+} from '../payments/saspay';
 
 export type { SaspayWebhookPayload };
 
-let _provider: WebhookProvider<SaspayWebhookPayload> | null = null;
+let _handle: SaspayProviderHandle | null = null;
 
-export function getSaspayWebhookProvider(): WebhookProvider<SaspayWebhookPayload> {
-  if (_provider) return _provider;
+/** Full provider handle (webhook verify/parse + verifyCheckoutSession) —
+ * use this when the route needs more than signature/payload handling, e.g.
+ * the post-webhook reconciliation call. */
+export function getSaspayProviderHandle(): SaspayProviderHandle {
+  if (_handle) return _handle;
   const apiKey = process.env.SASPAY_API_KEY ?? '';
   const webhookSecret = process.env.SASPAY_WEBHOOK_SECRET ?? '';
   if (!apiKey) {
@@ -24,12 +31,16 @@ export function getSaspayWebhookProvider(): WebhookProvider<SaspayWebhookPayload
   if (!webhookSecret) {
     throw new Error('SasPay webhook provider not configured (SASPAY_WEBHOOK_SECRET missing)');
   }
-  _provider = createSaspayProvider({
+  _handle = createSaspayProvider({
     SASPAY_API_KEY: apiKey,
     ...(process.env.SASPAY_API_URL ? { SASPAY_API_URL: process.env.SASPAY_API_URL } : {}),
     SASPAY_WEBHOOK_SECRET: webhookSecret,
-  }).webhookProvider;
-  return _provider;
+  });
+  return _handle;
+}
+
+export function getSaspayWebhookProvider(): WebhookProvider<SaspayWebhookPayload> {
+  return getSaspayProviderHandle().webhookProvider;
 }
 
 /** Convenience binding for the route file. */
@@ -42,5 +53,5 @@ export const saspayWebhookProvider: WebhookProvider<SaspayWebhookPayload> = {
 
 /** Test-only — clear the cached provider for `vi.stubEnv` reuse. */
 export function __resetSaspayWebhookProvider(): void {
-  _provider = null;
+  _handle = null;
 }

@@ -119,6 +119,21 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 
 export interface SaspayProviderHandle extends PaymentProvider {
   webhookProvider: WebhookProvider<SaspayWebhookPayload>;
+  /**
+   * Re-fetch a checkout session's authoritative status straight from SasPay.
+   *
+   * Verified 2026-08-24 against real transaction.success/transaction.failed
+   * webhooks: `payload.data.id` / `payload.data.reference` identify the
+   * underlying mobile-money TRANSACTION attempt, not the checkout SESSION we
+   * created — they never match the `id` we stored as providerChargeId /
+   * providerTransactionId at charge() time. SasPay's own docs for
+   * `GET /payments/{id}/verify/` say to never trust a memorized status and
+   * always re-verify; this does the equivalent for the session resource
+   * (`GET /checkout-sessions/{id}/`), which the webhook route calls — for
+   * each still-PENDING row it owns — once a paid/failed event arrives for
+   * ANY session, since the payload can't tell us which one.
+   */
+  verifyCheckoutSession(sessionId: string): Promise<'PENDING' | 'PAID' | 'FAILED'>;
 }
 
 export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
@@ -205,6 +220,46 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
     };
   }
 
+  // ── checkout session verification (see SaspayProviderHandle doc) ────
+  async function verifyCheckoutSession(sessionId: string): Promise<'PENDING' | 'PAID' | 'FAILED'> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/checkout-sessions/${sessionId}/`, {
+        headers: { Authorization: `Bearer ${env.SASPAY_API_KEY}` },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`SasPay network error verifying checkout session: ${msg}`);
+    }
+    clearTimeout(timer);
+
+    const raw = await res.text();
+    let data: Record<string, unknown> | undefined;
+    try {
+      data = raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined;
+    } catch {
+      throw new Error(
+        `SasPay returned non-JSON verifying checkout session (HTTP ${res.status}): ${raw.slice(0, 200)}`,
+      );
+    }
+
+    if (!res.ok) {
+      const message =
+        (data?.message as string | undefined) ??
+        (data?.code as string | undefined) ??
+        `HTTP ${res.status}`;
+      throw new Error(`SasPay checkout session verification failed: ${message}`);
+    }
+
+    // Unlike charge()'s POST response, GET /checkout-sessions/{id}/ returns
+    // the session flat (no { data: {...} } envelope) — confirmed 2026-08-24.
+    return classifyStatus(data?.status as string | undefined);
+  }
+
   // ── webhook provider ──────────────────────────────────────────────
   const webhookProvider: WebhookProvider<SaspayWebhookPayload> = {
     name: 'saspay',
@@ -259,5 +314,6 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
     name: 'saspay',
     charge,
     webhookProvider,
+    verifyCheckoutSession,
   };
 }
