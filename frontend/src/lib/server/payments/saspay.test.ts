@@ -150,10 +150,13 @@ describe('createSaspayProvider().charge', () => {
 });
 
 describe('createSaspayProvider().verifyCheckoutSession', () => {
-  it('re-fetches the session by id and classifies a flat (unwrapped) status', async () => {
-    // GET /checkout-sessions/{id}/ returns the session flat, unlike POST
-    // /checkout-sessions/'s { data: {...} } envelope — verified live 2026-08-24.
-    mockFetchOnce(200, { id: 'sess_1', status: 'SUCCESS' });
+  it('re-fetches the session by id and unwraps the { success, data: {...}, code } envelope', async () => {
+    // GET /checkout-sessions/{id}/ is wrapped the same way as the POST
+    // response, despite the docs example showing a flat body — verified
+    // live 2026-08-24 (this is exactly the bug the fallback-reconcile path
+    // hit on first deploy: reading `.status` off the un-unwrapped body
+    // always returned undefined, so every row stayed PENDING forever).
+    mockFetchOnce(200, { success: true, data: { id: 'sess_1', status: 'SUCCESS' }, code: 200 });
     const provider = createSaspayProvider(ENV);
     const status = await provider.verifyCheckoutSession('sess_1');
     expect(status).toBe('PAID');
@@ -167,10 +170,10 @@ describe('createSaspayProvider().verifyCheckoutSession', () => {
   it('classifies FAILED and PENDING statuses', async () => {
     const provider = createSaspayProvider(ENV);
 
-    mockFetchOnce(200, { id: 'sess_2', status: 'FAILED' });
+    mockFetchOnce(200, { success: true, data: { id: 'sess_2', status: 'FAILED' }, code: 200 });
     expect(await provider.verifyCheckoutSession('sess_2')).toBe('FAILED');
 
-    mockFetchOnce(200, { id: 'sess_3', status: 'PENDING' });
+    mockFetchOnce(200, { success: true, data: { id: 'sess_3', status: 'PENDING' }, code: 200 });
     expect(await provider.verifyCheckoutSession('sess_3')).toBe('PENDING');
   });
 

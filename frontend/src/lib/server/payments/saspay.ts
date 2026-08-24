@@ -255,9 +255,11 @@ export function createSaspayProvider(env: SaspayEnv): SaspayProviderHandle {
       throw new Error(`SasPay checkout session verification failed: ${message}`);
     }
 
-    // Unlike charge()'s POST response, GET /checkout-sessions/{id}/ returns
-    // the session flat (no { data: {...} } envelope) — confirmed 2026-08-24.
-    return classifyStatus(data?.status as string | undefined);
+    // Wrapped the same way as charge()'s POST response: { success, data: {
+    // id, status, ... }, code } — confirmed live 2026-08-24 (the docs
+    // example shows a flat body, but the real API always wraps it).
+    const session = (data?.data as Record<string, unknown> | undefined) ?? data;
+    return classifyStatus(session?.status as string | undefined);
   }
 
   // ── webhook provider ──────────────────────────────────────────────
