@@ -51,6 +51,10 @@
  */
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// The reconciliation fallback can fan out to several SasPay API calls
+// (parallel, but still real network I/O) — give it more headroom than the
+// platform default.
+export const maxDuration = 30;
 
 import 'server-only';
 import { createWebhookHandler } from '@/lib/server/webhook/handler';
@@ -219,12 +223,18 @@ async function reconcilePendingSaspayPayments(): Promise<void> {
     }),
   ]);
 
-  for (const order of pendingOrders) {
-    await reconcileOrder(provider, order);
-  }
-  for (const transaction of pendingTransactions) {
-    await reconcileSubscriptionTransaction(provider, transaction);
-  }
+  // Parallel, not sequential — each row's verify call is an independent
+  // network round-trip; awaiting them one at a time let the total wall-clock
+  // time creep toward the function's execution budget with only a handful
+  // of PENDING rows (observed live: only the first 3 of 6 got reconciled
+  // before the run stopped). Each reconcile*() already isolates its own
+  // errors and DB write, so a slow/failed row can't block the rest.
+  await Promise.allSettled([
+    ...pendingOrders.map((order) => reconcileOrder(provider, order)),
+    ...pendingTransactions.map((transaction) =>
+      reconcileSubscriptionTransaction(provider, transaction),
+    ),
+  ]);
 }
 
 async function onSaspaySignatureInvalid(): Promise<void> {
