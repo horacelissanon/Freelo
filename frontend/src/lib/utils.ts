@@ -31,6 +31,18 @@ export function formatLongDate(iso: string | Date): string {
   });
 }
 
+/** Format an ISO date string as a long French date + time, e.g. "21 juillet 2025 à 14:32". */
+export function formatLongDateTime(iso: string | Date): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso;
+  const datePart = date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+  const timePart = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} à ${timePart}`;
+}
+
 /** Relative time label with minute/hour/day granularity, e.g. "il y a 14 min". */
 export function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();

@@ -22,7 +22,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Modal } from '@/components/ui/Modal';
 import { ProBadge } from '@/components/ui/ProBadge';
 import { LoadingState, ErrorState } from '@/components/ui/PageStates';
-import { formatPrice, formatLongDate } from '@/lib/utils';
+import { formatPrice, formatLongDate, formatLongDateTime } from '@/lib/utils';
 import { applyDiscount } from '@/lib/discount';
 import { resolvePendingTransaction } from '@/lib/billingSuccess';
 
@@ -682,7 +682,7 @@ export function FacturationTab() {
                       {tx.billingCycle === 'MONTHLY' ? 'Mensuel' : 'Annuel'}
                     </span>
                     <span className="font-body text-xs text-muted-foreground">
-                      {formatLongDate(tx.createdAt)}
+                      {formatLongDateTime(tx.createdAt)}
                       {tx.couponCode ? ` · Code ${tx.couponCode}` : ''}
                     </span>
                   </div>
