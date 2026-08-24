@@ -1,10 +1,12 @@
 // POST /api/billing/subscribe — start (or renew) the Merrudit Pro
-// subscription via FedaPay. Mirrors /api/orders' Idempotency-Key +
+// subscription via SasPay. Mirrors /api/orders' Idempotency-Key +
 // CircuitBreaker + PENDING-row-then-charge pattern, adapted for a
-// SubscriptionTransaction instead of an Order. FedaPay has no silent
+// SubscriptionTransaction instead of an Order — same provider singleton
+// and shared CircuitBreaker as /api/orders and /api/track/[token]/pay
+// (same downstream SasPay API, same failure domain). SasPay has no silent
 // recharge — the client MUST complete the returned `paymentUrl` checkout;
 // this route only starts that flow and returns 201 on success (payment
-// confirmation itself arrives async via /api/webhooks/fedapay).
+// confirmation itself arrives async via /api/webhooks/saspay).
 export const runtime = 'nodejs';
 
 import 'server-only';
@@ -14,12 +16,11 @@ import { verifyCsrf } from '@/lib/server/auth';
 import { requireAuth } from '@/lib/server/middleware';
 import { prisma } from '@/lib/server/prisma';
 import { CircuitOpenError } from '@/lib/server/payments/circuit-breaker';
-import { createTransaction } from '@/lib/server/payments/fedapay';
 import {
-  fedapayBreaker,
-  getFedapayCredentials,
-  FedapayProviderUnconfiguredError,
-} from '@/lib/server/payments/fedapay-singleton';
+  breaker,
+  getProvider,
+  PaymentProviderUnconfiguredError,
+} from '@/lib/server/payments/provider-singleton';
 import { createAdminAlert } from '@/lib/server/admin-alerts';
 import { circuitOpen } from '@/lib/server/admin-alerts/templates';
 import { getOrCreateSubscription, computeNextPeriodEnd } from '@/lib/server/billing/subscription';
@@ -114,13 +115,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    let credentials;
+    let provider;
     try {
-      credentials = getFedapayCredentials();
+      provider = getProvider();
     } catch (err) {
-      if (err instanceof FedapayProviderUnconfiguredError) {
+      if (err instanceof PaymentProviderUnconfiguredError) {
         return NextResponse.json(
-          { error: 'PAYMENT_PROVIDER_UNCONFIGURED', message: 'FedaPay not configured' },
+          { error: 'PAYMENT_PROVIDER_UNCONFIGURED', message: 'Payment provider not configured' },
           { status: 503, headers: { 'x-request-id': ctx.requestId } },
         );
       }
@@ -132,7 +133,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         {
           error: 'PAYMENT_PROVIDER_UNCONFIGURED',
-          message: 'PUBLIC_URL not set; cannot construct the FedaPay callback URL.',
+          message: 'PUBLIC_URL not set; cannot construct success/failure redirect URLs.',
         },
         { status: 503, headers: { 'x-request-id': ctx.requestId } },
       );
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         currency,
         billingCycle,
         status: 'PENDING',
-        provider: 'fedapay',
+        provider: 'saspay',
         idempotencyKey: idemKey,
         periodStart,
         periodEnd,
@@ -199,39 +200,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     try {
-      const result = await fedapayBreaker.execute(() =>
-        createTransaction(credentials, {
+      const result = await breaker.execute(() =>
+        provider.charge({
           amount,
           currency,
-          description: `Merrudit Pro — ${billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'}`,
-          callbackUrl: `${publicUrl}/settings?tab=abonnement`,
+          metadata: {
+            description: `Merrudit Pro — ${billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'}`,
+          },
           customer: {
             email: user.email,
-            ...(user.name ? { firstName: user.name } : {}),
+            ...(user.name ? { name: user.name } : {}),
             ...(user.phone ? { phone: user.phone } : {}),
           },
+          successUrl: `${publicUrl}/settings?tab=abonnement`,
+          failureUrl: `${publicUrl}/settings?tab=abonnement`,
+          externalRef: transaction.id,
         }),
       );
 
-      if (!result.ok) {
-        await prisma.subscriptionTransaction.update({
-          where: { id: transaction.id },
-          data: { status: 'FAILED' },
-        });
-        return NextResponse.json(
-          { error: 'PAYMENT_FAILED', message: result.error },
-          { status: 502, headers: { 'x-request-id': ctx.requestId } },
-        );
-      }
-
       await prisma.subscriptionTransaction.update({
         where: { id: transaction.id },
-        data: { providerTransactionId: result.transactionId, paymentUrl: result.paymentUrl },
+        data: { providerTransactionId: result.providerChargeId, paymentUrl: result.paymentUrl },
       });
 
       // Reserve the redemption only now that checkout genuinely exists —
       // reserving it earlier would burn the user's one-time coupon on a
-      // FedaPay/network failure they didn't cause. The (couponId, userId)
+      // SasPay/network failure they didn't cause. The (couponId, userId)
       // unique constraint is the real guard against a double-submit race;
       // a failure here is non-fatal (the checkout link is already valid
       // and must still be honored) so it's swallowed, not thrown.
@@ -269,7 +263,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           const bucket15min = Math.floor(Date.now() / (15 * 60_000)).toString();
           await createAdminAlert(
             prisma,
-            circuitOpen(fedapayBreaker.name, bucket15min, err.retryAt.toISOString()),
+            circuitOpen(breaker.name, bucket15min, err.retryAt.toISOString()),
           );
         } catch {
           // Never let alerting affect the payment-provider-unavailable response.
@@ -278,7 +272,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         return NextResponse.json(
           {
             error: 'PAYMENT_PROVIDER_UNAVAILABLE',
-            message: 'FedaPay temporarily unavailable. Try again shortly.',
+            message: 'Payment provider temporarily unavailable. Try again shortly.',
           },
           {
             status: 503,

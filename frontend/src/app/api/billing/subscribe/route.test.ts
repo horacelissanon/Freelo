@@ -1,5 +1,5 @@
 // POST /api/billing/subscribe — coupon-path tests only. The pre-existing
-// no-coupon behavior (idempotency, CircuitBreaker, FedaPay error mapping)
+// no-coupon behavior (idempotency, CircuitBreaker, SasPay error mapping)
 // predates this file and stays covered by manual/smoke testing (see
 // CLAUDE.md); these tests focus on what changed: applying + re-validating
 // a coupon server-side and never trusting the client-side preview.
@@ -12,12 +12,16 @@ vi.mock('@/lib/server/auth', async () => {
   const actual = await vi.importActual<typeof import('@/lib/server/auth')>('@/lib/server/auth');
   return { ...actual, verifyCsrf: vi.fn() };
 });
-vi.mock('@/lib/server/payments/fedapay-singleton', () => ({
-  getFedapayCredentials: vi.fn(() => ({ apiKey: 'test_key' })),
-  fedapayBreaker: { execute: vi.fn((fn: () => unknown) => fn()) },
-  FedapayProviderUnconfiguredError: class extends Error {},
+vi.mock('@/lib/server/payments/provider-singleton', () => ({
+  getProvider: vi.fn(),
+  breaker: { execute: vi.fn() },
+  PaymentProviderUnconfiguredError: class PaymentProviderUnconfiguredError extends Error {
+    constructor() {
+      super('Payment provider not configured');
+      this.name = 'PaymentProviderUnconfiguredError';
+    }
+  },
 }));
-vi.mock('@/lib/server/payments/fedapay', () => ({ createTransaction: vi.fn() }));
 vi.mock('@/lib/server/billing/subscription', () => ({
   getOrCreateSubscription: vi.fn(),
   computeNextPeriodEnd: vi.fn(() => new Date('2026-09-18T00:00:00.000Z')),
@@ -32,8 +36,7 @@ vi.mock('@/lib/server/billing/coupons', async () => {
 
 import { requireAuth } from '@/lib/server/middleware';
 import { verifyCsrf } from '@/lib/server/auth';
-import { getFedapayCredentials } from '@/lib/server/payments/fedapay-singleton';
-import { createTransaction } from '@/lib/server/payments/fedapay';
+import { getProvider, breaker } from '@/lib/server/payments/provider-singleton';
 import { getOrCreateSubscription } from '@/lib/server/billing/subscription';
 import { getPlanConfig } from '@/lib/server/billing/plans';
 import { validateCoupon } from '@/lib/server/billing/coupons';
@@ -41,8 +44,8 @@ import { POST } from './route';
 
 const mockRequireAuth = vi.mocked(requireAuth);
 const mockVerifyCsrf = vi.mocked(verifyCsrf);
-const mockGetFedapayCredentials = vi.mocked(getFedapayCredentials);
-const mockCreateTransaction = vi.mocked(createTransaction);
+const mockGetProvider = vi.mocked(getProvider);
+const mockExecute = vi.mocked(breaker.execute);
 const mockGetOrCreateSubscription = vi.mocked(getOrCreateSubscription);
 const mockGetPlanConfig = vi.mocked(getPlanConfig);
 const mockValidateCoupon = vi.mocked(validateCoupon);
@@ -74,7 +77,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockVerifyCsrf.mockReturnValue(null);
   mockRequireAuth.mockResolvedValue(authCtx as never);
-  mockGetFedapayCredentials.mockReturnValue({ apiKey: 'test_key' });
+  mockGetProvider.mockReturnValue({ name: 'saspay', charge: vi.fn() } as never);
   mockGetOrCreateSubscription.mockResolvedValue({
     id: 'sub_1',
     userId: 'user_1',
@@ -95,10 +98,10 @@ beforeEach(() => {
   prismaMock.subscriptionTransaction.findUnique.mockResolvedValue(null);
   prismaMock.subscriptionTransaction.create.mockResolvedValue({ id: 'tx_1' } as never);
   prismaMock.subscriptionTransaction.update.mockResolvedValue({} as never);
-  mockCreateTransaction.mockResolvedValue({
-    ok: true,
-    transactionId: 'fedapay_tx_1',
-    paymentUrl: 'https://checkout.fedapay.test/pay/1',
+  mockExecute.mockResolvedValue({
+    providerChargeId: 'saspay_tx_1',
+    paymentUrl: 'https://checkout.saspay.test/pay/1',
+    status: 'PENDING',
   });
 });
 
@@ -108,7 +111,7 @@ describe('POST /api/billing/subscribe — coupon handling', () => {
     expect(res.status).toBe(201);
     expect(mockValidateCoupon).not.toHaveBeenCalled();
     expect(prismaMock.subscriptionTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ amount: 3500, couponCode: null }),
+      data: expect.objectContaining({ amount: 3500, couponCode: null, provider: 'saspay' }),
     });
   });
 
@@ -145,7 +148,7 @@ describe('POST /api/billing/subscribe — coupon handling', () => {
     });
   });
 
-  it('does not reserve a redemption when FedaPay checkout creation fails', async () => {
+  it('does not reserve a redemption when SasPay checkout creation fails', async () => {
     mockValidateCoupon.mockResolvedValue({
       ok: true,
       coupon: {
@@ -157,7 +160,7 @@ describe('POST /api/billing/subscribe — coupon handling', () => {
         billingCycle: null,
       },
     });
-    mockCreateTransaction.mockResolvedValue({ ok: false, error: 'upstream error' });
+    mockExecute.mockRejectedValue(new Error('SasPay checkout session failed: upstream error'));
 
     const res = await POST(makePost({ billingCycle: 'MONTHLY', couponCode: 'save10' }));
     expect(res.status).toBe(502);
@@ -180,7 +183,7 @@ describe('POST /api/billing/subscribe — coupon handling', () => {
       expect(res.status).toBe(status);
       expect((await res.json()).error).toBe(code);
       expect(prismaMock.subscriptionTransaction.create).not.toHaveBeenCalled();
-      expect(mockCreateTransaction).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     },
   );
 

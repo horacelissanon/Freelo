@@ -6,7 +6,16 @@
  * read via arrayBuffer, HMAC verify, Serializable transaction, WebhookLog
  * upsert + dedup, dispatch, processedAt write-back. This file only wires:
  *   - the SasPay-specific WebhookProvider (signature verify + payload parser)
- *   - per-event handlers that update Order rows + emit outbox events
+ *   - per-event handlers that update Order OR SubscriptionTransaction rows
+ *     + emit outbox events
+ *
+ * SasPay is the ACTIVE provider for TWO distinct flows sharing this one
+ * endpoint: /api/orders + /api/track/[token]/pay (a freelance's own client
+ * paying for a project — updates Order) and /api/billing/subscribe (a
+ * freelance paying Merrudit for their Pro plan — updates
+ * SubscriptionTransaction/Subscription). Both mint their `externalRef` from
+ * a cuid()-based row id, so there's no collision risk; onPaid/onFailed just
+ * try Order first, then fall back to SubscriptionTransaction.
  *
  * SasPay has no documented refund webhook event for checkout/transactions
  * (only settlement.* for payouts, which this app doesn't call) — so there's
@@ -59,35 +68,69 @@ export const POST = createWebhookHandler({
     const order = await tx.order.findFirst({
       where: { providerChargeId: externalRef },
     });
-    if (!order) return {}; // unknown session — log + drop (no DB row to update)
+    if (order) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'PAID', paidAt: new Date() },
+      });
 
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: 'PAID', paidAt: new Date() },
+      if (order.userId) {
+        await enqueueOutbox(tx, {
+          kind: 'notification.payment_received',
+          payload: {
+            userId: order.userId,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+          },
+        });
+      }
+      if (order.customerEmail) {
+        await enqueueOutbox(tx, {
+          kind: 'email.payment_confirmation',
+          payload: {
+            to: order.customerEmail,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+          },
+        });
+      }
+      return {};
+    }
+
+    // Not an Order charge — check the other flow this endpoint serves:
+    // a freelance paying Merrudit for their Pro plan.
+    const transaction = await tx.subscriptionTransaction.findFirst({
+      where: { providerTransactionId: externalRef },
+    });
+    if (!transaction) return {}; // unknown session — log + drop (no DB row to update)
+
+    await tx.subscriptionTransaction.update({
+      where: { id: transaction.id },
+      data: { status: 'PAID' },
     });
 
-    if (order.userId) {
-      await enqueueOutbox(tx, {
-        kind: 'notification.payment_received',
-        payload: {
-          userId: order.userId,
-          orderId: order.id,
-          amount: order.amount,
-          currency: order.currency,
-        },
-      });
-    }
-    if (order.customerEmail) {
-      await enqueueOutbox(tx, {
-        kind: 'email.payment_confirmation',
-        payload: {
-          to: order.customerEmail,
-          orderId: order.id,
-          amount: order.amount,
-          currency: order.currency,
-        },
-      });
-    }
+    const subscription = await tx.subscription.update({
+      where: { id: transaction.subscriptionId },
+      data: {
+        plan: 'PRO',
+        status: 'ACTIVE',
+        billingCycle: transaction.billingCycle,
+        currentPeriodEnd: transaction.periodEnd,
+        cancelAtPeriodEnd: false,
+      },
+    });
+
+    await enqueueOutbox(tx, {
+      kind: 'notification.subscription_renewed',
+      payload: {
+        userId: subscription.userId,
+        subscriptionTransactionId: transaction.id,
+        plan: subscription.plan,
+        currentPeriodEnd: (subscription.currentPeriodEnd ?? new Date()).toISOString(),
+      },
+    });
 
     return {};
   },
@@ -99,17 +142,44 @@ export const POST = createWebhookHandler({
     const order = await tx.order.findFirst({
       where: { providerChargeId: externalRef },
     });
-    if (!order) return {};
+    if (order) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'FAILED' },
+      });
 
-    await tx.order.update({
-      where: { id: order.id },
+      if (order.userId) {
+        await enqueueOutbox(tx, {
+          kind: 'notification.order_payment_failed',
+          payload: { userId: order.userId, orderId: order.id },
+        });
+      }
+      return {};
+    }
+
+    const transaction = await tx.subscriptionTransaction.findFirst({
+      where: { providerTransactionId: externalRef },
+    });
+    if (!transaction) return {};
+
+    await tx.subscriptionTransaction.update({
+      where: { id: transaction.id },
       data: { status: 'FAILED' },
     });
 
-    if (order.userId) {
+    const subscription = await tx.subscription.findUnique({
+      where: { id: transaction.subscriptionId },
+      select: { userId: true },
+    });
+    if (subscription) {
       await enqueueOutbox(tx, {
-        kind: 'notification.order_payment_failed',
-        payload: { userId: order.userId, orderId: order.id },
+        kind: 'notification.subscription_payment_failed',
+        payload: {
+          userId: subscription.userId,
+          subscriptionTransactionId: transaction.id,
+          amount: transaction.amount,
+          currency: transaction.currency,
+        },
       });
     }
 
