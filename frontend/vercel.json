@@ -9,6 +9,7 @@
     { "path": "/api/cron/subscription-expiry", "schedule": "0 6 * * *" },
     { "path": "/api/cron/deadline-alerts", "schedule": "0 7 * * *" },
     { "path": "/api/cron/fx-rates-refresh", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/admin-alerts-scan", "schedule": "0 9 * * *" }
+    { "path": "/api/cron/admin-alerts-scan", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/subscription-transaction-expiration", "schedule": "0 10 * * *" }
   ]
 }

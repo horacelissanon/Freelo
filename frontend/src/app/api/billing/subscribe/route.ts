@@ -196,6 +196,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         periodStart,
         periodEnd,
         couponCode: appliedCoupon?.code ?? null,
+        // Matches SasPay's own checkout-session lifetime (observed live:
+        // expires exactly 1h after creation) — swept by the
+        // subscription-transaction-expiration cron.
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 

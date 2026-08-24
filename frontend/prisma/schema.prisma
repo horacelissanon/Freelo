@@ -848,7 +848,7 @@ model SubscriptionTransaction {
   amount                Int // smallest currency unit, matches Order convention
   currency              String       @default("XOF")
   billingCycle          String // MONTHLY | YEARLY
-  status                String       @default("PENDING") // PENDING | PAID | FAILED
+  status                String       @default("PENDING") // PENDING | PAID | FAILED | EXPIRED
   provider              String       @default("fedapay")
   providerTransactionId String?      @unique
   paymentUrl            String?
@@ -858,11 +858,19 @@ model SubscriptionTransaction {
   // Snapshot of the applied coupon code (if any) — denormalized for billing
   // history display; the authoritative redemption record is CouponRedemption.
   couponCode            String?
+  // PENDING expiry — set at creation to match the provider's own checkout
+  // session lifetime (~1h for SasPay). Not every failed real payment gets a
+  // webhook (confirmed live 2026-08-24: an abandoned/declined checkout can
+  // sit PENDING with no delivery at all), so this is the backstop the
+  // subscription-transaction-expiration cron sweeps on. Nullable so
+  // pre-existing rows are unaffected; not cleared on PAID/FAILED (history).
+  expiresAt             DateTime?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
   @@index([subscriptionId, createdAt])
   @@index([status])
+  @@index([status, expiresAt])
 }
 
 // Percentage- or fixed-amount-off discount codes, redeemable once per user
