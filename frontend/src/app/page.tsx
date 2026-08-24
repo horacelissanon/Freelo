@@ -18,8 +18,10 @@
 // landing structure (numbered steps, capability strip, comparison table,
 // tiered pricing with a billing toggle, richer FAQ) but with entirely
 // original copy and zero fabricated blocks — no fake trust numbers, no
-// WhatsApp community banner (no real link to give), no "free courses"
-// section (no such feature exists in this app).
+// "free courses" section (no such feature exists in this app). The
+// WhatsApp community section (added 2026-08-24) is real, but the invite
+// link is a placeholder (COMMUNITY_WHATSAPP_URL below) until a group
+// actually exists — swap it in before this goes live for real visitors.
 export const runtime = 'nodejs';
 
 import Link from 'next/link';
@@ -52,6 +54,24 @@ const HERO_PILLS: { icon: string; label: string }[] = [
   { icon: 'layout-dashboard', label: 'Tableau de bord' },
   { icon: 'bell', label: 'Alertes & rappels' },
 ];
+
+// Placeholder — no real WhatsApp group exists yet. Swap this for the real
+// invite link (chat.whatsapp.com/…) before real visitors see this section.
+const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/REMPLACE-MOI';
+
+const COMMUNITY_BENEFITS: string[] = [
+  "Pose tes questions à l'équipe et aux autres freelances",
+  'Partage tes retours et tes idées de fonctionnalités',
+  'Sois informé·e en avant-première des nouveautés',
+];
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413" />
+    </svg>
+  );
+}
 
 const CAPABILITIES: { icon: string; title: string; description: string }[] = [
   {
@@ -657,6 +677,54 @@ export default function Home() {
                   </p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+      </ScrollReveal>
+
+      {/* ── Communauté WhatsApp ─────────────────────────────────────── */}
+      <ScrollReveal>
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-accent px-6 py-12 shadow-lg sm:px-12">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 opacity-[0.06]"
+              style={{
+                backgroundImage: 'radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)',
+                backgroundSize: '20px 20px',
+              }}
+            />
+            <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white">
+                <WhatsAppIcon className="h-6 w-6 text-primary" />
+              </div>
+              <h2 className="font-headings text-2xl font-bold text-white sm:text-3xl">
+                La communauté Freelo, sur WhatsApp
+              </h2>
+              <p className="max-w-md font-body text-sm text-white/85">
+                Échange avec d'autres freelances, pose tes questions, sois informé·e en premier des
+                nouveautés — gratuit, sans spam.
+              </p>
+              <ul className="mt-2 flex flex-col gap-2 text-left sm:items-start">
+                {COMMUNITY_BENEFITS.map((benefit) => (
+                  <li
+                    key={benefit}
+                    className="flex items-start gap-2 font-body text-sm text-white/90"
+                  >
+                    <Icon i="check-circle" size={16} className="mt-0.5 flex-shrink-0 text-white" />
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
+              <a
+                href={COMMUNITY_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-foreground"
+              >
+                <WhatsAppIcon className="h-4 w-4 text-primary" />
+                Rejoindre la communauté
+              </a>
             </div>
           </div>
         </section>
