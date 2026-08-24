@@ -19,10 +19,11 @@
 // tiered pricing with a billing toggle, richer FAQ) but with entirely
 // original copy and zero fabricated blocks — no fake trust numbers, no
 // "free courses" section (no such feature exists in this app). The
-// WhatsApp community section (added 2026-08-24) is real, but the invite
-// link is a placeholder (COMMUNITY_WHATSAPP_URL in lib/constants.ts, also
-// used by the dashboard's community button) until a group actually exists
-// — swap it in before this goes live for real visitors.
+// WhatsApp community section (added 2026-08-24) is real. Its invite link
+// (and the dashboard banner's own WhatsApp button) is Super-Admin-editable
+// at runtime (Paramètres → Général → PATCH /api/admin/settings) — see
+// useCommunityWhatsappUrl — and falls back to a placeholder
+// (COMMUNITY_WHATSAPP_URL in lib/constants.ts) until a real group exists.
 export const runtime = 'nodejs';
 
 import Link from 'next/link';
@@ -36,7 +37,7 @@ import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
-import { COMMUNITY_WHATSAPP_URL } from '@/lib/constants';
+import { CommunityWhatsAppCta } from '@/components/marketing/CommunityWhatsAppCta';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
 // — Freelo isn't scoped to graphic designers specifically, unlike the
@@ -707,15 +708,7 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
-              <a
-                href={COMMUNITY_WHATSAPP_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-foreground"
-              >
-                <WhatsAppIcon className="h-4 w-4 text-primary" />
-                Rejoindre la communauté
-              </a>
+              <CommunityWhatsAppCta />
             </div>
           </div>
         </section>

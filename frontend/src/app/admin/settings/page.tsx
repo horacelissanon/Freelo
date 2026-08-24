@@ -7,17 +7,19 @@ import { Icon } from '@/components/ui/Icon';
 import { AdminProfileTab } from '@/components/admin/AdminProfileTab';
 import { AdminAffichageTab } from '@/components/admin/AdminAffichageTab';
 import { AdminSecurityTab } from '@/components/admin/AdminSecurityTab';
+import { AdminGeneralTab } from '@/components/admin/AdminGeneralTab';
 
-type TabKey = 'profil' | 'affichage' | 'securite';
+type TabKey = 'profil' | 'affichage' | 'securite' | 'general';
 
 const TABS: { key: TabKey; label: string; icon: string }[] = [
   { key: 'profil', label: 'Profil', icon: 'user' },
   { key: 'affichage', label: 'Affichage', icon: 'palette' },
   { key: 'securite', label: 'Sécurité', icon: 'shield' },
+  { key: 'general', label: 'Général', icon: 'settings' },
 ];
 
 function isTabKey(value: string | null): value is TabKey {
-  return value === 'profil' || value === 'affichage' || value === 'securite';
+  return value === 'profil' || value === 'affichage' || value === 'securite' || value === 'general';
 }
 
 // useSearchParams() opts a subtree out of static rendering unless wrapped in
@@ -59,6 +61,7 @@ function AdminSettingsInner() {
       {activeTab === 'profil' && <AdminProfileTab user={user} />}
       {activeTab === 'affichage' && <AdminAffichageTab />}
       {activeTab === 'securite' && <AdminSecurityTab user={user} />}
+      {activeTab === 'general' && <AdminGeneralTab canEdit={user.role === 'SUPERADMIN'} />}
     </div>
   );
 }

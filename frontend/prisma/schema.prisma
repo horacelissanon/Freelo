@@ -925,3 +925,14 @@ model PlanConfig {
   features          String[] // marketing bullet list shown on pricing cards
   updatedAt         DateTime @updatedAt
 }
+
+// Single-row, site-wide config editable from Super Admin → Paramètres →
+// Général. The row's id is a fixed literal ('default') instead of a
+// cuid() — there is and will only ever be exactly one row, read via
+// upsert-on-read (mirrors PlanConfig's own pattern above) so the first
+// read seeds it.
+model AppSettings {
+  id                   String   @id @default("default")
+  communityWhatsappUrl String? // shown on every "Rejoindre la communauté" WhatsApp button (landing page + dashboard banner)
+  updatedAt            DateTime @updatedAt
+}

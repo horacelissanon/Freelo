@@ -20,7 +20,8 @@ import { Icon } from '@/components/ui/Icon';
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { LoadingState, ErrorState, EmptyState } from '@/components/ui/PageStates';
 import { formatPrice, formatDate, formatLongDate } from '@/lib/utils';
-import { COMMUNITY_WHATSAPP_URL, type ProjectStatus, type InvoiceStatus } from '@/lib/constants';
+import type { ProjectStatus, InvoiceStatus } from '@/lib/constants';
+import { useCommunityWhatsappUrl } from '@/lib/useCommunityWhatsappUrl';
 
 interface DashboardStats {
   revenue: {
@@ -88,6 +89,7 @@ export default function DashboardPage() {
     '/api/billing/subscription',
   );
   const isProActive = subscriptionData?.subscription.isProActive ?? false;
+  const communityWhatsappUrl = useCommunityWhatsappUrl();
 
   // Global currency-display switcher — recomputed from the same
   // amountDefault/amountsByCurrency pair the API already returns, never a
@@ -232,7 +234,7 @@ export default function DashboardPage() {
               pinged the entire button and the glow leaked outside the
               banner on mobile, confirmed visually before landing on this. */}
           <a
-            href={COMMUNITY_WHATSAPP_URL}
+            href={communityWhatsappUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="relative inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 font-body text-sm font-semibold text-white shadow-lg transition hover:bg-[#20bd5a]"
