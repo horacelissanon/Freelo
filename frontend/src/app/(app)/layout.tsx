@@ -8,6 +8,7 @@ import { MobileDrawer } from '@/components/layout/MobileDrawer';
 import { Icon } from '@/components/ui/Icon';
 import { DisplayCurrencyToggle } from '@/components/DisplayCurrencyToggle';
 import { MoneyMaskToggle } from '@/components/MoneyMaskToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { DisplayCurrencyProvider } from '@/contexts/DisplayCurrencyContext';
 import { MoneyMaskProvider } from '@/contexts/MoneyMaskContext';
 import {
@@ -167,6 +168,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <ThemeToggle className="!text-sidebar-foreground/70 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
                   <MoneyMaskToggle className="!text-sidebar-foreground/70 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
                   <DisplayCurrencyToggle className="!border-sidebar-foreground/20 !bg-sidebar-foreground/5 !text-sidebar-foreground/70 hover:!border-sidebar-foreground/35 hover:!bg-sidebar-muted/60 hover:!text-sidebar-foreground" />
                   <NotificationBell
