@@ -97,11 +97,29 @@ describe('POST /api/projects/[id]/comments', () => {
       projectId: 'p-1',
       author: 'FREELANCER',
       body: '',
-      attachmentUrl: 'https://res.cloudinary.com/x/audio/upload/v1/note.webm',
-      attachmentType: 'AUDIO',
+      attachmentUrl: 'https://res.cloudinary.com/x/image/upload/v1/photo.jpg',
+      attachmentType: 'IMAGE',
       createdAt: new Date('2026-05-01T00:00:00Z'),
     } as never);
 
+    const res = await POST(
+      makePost({
+        body: '',
+        attachmentUrl: 'https://res.cloudinary.com/x/image/upload/v1/photo.jpg',
+        attachmentType: 'IMAGE',
+      }),
+      ctxWith('p-1'),
+    );
+    expect(res.status).toBe(201);
+    const createArg = prismaMock.projectComment.create.mock.calls[0]?.[0];
+    expect(createArg?.data?.attachmentType).toBe('IMAGE');
+    expect(createArg?.data?.attachmentUrl).toBe(
+      'https://res.cloudinary.com/x/image/upload/v1/photo.jpg',
+    );
+  });
+
+  it('attachmentType AUDIO -> 400 (voice messages removed SaaS-wide)', async () => {
+    prismaMock.project.findFirst.mockResolvedValue({ id: 'p-1' } as never);
     const res = await POST(
       makePost({
         body: '',
@@ -110,12 +128,8 @@ describe('POST /api/projects/[id]/comments', () => {
       }),
       ctxWith('p-1'),
     );
-    expect(res.status).toBe(201);
-    const createArg = prismaMock.projectComment.create.mock.calls[0]?.[0];
-    expect(createArg?.data?.attachmentType).toBe('AUDIO');
-    expect(createArg?.data?.attachmentUrl).toBe(
-      'https://res.cloudinary.com/x/audio/upload/v1/note.webm',
-    );
+    expect(res.status).toBe(400);
+    expect(prismaMock.projectComment.create).not.toHaveBeenCalled();
   });
 });
 

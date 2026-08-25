@@ -84,18 +84,16 @@ export async function POST(
       );
     }
 
-    // Broader than the chat-attachment default (image/audio only) — matches
-    // what the client can reasonably want to send back: photo, voice note,
-    // or a generic document (PDF/zip/etc, same allowlist as the deliverable
-    // dropzone), never arbitrary executables.
+    // Matches what the client can reasonably want to send back: photo, or a
+    // generic document (PDF/zip/etc, same allowlist as the deliverable
+    // dropzone), never arbitrary executables. Voice notes (audio/webm,
+    // audio/mp4) were removed 2026-08-25 — not useful yet, dropped SaaS-wide.
     const allowedMime = [
       'image/jpeg',
       'image/png',
       'image/webp',
       'image/heic',
       'image/heif',
-      'audio/webm',
-      'audio/mp4',
       'application/pdf',
       'application/zip',
       'application/postscript',

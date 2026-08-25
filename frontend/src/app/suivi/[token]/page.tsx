@@ -447,9 +447,6 @@ function ProjectDetail({
   const [commentBody, setCommentBody] = useState('');
   const [posting, setPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
-  const [recording, setRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const [reviewRating, setReviewRating] = useState(review?.rating ?? 0);
@@ -482,7 +479,7 @@ function ProjectDetail({
     }
   }
 
-  async function sendAttachment(file: File, attachmentType: 'IMAGE' | 'AUDIO' | 'FILE') {
+  async function sendAttachment(file: File, attachmentType: 'IMAGE' | 'FILE') {
     setPosting(true);
     setCommentError(null);
     try {
@@ -517,33 +514,6 @@ function ProjectDetail({
     e.target.value = '';
     if (!file) return;
     await sendAttachment(file, file.type.startsWith('image/') ? 'IMAGE' : 'FILE');
-  }
-
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      mr.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-        const file = new File([blob], 'note-vocale.webm', { type: blob.type });
-        void sendAttachment(file, 'AUDIO');
-      };
-      mediaRecorderRef.current = mr;
-      mr.start();
-      setRecording(true);
-    } catch {
-      setCommentError('Micro indisponible ou accès refusé.');
-    }
-  }
-
-  function stopRecording() {
-    mediaRecorderRef.current?.stop();
-    setRecording(false);
   }
 
   async function onSubmitReview(e: FormEvent) {
@@ -842,19 +812,6 @@ function ProjectDetail({
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground disabled:opacity-50"
           >
             <Icon i="plus" size={16} />
-          </button>
-          <button
-            type="button"
-            disabled={posting}
-            onClick={() => (recording ? stopRecording() : void startRecording())}
-            aria-label={recording ? 'Arrêter l’enregistrement' : 'Enregistrer un message vocal'}
-            className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border disabled:opacity-50 ${
-              recording
-                ? 'border-tag-red-fg bg-tag-red text-tag-red-fg'
-                : 'border-border text-muted-foreground'
-            }`}
-          >
-            <Icon i="mic" size={16} />
           </button>
           <input
             type="text"

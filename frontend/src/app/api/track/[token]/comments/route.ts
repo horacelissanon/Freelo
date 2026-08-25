@@ -22,7 +22,7 @@ const Body = z
   .object({
     body: z.string().max(2000).default(''),
     attachmentUrl: z.string().url().optional(),
-    attachmentType: z.enum(['IMAGE', 'AUDIO', 'FILE']).optional(),
+    attachmentType: z.enum(['IMAGE', 'FILE']).optional(),
   })
   .refine((data) => data.body.trim().length > 0 || !!data.attachmentUrl, {
     message: 'body or attachmentUrl is required',

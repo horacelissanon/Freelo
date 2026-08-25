@@ -65,7 +65,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // limits without redeploy. Never hoist these to module top.
     const allowedMime = (
       process.env.UPLOAD_ALLOWED_MIME ??
-      'image/jpeg,image/png,image/webp,application/pdf,application/zip,application/postscript,audio/webm,audio/mp4'
+      'image/jpeg,image/png,image/webp,application/pdf,application/zip,application/postscript'
     )
       .split(',')
       .map((s) => s.trim())

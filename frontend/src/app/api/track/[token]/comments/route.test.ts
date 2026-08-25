@@ -90,4 +90,20 @@ describe('POST /api/track/[token]/comments', () => {
     expect(res.status).toBe(201);
     expect(prismaMock.projectComment.create).toHaveBeenCalled();
   });
+
+  it('attachmentType AUDIO -> 400 (voice messages removed SaaS-wide)', async () => {
+    const res = await POST(
+      makePost(
+        {
+          body: '',
+          attachmentUrl: 'https://res.cloudinary.com/x/audio/upload/v1/note.webm',
+          attachmentType: 'AUDIO',
+        },
+        'tok-1',
+      ),
+      ctxWith('tok-1'),
+    );
+    expect(res.status).toBe(400);
+    expect(prismaMock.projectComment.create).not.toHaveBeenCalled();
+  });
 });

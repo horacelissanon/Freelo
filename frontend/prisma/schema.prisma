@@ -591,9 +591,11 @@ model ProjectComment {
   projectId      String
   project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   author         String // FREELANCER | CLIENT
-  body           String // may be "" when attachmentUrl is set (photo/voice-only message)
+  body           String // may be "" when attachmentUrl is set (attachment-only message)
   attachmentUrl  String?
-  attachmentType String? // IMAGE | AUDIO
+  // IMAGE | FILE going forward — voice messages were removed 2026-08-25
+  // (sending, not rendering: historical AUDIO rows still play back read-only).
+  attachmentType String?
   createdAt      DateTime @default(now())
 
   @@index([projectId, createdAt])
