@@ -1,11 +1,11 @@
 'use client';
 
 // Purely cosmetic, opt-in preference for the desktop sidebar's silhouette —
-// 'classic' (the original flush, edge-to-edge rail) is both the SSR default
-// and the default value here, so like BottomNavStyleContext's 'off' default
-// there is no flash to guard against with a pre-paint boot script: the
-// sidebar simply renders in its default shape until this mounts and (if the
-// user opted into 'capsule' or 'dock' previously) upgrades on the client.
+// 'capsule' (the full-width floating pill) is both the SSR default and the
+// default value here, so like BottomNavStyleContext's 'off' default there is
+// no flash to guard against with a pre-paint boot script: the sidebar simply
+// renders in its default shape until this mounts and (if the user opted
+// into 'classic' or 'dock' previously) switches on the client.
 // The same choice also drives BottomNav's shape on mobile (see BottomNav.tsx)
 // so the two surfaces read as one consistent pick across breakpoints.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
@@ -20,7 +20,7 @@ interface SidebarShapeContextValue {
 const STORAGE_KEY = 'merrudit-sidebar-shape';
 
 const SidebarShapeContext = createContext<SidebarShapeContextValue>({
-  shape: 'classic',
+  shape: 'capsule',
   setShape: () => {},
 });
 
@@ -29,14 +29,14 @@ function isShape(value: string | null): value is SidebarShape {
 }
 
 export function SidebarShapeProvider({ children }: { children: ReactNode }) {
-  const [shape, setShapeState] = useState<SidebarShape>('classic');
+  const [shape, setShapeState] = useState<SidebarShape>('capsule');
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (isShape(stored)) setShapeState(stored);
     } catch {
-      // Storage unavailable — stays on the 'classic' default for this session.
+      // Storage unavailable — stays on the 'capsule' default for this session.
     }
   }, []);
 

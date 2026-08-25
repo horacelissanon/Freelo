@@ -202,6 +202,7 @@ export function QuoteBuilderForm({
   const resolvedSector = resolveFreelanceSector(
     quote?.sector,
     (quote?.type as ProjectType | null) ?? undefined,
+    user?.defaultSector as FreelanceSector | null,
   );
   const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
   const [sectorOther, setSectorOther] = useState(resolvedSector.other);

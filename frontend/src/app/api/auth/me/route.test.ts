@@ -151,4 +151,20 @@ describe('PATCH /api/auth/me', () => {
     expect(updateArg?.where).toEqual({ id: 'u1' });
     expect(updateArg?.data).toEqual({ bio: 'Designer' });
   });
+
+  it('defaultCurrency + defaultSector -> both written', async () => {
+    vi.mocked(verifyToken).mockResolvedValue({ sub: 'u1', email: 'a@b.com', tokenVersion: 0 });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      tokenVersion: 0,
+    } as never);
+    prismaMock.user.update.mockResolvedValue({ defaultSector: 'DESIGN' } as never);
+    const res = await PATCH(
+      makePatch({ defaultCurrency: 'EUR', defaultSector: 'DESIGN' }, { bearer: 'valid' }),
+    );
+    expect(res.status).toBe(200);
+    const updateArg = prismaMock.user.update.mock.calls[0]?.[0];
+    expect(updateArg?.data).toEqual({ defaultCurrency: 'EUR', defaultSector: 'DESIGN' });
+  });
 });

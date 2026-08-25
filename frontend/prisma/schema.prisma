@@ -67,6 +67,11 @@ model User {
   // editable per invoice afterward.
   defaultLegalMention     String?
   defaultCurrency         String    @default("XOF")
+  // Chosen once in the welcome tour (WelcomeTourModal) — pre-selects the
+  // sector picker on new devis/projets instead of falling back to 'OTHER'
+  // (see resolveFreelanceSector's `fallback` param). Null for pre-existing
+  // users who never went through the tour; still freely changeable per item.
+  defaultSector           String?
   language                String    @default("fr")
   // showPaidInvoicesDefault: when false, /invoices pre-filters PAID docs out
   // of the initial view (still togglable via the existing filter tabs).

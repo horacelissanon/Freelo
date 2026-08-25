@@ -35,9 +35,13 @@ export interface User {
   brandColor: string;
   defaultLegalMention: string | null;
   defaultCurrency: string;
+  /** Chosen once in the welcome tour — pre-selects the sector picker on new devis/projets. */
+  defaultSector: string | null;
   language: string;
   showPaidInvoicesDefault: boolean;
   publicPortalEnabled: boolean;
+  /** null until the first-run welcome tour is closed/skipped — see WelcomeTourModal. */
+  onboardingCompletedAt: string | null;
 }
 
 interface AuthContextValue {

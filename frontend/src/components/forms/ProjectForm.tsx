@@ -117,7 +117,12 @@ export function ProjectForm({
   const { data, loading } = useApi<{ items: ClientOption[] }>('/api/clients?limit=50');
   const clients = data?.items ?? [];
 
-  const resolvedSector = resolveFreelanceSector(initial?.sector, initial?.type);
+  const user = useUser();
+  const resolvedSector = resolveFreelanceSector(
+    initial?.sector,
+    initial?.type,
+    user?.defaultSector as FreelanceSector | null,
+  );
   const [clientId, setClientId] = useState(lockedClient?.id ?? initial?.clientId ?? '');
   const [name, setName] = useState(initial?.name ?? '');
   const [sector, setSector] = useState<FreelanceSector>(resolvedSector.code);
@@ -125,7 +130,6 @@ export function ProjectForm({
   const [type, setType] = useState<ProjectType>(initial?.type ?? 'OTHER');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [currency, setCurrency] = useState(initial?.currency ?? 'XOF');
-  const user = useUser();
   const defaultCurrency = user?.defaultCurrency ?? 'XOF';
   const exchangeRateField = useExchangeRateField(
     currency,

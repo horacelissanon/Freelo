@@ -254,10 +254,13 @@ export function inferSectorFromType(type: ProjectType): FreelanceSector {
 // précisez" (e.g. "Traduction"). Resolves a stored value back into a
 // {code, other} pair for the sector picker UI — an unrecognized string is
 // treated as free-text "Autre", a missing/'OTHER' value falls back to
-// inferring from `type` (handles data saved before this field existed).
+// inferring from `type` (handles data saved before this field existed), and
+// finally to `fallback` (the freelance's User.defaultSector, chosen once in
+// the welcome tour) before giving up on 'OTHER'.
 export function resolveFreelanceSector(
   raw: string | null | undefined,
   type?: ProjectType,
+  fallback?: FreelanceSector | null,
 ): { code: FreelanceSector; other: string } {
   const knownCodes = Object.keys(FREELANCE_SECTOR_LABELS) as string[];
   if (raw && raw !== 'OTHER' && knownCodes.includes(raw)) {
@@ -267,6 +270,7 @@ export function resolveFreelanceSector(
     return { code: 'OTHER', other: raw };
   }
   if (type) return { code: inferSectorFromType(type), other: '' };
+  if (fallback) return { code: fallback, other: '' };
   return { code: 'OTHER', other: '' };
 }
 

@@ -20,6 +20,7 @@ import { useSidebarShape } from '@/contexts/SidebarShapeContext';
 import { useMobileNavStyle } from '@/contexts/MobileNavStyleContext';
 import { CreateMenuProvider } from '@/contexts/CreateMenuContext';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
+import { WelcomeTourModal } from '@/components/onboarding/WelcomeTourModal';
 import { useApi, invalidateCachePrefix } from '@/lib/useApi';
 import { api } from '@/lib/api';
 
@@ -27,7 +28,7 @@ const COLLAPSE_STORAGE_KEY = 'merrudit-sidebar-collapsed';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const user = useUser();
-  const { logout, loggingOut } = useAuth();
+  const { logout, loggingOut, refresh } = useAuth();
   const { shape } = useSidebarShape();
   const { navStyle } = useMobileNavStyle();
   const floating = shape === 'capsule' || shape === 'dock';
@@ -203,6 +204,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <BottomNav />
             )}
             <InstallPromptWidget variant="app" bottomNavVisible={navStyle === 'bottom'} />
+            {!user.onboardingCompletedAt && <WelcomeTourModal onDone={() => void refresh()} />}
           </div>
         </CreateMenuProvider>
       </MoneyMaskProvider>
