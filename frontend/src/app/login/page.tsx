@@ -117,7 +117,7 @@ function AuthForm() {
               <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
             </svg>
           </div>
-          <span className="font-headings text-xl font-bold tracking-tight">Zeloom</span>
+          <span className="font-headings text-xl font-bold tracking-tight">ZeFacto</span>
         </Link>
 
         <div className="max-w-md">
@@ -125,8 +125,8 @@ function AuthForm() {
             Le CRM taillé sur mesure pour les freelances.
           </h1>
           <p className="mt-4 font-body text-base text-sidebar-foreground/80">
-            Zeloom centralise vos projets, vos devis, vos factures et le suivi de vos clients — pour
-            que rien ne se perde entre deux outils.
+            ZeFacto centralise vos projets, vos devis, vos factures et le suivi de vos clients —
+            pour que rien ne se perde entre deux outils.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ function AuthForm() {
               </svg>
             </div>
             <span className="font-headings text-xl font-bold tracking-tight text-foreground">
-              Zeloom
+              ZeFacto
             </span>
           </Link>
 

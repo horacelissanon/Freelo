@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { LegalPageLayout } from '@/components/legal/LegalPageLayout';
 
-export const metadata: Metadata = { title: 'Politique de cookies — Zeloom' };
+export const metadata: Metadata = { title: 'Politique de cookies — ZeFacto' };
 
 const COOKIES: { name: string; purpose: string; duration: string }[] = [
   {
@@ -25,8 +25,8 @@ export default function CookiesPage() {
   return (
     <LegalPageLayout title="Politique de cookies" updatedAt="25 août 2026">
       <p className="text-muted-foreground">
-        Zeloom utilise uniquement des cookies strictement nécessaires au fonctionnement du service —
-        aucun cookie publicitaire, aucun traceur tiers à des fins marketing. Ces cookies ne
+        ZeFacto utilise uniquement des cookies strictement nécessaires au fonctionnement du service
+        — aucun cookie publicitaire, aucun traceur tiers à des fins marketing. Ces cookies ne
         nécessitent pas de consentement préalable puisqu’ils sont indispensables à la fourniture du
         service que vous demandez (rester connecté, sécuriser votre compte).
       </p>
@@ -79,7 +79,7 @@ export default function CookiesPage() {
           Comment les désactiver
         </h2>
         <p className="text-muted-foreground">
-          Les cookies de session étant nécessaires au fonctionnement de Zeloom, les bloquer vous
+          Les cookies de session étant nécessaires au fonctionnement de ZeFacto, les bloquer vous
           déconnectera du service. Vous pouvez les supprimer à tout moment depuis les réglages de
           votre navigateur.
         </p>

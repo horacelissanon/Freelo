@@ -130,7 +130,7 @@ function SidebarContent({
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 font-body text-sm text-white/50 hover:bg-white/5 hover:text-white"
         >
           <Icon i="external-link" size={16} />
-          Retour à Zeloom
+          Retour à ZeFacto
         </Link>
         <div className="flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5">
           <Link

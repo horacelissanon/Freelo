@@ -2,7 +2,7 @@
 
 // Small rotating word for the hero H1 — cycles through freelance
 // professions so the "who this is for" line stays inclusive of everyone
-// Zeloom actually serves (not just designers) without needing a full
+// ZeFacto actually serves (not just designers) without needing a full
 // project-category rework. Remounts the <span> on each change (key={index})
 // to retrigger the existing `animate-fade-in` utility from globals.css —
 // no new keyframes, no manual timers to clean up.

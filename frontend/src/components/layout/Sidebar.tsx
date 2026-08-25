@@ -144,7 +144,7 @@ function SidebarBody({
           </div>
           {!collapsed && (
             <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
-              Zeloom
+              ZeFacto
             </span>
           )}
         </Link>

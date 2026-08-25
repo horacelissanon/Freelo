@@ -288,7 +288,7 @@ function InvoiceDocument({
     <Document
       title={`${DOC_LABELS[data.docType]} ${data.number}`}
       author={data.provider.name}
-      creator="Zeloom"
+      creator="ZeFacto"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>

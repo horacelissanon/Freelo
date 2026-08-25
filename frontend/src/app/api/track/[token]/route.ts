@@ -59,7 +59,7 @@ async function resolveDefaultPaymentBlocks(userId: string): Promise<TrackedConte
 // COMPANY, personal photo for PERSONAL) but, unlike resolveDocumentIdentity's
 // logoUrl (which stays null for PERSONAL — formal documents never show a
 // personal photo), a PERSONAL freelancer's avatar IS shown here. Gated by
-// isPro like every other Zeloom-branding-replacement perk.
+// isPro like every other ZeFacto-branding-replacement perk.
 function resolveProviderBrand(
   user: DocumentIdentitySource & { avatarUrl: string | null },
   isPro: boolean,

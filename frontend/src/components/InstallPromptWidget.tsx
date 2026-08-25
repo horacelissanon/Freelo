@@ -103,7 +103,7 @@ export function InstallPromptWidget({
       </div>
 
       {modalOpen && (
-        <Modal title="Installer Zeloom" onClose={() => setModalOpen(false)}>
+        <Modal title="Installer ZeFacto" onClose={() => setModalOpen(false)}>
           <InstallInstructions
             platform={platform}
             canInstallNow={canInstallNow}
@@ -128,8 +128,8 @@ export function InstallInstructions({
     return (
       <div className="flex flex-col gap-4">
         <p className="font-body text-sm text-muted-foreground">
-          Ton navigateur peut installer Zeloom directement — un raccourci sur ton écran d’accueil ou
-          ton bureau, qui s’ouvre comme une vraie application.
+          Ton navigateur peut installer ZeFacto directement — un raccourci sur ton écran d’accueil
+          ou ton bureau, qui s’ouvre comme une vraie application.
         </p>
         <button
           type="button"
@@ -147,7 +147,7 @@ export function InstallInstructions({
       <ol className="flex flex-col gap-4">
         <Step icon="share-2" text="Touche l’icône Partager dans la barre de Safari." />
         <Step icon="download" text="Choisis « Sur l’écran d’accueil »." />
-        <Step icon="check-circle" text="Confirme — Zeloom apparaît comme une application." />
+        <Step icon="check-circle" text="Confirme — ZeFacto apparaît comme une application." />
       </ol>
     );
   }

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { LegalPageLayout } from '@/components/legal/LegalPageLayout';
 
-export const metadata: Metadata = { title: 'Mentions légales — Zeloom' };
+export const metadata: Metadata = { title: 'Mentions légales — ZeFacto' };
 
 export default function MentionsLegalesPage() {
   return (
@@ -9,7 +9,7 @@ export default function MentionsLegalesPage() {
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">Éditeur du site</h2>
         <p className="text-muted-foreground">
-          Le site et l’application Zeloom (ci-après « Zeloom ») sont édités par :
+          Le site et l’application ZeFacto (ci-après « ZeFacto ») sont édités par :
         </p>
         <ul className="mt-2 list-disc pl-5 text-muted-foreground">
           <li>
@@ -53,8 +53,9 @@ export default function MentionsLegalesPage() {
         </h2>
         <p className="text-muted-foreground">
           Conformément à la loi n° 2017-20 du 20 avril 2018 portant Code du numérique en République
-          du Bénin (Livre V), le traitement des données personnelles réalisé par Zeloom fait l’objet
-          d’une déclaration auprès de l’Autorité de Protection des Données Personnelles (APDP) —{' '}
+          du Bénin (Livre V), le traitement des données personnelles réalisé par ZeFacto fait
+          l’objet d’une déclaration auprès de l’Autorité de Protection des Données Personnelles
+          (APDP) —{' '}
           <strong className="text-foreground">[À COMPLÉTER : numéro de récépissé APDP]</strong>.
           Pour le détail des traitements, voir notre{' '}
           <a href="/confidentialite" className="text-primary hover:underline">

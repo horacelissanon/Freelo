@@ -1,7 +1,7 @@
 // App Router file convention — auto-generates the favicon <link> tag via
 // ImageResponse (next/og), no static image file needed. Reuses the exact
 // mark used everywhere else in the app (header, sidebar, footer): the
-// Zeloom "icône complète" mark (rounded #059669 square + white 3-line Z).
+// ZeFacto "icône complète" mark (rounded #059669 square + white 3-line Z).
 import { ImageResponse } from 'next/og';
 
 export const size = { width: 32, height: 32 };

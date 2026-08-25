@@ -54,7 +54,7 @@ function ResetPasswordForm() {
           </svg>
         </div>
         <span className="font-headings text-xl font-bold tracking-tight text-foreground">
-          Zeloom
+          ZeFacto
         </span>
       </Link>
 

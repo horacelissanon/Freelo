@@ -1,13 +1,13 @@
 // Static (no client JS needed) comparison table — original categories and
 // wording, extending the "5 outils remplacés" framing already used in
 // page.tsx's problème/solution section into a fuller table. Every row
-// states a real Zeloom capability, nothing fabricated.
+// states a real ZeFacto capability, nothing fabricated.
 import { Icon } from '@/components/ui/Icon';
 
 export interface ComparisonRow {
   category: string;
   headline: string;
-  zeloom: string;
+  zefacto: string;
   patchwork: string;
 }
 
@@ -36,15 +36,15 @@ export function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
                   className="mt-0.5 flex-shrink-0 text-tag-green-fg"
                 />
                 <div>
-                  <p className="font-body text-xs font-semibold text-tag-green-fg">Zeloom</p>
-                  <p className="mt-0.5 font-body text-sm text-foreground">{row.zeloom}</p>
+                  <p className="font-body text-xs font-semibold text-tag-green-fg">ZeFacto</p>
+                  <p className="mt-0.5 font-body text-sm text-foreground">{row.zefacto}</p>
                 </div>
               </div>
               <div className="flex items-start gap-2 rounded-md bg-secondary/70 p-3">
                 <Icon i="x" size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
                 <div>
                   <p className="font-body text-xs font-semibold text-muted-foreground">
-                    Sans Zeloom
+                    Sans ZeFacto
                   </p>
                   <p className="mt-0.5 font-body text-sm text-muted-foreground">{row.patchwork}</p>
                 </div>

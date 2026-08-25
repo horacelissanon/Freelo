@@ -6,7 +6,7 @@
 // creation (code/percentOff never change) — the only edit is the active
 // toggle (PATCH /api/admin/coupons/[id]), so there's no "Modifier" modal
 // here, just "Activer"/"Désactiver" per row. Styled like PlansTab.tsx:
-// hardcoded slate/emerald, not the Zeloom workspace theme tokens.
+// hardcoded slate/emerald, not the ZeFacto workspace theme tokens.
 import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';

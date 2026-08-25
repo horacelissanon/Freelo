@@ -9,7 +9,7 @@
 // contexts/AccentColorContext.tsx, contexts/SidebarColorContext.tsx,
 // components/ScopedColorGuard.tsx) to their own dashboard so it never
 // bleeds into public pages (landing, login, signup, /suivi/[token]...)
-// that represent Zeloom's own brand, not any one freelancer's.
+// that represent ZeFacto's own brand, not any one freelancer's.
 export const APP_ROUTE_SEGMENTS = [
   'dashboard',
   'clients',

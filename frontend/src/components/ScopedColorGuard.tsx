@@ -7,7 +7,7 @@
 // client-side route transitions — so without this guard, a color picked in
 // Paramètres → Espace stayed on <html> after navigating (client-side, no
 // full reload) to the public landing page / login / signup / /suivi/[token]
-// — pages that represent Zeloom's own brand, not any one freelancer's.
+// — pages that represent ZeFacto's own brand, not any one freelancer's.
 //
 // The root layout's pre-paint <Script> (ACCENT_INIT_SCRIPT / SIDEBAR_INIT_SCRIPT)
 // only covers the FIRST full page load and is itself scoped to app routes;

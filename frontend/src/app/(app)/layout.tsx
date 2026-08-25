@@ -174,7 +174,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </svg>
                   </div>
                   <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
-                    Zeloom
+                    ZeFacto
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

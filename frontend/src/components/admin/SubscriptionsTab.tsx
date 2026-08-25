@@ -3,7 +3,7 @@
 // SUPERADMIN can override plan/status/currentPeriodEnd via
 // PATCH /api/admin/subscriptions/[id] — a comp/support gesture, not the
 // normal purchase flow. Styled like UsersTab.tsx: hardcoded slate/emerald,
-// not the Zeloom workspace theme tokens.
+// not the ZeFacto workspace theme tokens.
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';

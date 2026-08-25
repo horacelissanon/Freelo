@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { LegalPageLayout } from '@/components/legal/LegalPageLayout';
 
-export const metadata: Metadata = { title: 'CGV — Zeloom' };
+export const metadata: Metadata = { title: 'CGV — ZeFacto' };
 
 export default function CgvPage() {
   return (
@@ -10,7 +10,7 @@ export default function CgvPage() {
         <h2 className="font-headings text-base font-semibold text-foreground">1. Objet</h2>
         <p className="text-muted-foreground">
           Les présentes Conditions Générales de Vente (CGV) s’appliquent à la souscription d’un
-          abonnement payant Zeloom (plan Pro), donnant accès à des fonctionnalités supplémentaires
+          abonnement payant ZeFacto (plan Pro), donnant accès à des fonctionnalités supplémentaires
           par rapport au plan gratuit.
         </p>
       </section>
@@ -29,7 +29,7 @@ export default function CgvPage() {
         <h2 className="font-headings text-base font-semibold text-foreground">3. Paiement</h2>
         <p className="text-muted-foreground">
           Le paiement s’effectue en ligne par carte bancaire ou mobile money, via nos prestataires
-          de paiement (Bictorys / FedaPay). Zeloom ne stocke aucune donnée de carte bancaire —
+          de paiement (Bictorys / FedaPay). ZeFacto ne stocke aucune donnée de carte bancaire —
           celles-ci sont traitées directement par le prestataire de paiement.
         </p>
       </section>

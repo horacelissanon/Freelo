@@ -5,7 +5,7 @@
 // connections the PRD calls out — everything else, including content, works
 // with zero JS. Content is scoped to what's ACTUALLY shipped today — no
 // fabricated user counts or testimonials, and no overclaiming payment
-// processing that doesn't exist: Zeloom does NOT collect payment from a
+// processing that doesn't exist: ZeFacto does NOT collect payment from a
 // freelancer's client on their behalf — a freelancer indicates their
 // preferred payment method (MTN Mobile Money, Moov Money…) and it's displayed on
 // the devis/facture; the client settles directly, outside the app. Every
@@ -40,7 +40,7 @@ import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { CommunityWhatsAppCta } from '@/components/marketing/CommunityWhatsAppCta';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
-// — Zeloom isn't scoped to graphic designers specifically, unlike the
+// — ZeFacto isn't scoped to graphic designers specifically, unlike the
 // competitor this page took structural inspiration from.
 const TARGET_PROFESSIONS = [
   'designers',
@@ -79,7 +79,7 @@ const CAPABILITIES: { icon: string; title: string; description: string }[] = [
   {
     icon: 'download',
     title: 'App installable',
-    description: 'Zeloom sur ton écran d’accueil, comme une app native.',
+    description: 'ZeFacto sur ton écran d’accueil, comme une app native.',
   },
 ];
 
@@ -156,7 +156,7 @@ const FEATURES: {
     icon: 'bell',
     title: 'Alertes automatiques',
     description:
-      'Échéance de projet qui approche, facture en retard — Zeloom te prévient avant que ton client s’en inquiète.',
+      'Échéance de projet qui approche, facture en retard — ZeFacto te prévient avant que ton client s’en inquiète.',
   },
 ];
 
@@ -164,25 +164,25 @@ const COMPARISON_ROWS: ComparisonRow[] = [
   {
     category: 'Organisation',
     headline: 'Un espace, pas cinq',
-    zeloom: 'Clients, projets, devis et factures réunis au même endroit.',
+    zefacto: 'Clients, projets, devis et factures réunis au même endroit.',
     patchwork: 'WhatsApp pour les échanges, Excel pour les chiffres, un carnet pour les contacts.',
   },
   {
     category: 'Suivi client',
     headline: 'Un lien, zéro relance',
-    zeloom: 'Ton client suit son projet en temps réel, sans jamais créer de compte.',
+    zefacto: 'Ton client suit son projet en temps réel, sans jamais créer de compte.',
     patchwork: 'PDF envoyés par email, relances manuelles répétées pour savoir où ça en est.',
   },
   {
     category: 'Devises',
     headline: 'Prêt pour tes clients d’ici et d’ailleurs',
-    zeloom: 'Devis et factures générés directement en FCFA, EUR ou USD selon le client.',
+    zefacto: 'Devis et factures générés directement en FCFA, EUR ou USD selon le client.',
     patchwork: 'Une maquette Canva ou Photoshop à refaire à la main pour chaque devise.',
   },
   {
     category: 'Accès',
     headline: 'Toujours à portée de main',
-    zeloom: 'App installable, rapide même sur une connexion faible.',
+    zefacto: 'App installable, rapide même sur une connexion faible.',
     patchwork: 'Outils lourds à rouvrir, fichiers à retrouver à chaque fois.',
   },
 ];
@@ -202,7 +202,7 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
     role: 'Graphiste freelance, Abidjan',
     pain: 'Je composais mes devis sur Canva, mes factures sur Excel, mes échanges sur WhatsApp — j’ai fini par oublier de facturer un client.',
     solution:
-      'Depuis Zeloom, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
+      'Depuis ZeFacto, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
   },
   {
     name: 'Koffi',
@@ -215,7 +215,7 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
 
 const FAQS: { question: string; answer: string }[] = [
   {
-    question: 'Zeloom est-il vraiment gratuit ?',
+    question: 'ZeFacto est-il vraiment gratuit ?',
     answer:
       'Oui. Le plan Gratuit permet de gérer 1 client et 2 projets actifs, avec devis et factures en FCFA — de quoi réellement travailler. Le plan Pro (3 500 FCFA/mois ou 35 000 FCFA/an) lève ces limites.',
   },
@@ -231,9 +231,9 @@ const FAQS: { question: string; answer: string }[] = [
       'Ton client choisit et valide lui-même l’offre depuis son lien de suivi, sans compte à créer. Une fois le devis envoyé, son contenu est figé — impossible de le modifier après coup, côté freelance comme côté client. En cas de désaccord sur le prix ou de demande de modification, tu as toujours une référence claire de ce qui a réellement été accepté.',
   },
   {
-    question: 'Mes clients paient-ils directement depuis Zeloom ?',
+    question: 'Mes clients paient-ils directement depuis ZeFacto ?',
     answer:
-      'Pas encore — Zeloom n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (MTN Mobile Money, Moov Money…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
+      'Pas encore — ZeFacto n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (MTN Mobile Money, Moov Money…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
   },
   {
     question: 'Puis-je facturer en euros ou en dollars ?',
@@ -241,9 +241,9 @@ const FAQS: { question: string; answer: string }[] = [
       'Le plan Gratuit facture en FCFA uniquement. Le plan Pro débloque l’émission en EUR et USD, utile pour les clients de la diaspora.',
   },
   {
-    question: 'Zeloom fonctionne-t-il sur mobile ?',
+    question: 'ZeFacto fonctionne-t-il sur mobile ?',
     answer:
-      'Oui — Zeloom est une application installable (PWA). Ajoute-la à l’écran d’accueil de ton téléphone ou de ton ordinateur pour l’utiliser comme une app native, sans passer par un store.',
+      'Oui — ZeFacto est une application installable (PWA). Ajoute-la à l’écran d’accueil de ton téléphone ou de ton ordinateur pour l’utiliser comme une app native, sans passer par un store.',
   },
   {
     question: 'Que se passe-t-il si je dépasse les limites du plan Gratuit ?',
@@ -253,7 +253,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: 'Suis-je prévenu si un client tarde à payer ?',
     answer:
-      'Oui. Zeloom surveille les échéances de tes projets et de tes factures et t’alerte automatiquement — dans l’app et sur ton tableau de bord — avant qu’un retard ne devienne un problème.',
+      'Oui. ZeFacto surveille les échéances de tes projets et de tes factures et t’alerte automatiquement — dans l’app et sur ton tableau de bord — avant qu’un retard ne devienne un problème.',
   },
 ];
 
@@ -286,7 +286,7 @@ export default function Home() {
               </svg>
             </div>
             <span className="font-headings text-lg font-bold tracking-tight text-foreground">
-              Zeloom
+              ZeFacto
             </span>
           </div>
           <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
@@ -357,7 +357,7 @@ export default function Home() {
           </p>
 
           {/* Capability pills — real, shipped features only (no "Contrats" /
-              "Formulaires" style pills for capabilities Zeloom doesn't have). */}
+              "Formulaires" style pills for capabilities ZeFacto doesn't have). */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             {HERO_PILLS.map((pill) => (
               <a
@@ -387,7 +387,7 @@ export default function Home() {
                 <span className="h-2.5 w-2.5 rounded-full bg-tag-orange-fg/50" />
                 <span className="h-2.5 w-2.5 rounded-full bg-tag-green-fg/50" />
                 <span className="ml-3 truncate font-body text-xs text-muted-foreground">
-                  zeloom.app/dashboard
+                  zefacto.app/dashboard
                 </span>
               </div>
               <div className="flex">
@@ -408,7 +408,7 @@ export default function Home() {
                       </svg>
                     </div>
                     <span className="hidden font-headings text-xs font-bold text-sidebar-foreground sm:block">
-                      Zeloom
+                      ZeFacto
                     </span>
                   </div>
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -541,7 +541,7 @@ export default function Home() {
                       </svg>
                     </div>
                     <span className="font-headings text-[10px] font-bold text-foreground">
-                      Zeloom
+                      ZeFacto
                     </span>
                   </div>
                   <Icon i="bell" size={11} className="text-muted-foreground" />
@@ -720,7 +720,7 @@ export default function Home() {
                 <WhatsAppIcon className="h-6 w-6 text-primary" />
               </div>
               <h2 className="font-headings text-2xl font-bold text-white sm:text-3xl">
-                La communauté Zeloom, sur WhatsApp
+                La communauté ZeFacto, sur WhatsApp
               </h2>
               <p className="max-w-md font-body text-sm text-white/85">
                 Échange avec d'autres freelances, pose tes questions, sois informé·e en premier des
@@ -749,7 +749,7 @@ export default function Home() {
           <div className="mx-auto max-w-5xl">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-                Zeloom remplace le patchwork, pas ta façon de travailler
+                ZeFacto remplace le patchwork, pas ta façon de travailler
               </h2>
               <p className="mt-2 font-body text-sm text-muted-foreground">
                 Ce que change concrètement un seul espace de travail, poste par poste.
@@ -770,7 +770,7 @@ export default function Home() {
               Pensé pour des freelances comme toi
             </h2>
             <p className="mt-2 font-body text-sm text-muted-foreground">
-              Des profils types que Zeloom a été conçu pour servir.
+              Des profils types que ZeFacto a été conçu pour servir.
             </p>
           </div>
           <div className="px-4 pb-16 sm:px-6">
@@ -852,8 +852,8 @@ export default function Home() {
             Ton prochain client mérite mieux qu’un fichier Excel.
           </h2>
           <p className="max-w-md font-body text-sm text-white/85">
-            Crée ton compte, installe Zeloom sur ton écran d’accueil, et partage ton premier lien de
-            suivi client aujourd’hui.
+            Crée ton compte, installe ZeFacto sur ton écran d’accueil, et partage ton premier lien
+            de suivi client aujourd’hui.
           </p>
           <Link
             href="/login?mode=signup"
@@ -883,7 +883,7 @@ export default function Home() {
                   <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
                 </svg>
               </div>
-              <span className="font-headings text-base font-bold text-foreground">Zeloom</span>
+              <span className="font-headings text-base font-bold text-foreground">ZeFacto</span>
             </div>
             <p className="max-w-xs font-body text-xs text-muted-foreground">
               L’espace de travail pensé pour les freelances et consultants indépendants.
@@ -932,7 +932,7 @@ export default function Home() {
           </div>
         </div>
         <div className="border-t border-border px-4 py-4 text-center font-body text-xs text-muted-foreground sm:px-6">
-          © {new Date().getFullYear()} Zeloom. Tous droits réservés.
+          © {new Date().getFullYear()} ZeFacto. Tous droits réservés.
         </div>
       </footer>
 

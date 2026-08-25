@@ -1,6 +1,6 @@
 'use client';
 
-// Styled with hardcoded slate/emerald classes, not the Zeloom workspace's
+// Styled with hardcoded slate/emerald classes, not the ZeFacto workspace's
 // theme tokens — see the identical note in UsersTab.tsx. This component
 // only ever renders inside the Super Admin console (app/admin/**).
 import { useEffect, useState } from 'react';

@@ -1,6 +1,6 @@
 // Thin wrapper mapping Banani's kebab-case icon names (e.g. `i="chevron-right"`)
 // onto named lucide-react imports. Only icons actually used across the
-// Zeloom screens are imported (per banani-design-implementation skill:
+// ZeFacto screens are imported (per banani-design-implementation skill:
 // "Import named icons, don't dump a whole bundle").
 import {
   LayoutDashboard,

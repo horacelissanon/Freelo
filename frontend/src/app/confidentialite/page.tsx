@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { LegalPageLayout } from '@/components/legal/LegalPageLayout';
 
-export const metadata: Metadata = { title: 'Politique de confidentialité — Zeloom' };
+export const metadata: Metadata = { title: 'Politique de confidentialité — ZeFacto' };
 
 export default function ConfidentialitePage() {
   return (
     <LegalPageLayout title="Politique de confidentialité" updatedAt="25 août 2026">
       <p className="text-muted-foreground">
-        Cette politique explique quelles données Zeloom collecte, pourquoi, et comment elles sont
+        Cette politique explique quelles données ZeFacto collecte, pourquoi, et comment elles sont
         protégées — conformément à la loi n° 2017-20 du 20 avril 2018 portant Code du numérique en
         République du Bénin (Livre V, relatif à la protection des données à caractère personnel) et
         aux exigences de l’Autorité de Protection des Données Personnelles (APDP).
@@ -45,7 +45,7 @@ export default function ConfidentialitePage() {
             adresse, saisis par le freelance pour établir devis/factures, ainsi que les commentaires
             qu’ils laissent sur la page de suivi publique d’un projet (
             <code className="rounded bg-muted px-1 py-0.5 text-xs">/suivi/[lien]</code>). Ces
-            données sont sous la responsabilité du freelance, Zeloom agissant comme sous-traitant
+            données sont sous la responsabilité du freelance, ZeFacto agissant comme sous-traitant
             technique pour son compte.
           </li>
         </ul>

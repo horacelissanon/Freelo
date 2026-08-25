@@ -238,7 +238,9 @@ function Brand({ view }: { view: TrackView | null }) {
           <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
         </svg>
       </div>
-      <span className="font-headings text-xl font-bold tracking-tight text-foreground">Zeloom</span>
+      <span className="font-headings text-xl font-bold tracking-tight text-foreground">
+        ZeFacto
+      </span>
     </div>
   );
 }
@@ -248,7 +250,7 @@ function Brand({ view }: { view: TrackView | null }) {
 // bottom-right so it survives scrolling on long devis/factures without
 // overlapping the comment/upload composer some tracking views pin to the
 // bottom of the viewport.
-function ZeloomFloatingBadge() {
+function ZeFactoFloatingBadge() {
   return (
     <a
       href="/"
@@ -270,7 +272,7 @@ function ZeloomFloatingBadge() {
           <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
         </svg>
       </div>
-      <span className="font-body text-xs font-medium text-foreground">Créé avec Zeloom</span>
+      <span className="font-body text-xs font-medium text-foreground">Créé avec ZeFacto</span>
     </a>
   );
 }
@@ -326,7 +328,7 @@ export default function TrackingPage() {
         <QuoteInvoiceDetail view={view} token={token} onRefresh={load} />
       )}
 
-      {view && !view.isPro ? <ZeloomFloatingBadge /> : null}
+      {view && !view.isPro ? <ZeFactoFloatingBadge /> : null}
     </main>
   );
 }

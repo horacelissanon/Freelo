@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { LegalPageLayout } from '@/components/legal/LegalPageLayout';
 
-export const metadata: Metadata = { title: 'CGU — Zeloom' };
+export const metadata: Metadata = { title: 'CGU — ZeFacto' };
 
 export default function CguPage() {
   return (
@@ -10,7 +10,7 @@ export default function CguPage() {
         <h2 className="font-headings text-base font-semibold text-foreground">1. Objet</h2>
         <p className="text-muted-foreground">
           Les présentes Conditions Générales d’Utilisation (CGU) régissent l’accès et l’usage de
-          Zeloom, un outil de gestion pour freelances (clients, devis, projets, factures, suivi
+          ZeFacto, un outil de gestion pour freelances (clients, devis, projets, factures, suivi
           client). Elles s’appliquent à tout utilisateur créant un compte.
         </p>
       </section>
@@ -41,14 +41,16 @@ export default function CguPage() {
       </section>
 
       <section>
-        <h2 className="font-headings text-base font-semibold text-foreground">4. Rôle de Zeloom</h2>
+        <h2 className="font-headings text-base font-semibold text-foreground">
+          4. Rôle de ZeFacto
+        </h2>
         <p className="text-muted-foreground">
-          Zeloom est un outil mis à disposition des freelances pour gérer leur activité. Zeloom
+          ZeFacto est un outil mis à disposition des freelances pour gérer leur activité. ZeFacto
           n’est pas partie aux transactions conclues entre un freelance et ses propres clients : les
           devis, projets et factures créés reflètent des accords commerciaux dont le freelance reste
           seul responsable. Lorsqu’un paiement est enregistré manuellement (ex. espèces, virement,
-          mobile money reçu hors plateforme), Zeloom se limite à en garder la trace et n’en garantit
-          ni la réception ni l’exactitude.
+          mobile money reçu hors plateforme), ZeFacto se limite à en garder la trace et n’en
+          garantit ni la réception ni l’exactitude.
         </p>
       </section>
 
@@ -59,7 +61,7 @@ export default function CguPage() {
         <ul className="list-disc pl-5 text-muted-foreground">
           <li>Utiliser le service conformément à la loi et aux bonnes mœurs.</li>
           <li>
-            Ne pas utiliser Zeloom pour des activités frauduleuses (fausses factures, blanchiment,
+            Ne pas utiliser ZeFacto pour des activités frauduleuses (fausses factures, blanchiment,
             usurpation d’identité).
           </li>
           <li>
@@ -78,8 +80,8 @@ export default function CguPage() {
           6. Disponibilité du service
         </h2>
         <p className="text-muted-foreground">
-          Zeloom met en œuvre des moyens raisonnables pour assurer la disponibilité du service, sans
-          garantie de fonctionnement ininterrompu. Des interruptions pour maintenance peuvent
+          ZeFacto met en œuvre des moyens raisonnables pour assurer la disponibilité du service,
+          sans garantie de fonctionnement ininterrompu. Des interruptions pour maintenance peuvent
           survenir, si possible annoncées à l’avance.
         </p>
       </section>
@@ -89,7 +91,7 @@ export default function CguPage() {
           7. Suspension et résiliation
         </h2>
         <p className="text-muted-foreground">
-          Vous pouvez supprimer votre compte à tout moment depuis les réglages. Zeloom peut
+          Vous pouvez supprimer votre compte à tout moment depuis les réglages. ZeFacto peut
           suspendre ou résilier un compte en cas de manquement grave aux présentes CGU, après
           notification lorsque cela est possible.
         </p>
@@ -100,7 +102,7 @@ export default function CguPage() {
           8. Limitation de responsabilité
         </h2>
         <p className="text-muted-foreground">
-          Dans les limites permises par la loi, Zeloom ne pourra être tenu responsable des dommages
+          Dans les limites permises par la loi, ZeFacto ne pourra être tenu responsable des dommages
           indirects résultant de l’utilisation du service, ni des litiges commerciaux entre un
           freelance et ses clients.
         </p>
