@@ -1,6 +1,6 @@
 'use client';
 
-// Styled with hardcoded slate/emerald classes, not the Freelo workspace's
+// Styled with hardcoded slate/emerald classes, not the Zeloom workspace's
 // theme tokens (bg-canvas/border-border/text-primary/...) — this component
 // only ever renders inside the Super Admin console (app/admin/**), which is
 // deliberately its own fixed-light visual identity, independent of a

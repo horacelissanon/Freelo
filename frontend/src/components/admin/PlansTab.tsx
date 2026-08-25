@@ -5,7 +5,7 @@
 // page, Paramètres → Abonnement, admin Abonnements/Facturation, gating
 // routes) reads through the same lib/server/billing/plans.ts accessor, so a
 // save here takes effect everywhere at once. Styled like SubscriptionsTab.tsx:
-// hardcoded slate/emerald, not the Freelo workspace theme tokens.
+// hardcoded slate/emerald, not the Zeloom workspace theme tokens.
 import { useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';

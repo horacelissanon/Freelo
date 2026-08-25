@@ -9,8 +9,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Freelo — Espace freelance',
-    short_name: 'Freelo',
+    name: 'Zeloom — Espace freelance',
+    short_name: 'Zeloom',
     description: 'Clients, projets, devis et factures — un seul espace de travail freelance.',
     start_url: '/dashboard',
     display: 'standalone',

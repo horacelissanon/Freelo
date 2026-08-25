@@ -60,7 +60,7 @@ const ibmPlexSans = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Freelo',
+  title: 'Zeloom',
   description: 'Espace freelance — clients, projets, devis, factures.',
 };
 

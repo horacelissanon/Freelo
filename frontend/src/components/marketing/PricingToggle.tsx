@@ -1,7 +1,7 @@
 'use client';
 
 // Mensuel/Annuel + FCFA/EUR/USD switches for the landing page pricing
-// cards. Real Freelo figures only (Toggle component + math below, nothing
+// cards. Real Zeloom figures only (Toggle component + math below, nothing
 // fabricated) — same numbers the settings/billing screens already quote
 // elsewhere in the app. Sits on a light "Tarifs" panel (page.tsx) — green
 // is reserved for the featured Pro card itself, not the whole section, so
@@ -24,7 +24,7 @@ const FALLBACK_FREE_FEATURES = [
   '2 projets actifs',
   '1 devis et 1 facture, en FCFA',
   'Lien de suivi avec commentaires client',
-  'Badge « Créé avec Freelo » sur ton lien de suivi',
+  'Badge « Créé avec Zeloom » sur ton lien de suivi',
 ];
 const FALLBACK_PRO_FEATURES = [
   'Clients & projets illimités',
@@ -32,7 +32,7 @@ const FALLBACK_PRO_FEATURES = [
   'Nom d’entreprise, adresse et infos fiscales sur tes documents',
   'Export Excel et PDF',
   'Personnalisation de l’espace de travail',
-  'Sans badge « Créé avec Freelo » sur ton lien de suivi',
+  'Sans badge « Créé avec Zeloom » sur ton lien de suivi',
 ];
 const FALLBACK_MONTHLY_PRICE = 3500;
 const FALLBACK_ANNUAL_PRICE = 35000;
@@ -50,7 +50,7 @@ type Currency = (typeof CURRENCIES)[number];
 // live from GET /api/fx-rates (public, cached daily — see
 // lib/server/fx/rates.ts) and only falls back to this hardcoded constant if
 // that fetch hasn't resolved yet or fails — same "degrade, never block"
-// philosophy as the app's other optional providers. Freelo's own Pro
+// philosophy as the app's other optional providers. Zeloom's own Pro
 // subscription is still billed in FCFA — this is a display conversion for
 // visitors thinking in another currency, not a claim that Merrudit bills in
 // EUR/USD.

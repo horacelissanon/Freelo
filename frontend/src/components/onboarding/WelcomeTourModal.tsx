@@ -79,7 +79,7 @@ export function WelcomeTourModal({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <Modal title="Bienvenue sur Freelo" onClose={skip}>
+    <Modal title="Bienvenue sur Zeloom" onClose={skip}>
       {step === 1 ? (
         <>
           <p className="mb-4 font-body text-sm text-muted-foreground">

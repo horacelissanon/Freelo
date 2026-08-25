@@ -5,7 +5,7 @@
 // since there's no session/IP to key on otherwise.
 //
 // Available on FREE too (not Pro-gated) — a client being able to comment/
-// validate on the tracking link is core to Freelo's pitch and shouldn't be
+// validate on the tracking link is core to Zeloom's pitch and shouldn't be
 // locked away before a freelance ever sees the payoff. `attachmentUrl` still
 // requires Pro in practice: it can only be non-empty if the client got a
 // real URL from POST /api/track/[token]/upload, which stays Pro-gated.

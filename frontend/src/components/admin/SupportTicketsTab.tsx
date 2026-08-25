@@ -2,7 +2,7 @@
 
 // ADMIN can triage tickets (status change) — not gated to SUPERADMIN, this
 // is routine support work. Styled like UsersTab.tsx: hardcoded slate/emerald,
-// not the Freelo workspace theme tokens — this only ever renders inside the
+// not the Zeloom workspace theme tokens — this only ever renders inside the
 // Super Admin console (app/admin/**).
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';

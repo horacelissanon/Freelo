@@ -104,9 +104,20 @@ function AuthForm() {
       <div className="hidden flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex lg:w-1/2 xl:w-[45%]">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-            <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
+            <svg
+              viewBox="0 0 64 64"
+              className="h-5 w-5 text-primary-foreground"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={8}
+              strokeLinecap="square"
+            >
+              <line x1="17" y1="19" x2="47" y2="19" />
+              <line x1="17" y1="45" x2="47" y2="45" />
+              <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+            </svg>
           </div>
-          <span className="font-headings text-xl font-bold tracking-tight">Freelo</span>
+          <span className="font-headings text-xl font-bold tracking-tight">Zeloom</span>
         </Link>
 
         <div className="max-w-md">
@@ -114,7 +125,7 @@ function AuthForm() {
             Le CRM taillé sur mesure pour les freelances.
           </h1>
           <p className="mt-4 font-body text-base text-sidebar-foreground/80">
-            Freelo centralise vos projets, vos devis, vos factures et le suivi de vos clients — pour
+            Zeloom centralise vos projets, vos devis, vos factures et le suivi de vos clients — pour
             que rien ne se perde entre deux outils.
           </p>
         </div>
@@ -135,10 +146,21 @@ function AuthForm() {
         <div className="mx-auto w-full max-w-sm">
           <Link href="/" className="mb-8 flex items-center justify-center gap-2 lg:hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
+              <svg
+                viewBox="0 0 64 64"
+                className="h-5 w-5 text-primary-foreground"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={8}
+                strokeLinecap="square"
+              >
+                <line x1="17" y1="19" x2="47" y2="19" />
+                <line x1="17" y1="45" x2="47" y2="45" />
+                <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+              </svg>
             </div>
             <span className="font-headings text-xl font-bold tracking-tight text-foreground">
-              Freelo
+              Zeloom
             </span>
           </Link>
 
@@ -353,7 +375,15 @@ function AuthForm() {
               </a>
 
               <p className="mt-4 text-center font-body text-xs text-muted-foreground">
-                En créant un compte vous acceptez nos conditions d&apos;utilisation.
+                En créant un compte vous acceptez nos{' '}
+                <Link href="/cgu" className="text-primary hover:underline">
+                  conditions d&apos;utilisation
+                </Link>{' '}
+                et notre{' '}
+                <Link href="/confidentialite" className="text-primary hover:underline">
+                  politique de confidentialité
+                </Link>
+                .
               </p>
             </>
           )}

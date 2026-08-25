@@ -160,12 +160,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                   )}
                   <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-                    <span className="font-headings text-base font-bold text-primary-foreground">
-                      F
-                    </span>
+                    <svg
+                      viewBox="0 0 64 64"
+                      className="h-4 w-4 text-primary-foreground"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={8}
+                      strokeLinecap="square"
+                    >
+                      <line x1="17" y1="19" x2="47" y2="19" />
+                      <line x1="17" y1="45" x2="47" y2="45" />
+                      <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+                    </svg>
                   </div>
                   <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
-                    Freelo
+                    Zeloom
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

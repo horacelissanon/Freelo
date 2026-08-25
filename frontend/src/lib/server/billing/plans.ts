@@ -46,7 +46,7 @@ const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
       '2 projets actifs',
       '1 devis et 1 facture, en FCFA',
       'Lien de suivi avec commentaires client',
-      'Badge « Créé avec Freelo » sur ton lien de suivi',
+      'Badge « Créé avec Zeloom » sur ton lien de suivi',
     ],
   },
   PRO: {
@@ -64,7 +64,7 @@ const DEFAULT_PLAN_CONFIG: Record<Plan, Omit<PlanConfigShape, 'updatedAt'>> = {
       'Nom d’entreprise, adresse et infos fiscales sur tes documents',
       'Export Excel et PDF',
       'Personnalisation de l’espace de travail',
-      'Sans badge « Créé avec Freelo » sur ton lien de suivi',
+      'Sans badge « Créé avec Zeloom » sur ton lien de suivi',
     ],
   },
 };

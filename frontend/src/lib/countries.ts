@@ -1,4 +1,4 @@
-// Phone-prefix picker data, scoped to the 8 UEMOA member states (Freelo's
+// Phone-prefix picker data, scoped to the 8 UEMOA member states (Zeloom's
 // actual market — all on FCFA/XOF, matching User.defaultCurrency's default).
 // `format` is a placeholder hint only (shown via the <input>'s placeholder
 // attribute) — not a validation mask, matching this app's "no blocking
@@ -25,7 +25,7 @@ export const COUNTRIES: Country[] = [
 
 // Best-effort mapping from IANA timezone to one of the countries above, so
 // the phone-prefix picker can default to "the visitor's own country"
-// without a geo-IP call. Falls back to Bénin (BJ) — Freelo's home market —
+// without a geo-IP call. Falls back to Bénin (BJ) — Zeloom's home market —
 // for any timezone not covered (including visitors outside UEMOA, and when
 // Intl itself is unavailable).
 const TIMEZONE_TO_ISO2: Record<string, string> = {

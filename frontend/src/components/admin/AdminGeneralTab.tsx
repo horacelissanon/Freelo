@@ -4,7 +4,7 @@
 // /api/admin/settings (SUPERADMIN-only). Currently a single field, but
 // scoped as its own tab (not folded into Plans, which is pricing-specific)
 // so future site-wide settings have a home. Styled like PlansTab.tsx:
-// hardcoded slate/emerald, not the Freelo workspace theme tokens.
+// hardcoded slate/emerald, not the Zeloom workspace theme tokens.
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';

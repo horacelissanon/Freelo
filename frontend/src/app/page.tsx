@@ -5,7 +5,7 @@
 // connections the PRD calls out — everything else, including content, works
 // with zero JS. Content is scoped to what's ACTUALLY shipped today — no
 // fabricated user counts or testimonials, and no overclaiming payment
-// processing that doesn't exist: Freelo does NOT collect payment from a
+// processing that doesn't exist: Zeloom does NOT collect payment from a
 // freelancer's client on their behalf — a freelancer indicates their
 // preferred payment method (MTN Mobile Money, Moov Money…) and it's displayed on
 // the devis/facture; the client settles directly, outside the app. Every
@@ -40,7 +40,7 @@ import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { CommunityWhatsAppCta } from '@/components/marketing/CommunityWhatsAppCta';
 
 // Rotates in the hero H1 so "who this is for" stays visible and inclusive
-// — Freelo isn't scoped to graphic designers specifically, unlike the
+// — Zeloom isn't scoped to graphic designers specifically, unlike the
 // competitor this page took structural inspiration from.
 const TARGET_PROFESSIONS = [
   'designers',
@@ -79,7 +79,7 @@ const CAPABILITIES: { icon: string; title: string; description: string }[] = [
   {
     icon: 'download',
     title: 'App installable',
-    description: 'Freelo sur ton écran d’accueil, comme une app native.',
+    description: 'Zeloom sur ton écran d’accueil, comme une app native.',
   },
 ];
 
@@ -90,15 +90,15 @@ const STEPS: { icon: string; title: string; description: string }[] = [
     description: 'Un code unique par client — plus jamais de confusion entre deux Aïssatou.',
   },
   {
-    icon: 'layout-dashboard',
-    title: 'Structure le projet',
-    description: 'Des étapes personnalisables que ton client voit avancer en temps réel.',
-  },
-  {
     icon: 'file-text',
     title: 'Envoie ton devis',
     description:
       'Un lien pro que ton client ouvre en un clic, pas un PDF qui se perd dans les emails.',
+  },
+  {
+    icon: 'layout-dashboard',
+    title: 'Structure le projet',
+    description: 'Des étapes personnalisables que ton client voit avancer en temps réel.',
   },
   {
     icon: 'banknote',
@@ -156,7 +156,7 @@ const FEATURES: {
     icon: 'bell',
     title: 'Alertes automatiques',
     description:
-      'Échéance de projet qui approche, facture en retard — Freelo te prévient avant que ton client s’en inquiète.',
+      'Échéance de projet qui approche, facture en retard — Zeloom te prévient avant que ton client s’en inquiète.',
   },
 ];
 
@@ -164,25 +164,25 @@ const COMPARISON_ROWS: ComparisonRow[] = [
   {
     category: 'Organisation',
     headline: 'Un espace, pas cinq',
-    freelo: 'Clients, projets, devis et factures réunis au même endroit.',
+    zeloom: 'Clients, projets, devis et factures réunis au même endroit.',
     patchwork: 'WhatsApp pour les échanges, Excel pour les chiffres, un carnet pour les contacts.',
   },
   {
     category: 'Suivi client',
     headline: 'Un lien, zéro relance',
-    freelo: 'Ton client suit son projet en temps réel, sans jamais créer de compte.',
+    zeloom: 'Ton client suit son projet en temps réel, sans jamais créer de compte.',
     patchwork: 'PDF envoyés par email, relances manuelles répétées pour savoir où ça en est.',
   },
   {
     category: 'Devises',
     headline: 'Prêt pour tes clients d’ici et d’ailleurs',
-    freelo: 'Devis et factures générés directement en FCFA, EUR ou USD selon le client.',
+    zeloom: 'Devis et factures générés directement en FCFA, EUR ou USD selon le client.',
     patchwork: 'Une maquette Canva ou Photoshop à refaire à la main pour chaque devise.',
   },
   {
     category: 'Accès',
     headline: 'Toujours à portée de main',
-    freelo: 'App installable, rapide même sur une connexion faible.',
+    zeloom: 'App installable, rapide même sur une connexion faible.',
     patchwork: 'Outils lourds à rouvrir, fichiers à retrouver à chaque fois.',
   },
 ];
@@ -202,7 +202,7 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
     role: 'Graphiste freelance, Abidjan',
     pain: 'Je composais mes devis sur Canva, mes factures sur Excel, mes échanges sur WhatsApp — j’ai fini par oublier de facturer un client.',
     solution:
-      'Depuis Freelo, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
+      'Depuis Zeloom, chaque projet a son devis, sa facture et son lien de suivi rattachés : plus rien ne se perd entre deux outils.',
   },
   {
     name: 'Koffi',
@@ -215,7 +215,7 @@ const PERSONAS: { name: string; role: string; pain: string; solution: string }[]
 
 const FAQS: { question: string; answer: string }[] = [
   {
-    question: 'Freelo est-il vraiment gratuit ?',
+    question: 'Zeloom est-il vraiment gratuit ?',
     answer:
       'Oui. Le plan Gratuit permet de gérer 1 client et 2 projets actifs, avec devis et factures en FCFA — de quoi réellement travailler. Le plan Pro (3 500 FCFA/mois ou 35 000 FCFA/an) lève ces limites.',
   },
@@ -231,9 +231,9 @@ const FAQS: { question: string; answer: string }[] = [
       'Ton client choisit et valide lui-même l’offre depuis son lien de suivi, sans compte à créer. Une fois le devis envoyé, son contenu est figé — impossible de le modifier après coup, côté freelance comme côté client. En cas de désaccord sur le prix ou de demande de modification, tu as toujours une référence claire de ce qui a réellement été accepté.',
   },
   {
-    question: 'Mes clients paient-ils directement depuis Freelo ?',
+    question: 'Mes clients paient-ils directement depuis Zeloom ?',
     answer:
-      'Pas encore — Freelo n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (MTN Mobile Money, Moov Money…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
+      'Pas encore — Zeloom n’encaisse pas à ta place. Tu indiques le moyen de paiement de ton choix (MTN Mobile Money, Moov Money…) directement sur le devis ou la facture, et ton client te règle en direct. Une intégration de paiement en ligne est prévue pour une prochaine version.',
   },
   {
     question: 'Puis-je facturer en euros ou en dollars ?',
@@ -241,9 +241,9 @@ const FAQS: { question: string; answer: string }[] = [
       'Le plan Gratuit facture en FCFA uniquement. Le plan Pro débloque l’émission en EUR et USD, utile pour les clients de la diaspora.',
   },
   {
-    question: 'Freelo fonctionne-t-il sur mobile ?',
+    question: 'Zeloom fonctionne-t-il sur mobile ?',
     answer:
-      'Oui — Freelo est une application installable (PWA). Ajoute-la à l’écran d’accueil de ton téléphone ou de ton ordinateur pour l’utiliser comme une app native, sans passer par un store.',
+      'Oui — Zeloom est une application installable (PWA). Ajoute-la à l’écran d’accueil de ton téléphone ou de ton ordinateur pour l’utiliser comme une app native, sans passer par un store.',
   },
   {
     question: 'Que se passe-t-il si je dépasse les limites du plan Gratuit ?',
@@ -253,7 +253,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: 'Suis-je prévenu si un client tarde à payer ?',
     answer:
-      'Oui. Freelo surveille les échéances de tes projets et de tes factures et t’alerte automatiquement — dans l’app et sur ton tableau de bord — avant qu’un retard ne devienne un problème.',
+      'Oui. Zeloom surveille les échéances de tes projets et de tes factures et t’alerte automatiquement — dans l’app et sur ton tableau de bord — avant qu’un retard ne devienne un problème.',
   },
 ];
 
@@ -272,10 +272,21 @@ export default function Home() {
         <div className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <span className="font-headings text-base font-bold text-primary-foreground">F</span>
+              <svg
+                viewBox="0 0 64 64"
+                className="h-5 w-5 text-primary-foreground"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={8}
+                strokeLinecap="square"
+              >
+                <line x1="17" y1="19" x2="47" y2="19" />
+                <line x1="17" y1="45" x2="47" y2="45" />
+                <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+              </svg>
             </div>
             <span className="font-headings text-lg font-bold tracking-tight text-foreground">
-              Freelo
+              Zeloom
             </span>
           </div>
           <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
@@ -346,7 +357,7 @@ export default function Home() {
           </p>
 
           {/* Capability pills — real, shipped features only (no "Contrats" /
-              "Formulaires" style pills for capabilities Freelo doesn't have). */}
+              "Formulaires" style pills for capabilities Zeloom doesn't have). */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
             {HERO_PILLS.map((pill) => (
               <a
@@ -376,19 +387,28 @@ export default function Home() {
                 <span className="h-2.5 w-2.5 rounded-full bg-tag-orange-fg/50" />
                 <span className="h-2.5 w-2.5 rounded-full bg-tag-green-fg/50" />
                 <span className="ml-3 truncate font-body text-xs text-muted-foreground">
-                  freelo.app/dashboard
+                  zeloom.app/dashboard
                 </span>
               </div>
               <div className="flex">
                 <div className="flex w-14 flex-shrink-0 flex-col gap-1.5 bg-sidebar p-2.5 sm:w-40 sm:p-3">
                   <div className="mb-3 flex items-center gap-2 px-1">
                     <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-primary">
-                      <span className="font-headings text-[10px] font-bold text-primary-foreground">
-                        F
-                      </span>
+                      <svg
+                        viewBox="0 0 64 64"
+                        className="h-4 w-4 text-primary-foreground"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={8}
+                        strokeLinecap="square"
+                      >
+                        <line x1="17" y1="19" x2="47" y2="19" />
+                        <line x1="17" y1="45" x2="47" y2="45" />
+                        <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+                      </svg>
                     </div>
                     <span className="hidden font-headings text-xs font-bold text-sidebar-foreground sm:block">
-                      Freelo
+                      Zeloom
                     </span>
                   </div>
                   {[0, 1, 2, 3, 4].map((i) => (
@@ -507,12 +527,21 @@ export default function Home() {
                 <div className="mb-2 flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-primary">
-                      <span className="font-headings text-[7px] font-bold text-primary-foreground">
-                        F
-                      </span>
+                      <svg
+                        viewBox="0 0 64 64"
+                        className="h-2.5 w-2.5 text-primary-foreground"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={8}
+                        strokeLinecap="square"
+                      >
+                        <line x1="17" y1="19" x2="47" y2="19" />
+                        <line x1="17" y1="45" x2="47" y2="45" />
+                        <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+                      </svg>
                     </div>
                     <span className="font-headings text-[10px] font-bold text-foreground">
-                      Freelo
+                      Zeloom
                     </span>
                   </div>
                   <Icon i="bell" size={11} className="text-muted-foreground" />
@@ -691,7 +720,7 @@ export default function Home() {
                 <WhatsAppIcon className="h-6 w-6 text-primary" />
               </div>
               <h2 className="font-headings text-2xl font-bold text-white sm:text-3xl">
-                La communauté Freelo, sur WhatsApp
+                La communauté Zeloom, sur WhatsApp
               </h2>
               <p className="max-w-md font-body text-sm text-white/85">
                 Échange avec d'autres freelances, pose tes questions, sois informé·e en premier des
@@ -720,7 +749,7 @@ export default function Home() {
           <div className="mx-auto max-w-5xl">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-                Freelo remplace le patchwork, pas ta façon de travailler
+                Zeloom remplace le patchwork, pas ta façon de travailler
               </h2>
               <p className="mt-2 font-body text-sm text-muted-foreground">
                 Ce que change concrètement un seul espace de travail, poste par poste.
@@ -741,7 +770,7 @@ export default function Home() {
               Pensé pour des freelances comme toi
             </h2>
             <p className="mt-2 font-body text-sm text-muted-foreground">
-              Des profils types que Freelo a été conçu pour servir.
+              Des profils types que Zeloom a été conçu pour servir.
             </p>
           </div>
           <div className="px-4 pb-16 sm:px-6">
@@ -823,7 +852,7 @@ export default function Home() {
             Ton prochain client mérite mieux qu’un fichier Excel.
           </h2>
           <p className="max-w-md font-body text-sm text-white/85">
-            Crée ton compte, installe Freelo sur ton écran d’accueil, et partage ton premier lien de
+            Crée ton compte, installe Zeloom sur ton écran d’accueil, et partage ton premier lien de
             suivi client aujourd’hui.
           </p>
           <Link
@@ -841,9 +870,20 @@ export default function Home() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-                <span className="font-headings text-sm font-bold text-primary-foreground">F</span>
+                <svg
+                  viewBox="0 0 64 64"
+                  className="h-4 w-4 text-primary-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={8}
+                  strokeLinecap="square"
+                >
+                  <line x1="17" y1="19" x2="47" y2="19" />
+                  <line x1="17" y1="45" x2="47" y2="45" />
+                  <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+                </svg>
               </div>
-              <span className="font-headings text-base font-bold text-foreground">Freelo</span>
+              <span className="font-headings text-base font-bold text-foreground">Zeloom</span>
             </div>
             <p className="max-w-xs font-body text-xs text-muted-foreground">
               L’espace de travail pensé pour les freelances et consultants indépendants.
@@ -871,10 +911,28 @@ export default function Home() {
                 Inscription
               </Link>
             </div>
+            <div className="flex flex-col gap-2">
+              <span className="font-body text-xs font-semibold text-foreground">Légal</span>
+              <Link href="/mentions-legales" className="font-body text-xs text-muted-foreground">
+                Mentions légales
+              </Link>
+              <Link href="/confidentialite" className="font-body text-xs text-muted-foreground">
+                Confidentialité
+              </Link>
+              <Link href="/cookies" className="font-body text-xs text-muted-foreground">
+                Cookies
+              </Link>
+              <Link href="/cgu" className="font-body text-xs text-muted-foreground">
+                CGU
+              </Link>
+              <Link href="/cgv" className="font-body text-xs text-muted-foreground">
+                CGV
+              </Link>
+            </div>
           </div>
         </div>
         <div className="border-t border-border px-4 py-4 text-center font-body text-xs text-muted-foreground sm:px-6">
-          © {new Date().getFullYear()} Freelo. Tous droits réservés.
+          © {new Date().getFullYear()} Zeloom. Tous droits réservés.
         </div>
       </footer>
 

@@ -40,10 +40,21 @@ function ResetPasswordForm() {
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4 py-12">
       <Link href="/" className="flex items-center justify-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-          <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
+          <svg
+            viewBox="0 0 64 64"
+            className="h-5 w-5 text-primary-foreground"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={8}
+            strokeLinecap="square"
+          >
+            <line x1="17" y1="19" x2="47" y2="19" />
+            <line x1="17" y1="45" x2="47" y2="45" />
+            <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+          </svg>
         </div>
         <span className="font-headings text-xl font-bold tracking-tight text-foreground">
-          Freelo
+          Zeloom
         </span>
       </Link>
 

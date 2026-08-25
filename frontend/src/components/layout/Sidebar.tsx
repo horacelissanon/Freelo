@@ -129,11 +129,22 @@ function SidebarBody({
           <div
             className={`flex h-9 w-9 flex-shrink-0 items-center justify-center bg-primary ${floating ? 'rounded-full' : 'rounded-lg'}`}
           >
-            <span className="font-headings text-base font-bold text-primary-foreground">F</span>
+            <svg
+              viewBox="0 0 64 64"
+              className="h-5 w-5 text-primary-foreground"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={8}
+              strokeLinecap="square"
+            >
+              <line x1="17" y1="19" x2="47" y2="19" />
+              <line x1="17" y1="45" x2="47" y2="45" />
+              <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+            </svg>
           </div>
           {!collapsed && (
             <span className="font-headings text-lg font-bold tracking-tight text-sidebar-foreground">
-              Freelo
+              Zeloom
             </span>
           )}
         </Link>

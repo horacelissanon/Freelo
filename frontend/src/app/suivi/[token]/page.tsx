@@ -225,9 +225,20 @@ function Brand({ view }: { view: TrackView | null }) {
   return (
     <div className="flex items-center justify-center gap-2">
       <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-        <span className="font-headings text-lg font-bold text-primary-foreground">F</span>
+        <svg
+          viewBox="0 0 64 64"
+          className="h-5 w-5 text-primary-foreground"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={8}
+          strokeLinecap="square"
+        >
+          <line x1="17" y1="19" x2="47" y2="19" />
+          <line x1="17" y1="45" x2="47" y2="45" />
+          <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+        </svg>
       </div>
-      <span className="font-headings text-xl font-bold tracking-tight text-foreground">Freelo</span>
+      <span className="font-headings text-xl font-bold tracking-tight text-foreground">Zeloom</span>
     </div>
   );
 }
@@ -237,7 +248,7 @@ function Brand({ view }: { view: TrackView | null }) {
 // bottom-right so it survives scrolling on long devis/factures without
 // overlapping the comment/upload composer some tracking views pin to the
 // bottom of the viewport.
-function FreeloFloatingBadge() {
+function ZeloomFloatingBadge() {
   return (
     <a
       href="/"
@@ -246,9 +257,20 @@ function FreeloFloatingBadge() {
       className="fixed right-4 bottom-4 z-50 flex items-center gap-1.5 rounded-full border border-border bg-canvas px-3 py-2 shadow-card transition-transform hover:scale-105"
     >
       <div className="flex h-5 w-5 items-center justify-center rounded bg-primary">
-        <span className="font-headings text-[10px] font-bold text-primary-foreground">F</span>
+        <svg
+          viewBox="0 0 64 64"
+          className="h-3 w-3 text-primary-foreground"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={8}
+          strokeLinecap="square"
+        >
+          <line x1="17" y1="19" x2="47" y2="19" />
+          <line x1="17" y1="45" x2="47" y2="45" />
+          <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+        </svg>
       </div>
-      <span className="font-body text-xs font-medium text-foreground">Créé avec Freelo</span>
+      <span className="font-body text-xs font-medium text-foreground">Créé avec Zeloom</span>
     </a>
   );
 }
@@ -304,7 +326,7 @@ export default function TrackingPage() {
         <QuoteInvoiceDetail view={view} token={token} onRefresh={load} />
       )}
 
-      {view && !view.isPro ? <FreeloFloatingBadge /> : null}
+      {view && !view.isPro ? <ZeloomFloatingBadge /> : null}
     </main>
   );
 }

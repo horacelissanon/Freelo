@@ -1,8 +1,8 @@
 // App Router file convention — auto-generates the apple-touch-icon <link>
 // tag via ImageResponse. Apple's convention wants a full-bleed icon (no
 // transparent corners — iOS applies its own rounded-square mask), so unlike
-// icon.tsx this fills the whole 180x180 canvas with the brand color instead
-// of an inset rounded square.
+// icon.tsx this fills the whole 180x180 canvas with the brand color and
+// centers the glyph-only mark (no background rect) inside it.
 import { ImageResponse } from 'next/og';
 
 export const size = { width: 180, height: 180 };
@@ -20,16 +20,13 @@ export default function AppleIcon() {
         background: '#059669',
       }}
     >
-      <span
-        style={{
-          color: '#ffffff',
-          fontSize: 100,
-          fontWeight: 700,
-          fontFamily: 'sans-serif',
-        }}
-      >
-        F
-      </span>
+      <svg width="112" height="112" viewBox="0 0 64 64">
+        <g fill="none" stroke="#ffffff" strokeWidth={8} strokeLinecap="square">
+          <line x1="17" y1="19" x2="47" y2="19" />
+          <line x1="17" y1="45" x2="47" y2="45" />
+          <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+        </g>
+      </svg>
     </div>,
     { ...size },
   );
