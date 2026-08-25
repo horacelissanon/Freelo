@@ -238,7 +238,7 @@ const FAQS: { question: string; answer: string }[] = [
   },
 ];
 
-const inputCardClass = 'rounded-lg border border-border bg-canvas p-5 shadow-card';
+const inputCardClass = 'rounded-lg border border-border bg-canvas p-4 shadow-card sm:p-5';
 
 export default function Home() {
   return (
@@ -467,16 +467,16 @@ export default function Home() {
                 Chaque fonctionnalité répond à un vrai blocage du quotidien freelance.
               </p>
             </div>
-            <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
               {FEATURES.map((feature) => (
                 <div key={feature.title} className={inputCardClass}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-tag-green sm:h-10 sm:w-10">
                     <Icon i={feature.icon} size={18} className="text-tag-green-fg" />
                   </div>
-                  <h3 className="mt-4 font-headings text-base font-semibold text-foreground">
+                  <h3 className="mt-3 font-headings text-sm font-semibold text-foreground sm:mt-4 sm:text-base">
                     {feature.title}
                   </h3>
-                  <p className="mt-1.5 font-body text-sm text-muted-foreground">
+                  <p className="mt-1.5 font-body text-xs text-muted-foreground sm:text-sm">
                     {feature.description}
                   </p>
                 </div>
