@@ -273,6 +273,80 @@ body {
   animation: draw-line 900ms ease-out forwards;
 }
 
+@keyframes flow-travel {
+  0% {
+    left: -8%;
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+/* "Comment ça marche" step connector (page.tsx) — a short bright streak
+   traveling left-to-right along the static gradient line, so the 1→2→3→4
+   sequence reads as a direction, not just four dots on a bar. */
+@utility animate-flow-travel {
+  animation: flow-travel 2.8s ease-in-out infinite;
+}
+
+@keyframes cta-shimmer-sweep {
+  0% {
+    left: -60%;
+  }
+  55%,
+  100% {
+    left: 130%;
+  }
+}
+
+/* Hero CTA "scintille" sweep (page.tsx) — a soft diagonal light band
+   crossing the primary button every ~3s, on top of its solid fill (unlike
+   .animate-draw-line etc. above, this needs a real ::after pseudo-element
+   for the sweep layer, hence a plain rule instead of a single-property
+   @utility). Requires `relative overflow-hidden` on the button itself. */
+.cta-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 40%;
+  background: linear-gradient(115deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: cta-shimmer-sweep 3.2s ease-in-out infinite;
+}
+
+@keyframes float-3d {
+  0%,
+  100% {
+    transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateY(0);
+  }
+  50% {
+    transform: perspective(1000px) rotateX(-1.5deg) rotateY(2deg) translateY(-8px);
+  }
+}
+
+/* Permanent subtle 3D float (ProductDemo.tsx's desktop + phone mockups) —
+   a slow perspective tilt + bob so the preview reads as an object floating
+   in space rather than a flat screenshot. transform-style:preserve-3d keeps
+   the rotateX/rotateY genuinely 3D rather than being flattened by an
+   ancestor; will-change hints the browser since this runs indefinitely. */
+@utility animate-float-3d {
+  animation: float-3d 6s ease-in-out infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+@utility animate-float-3d-delayed {
+  animation: float-3d 7s ease-in-out infinite;
+  animation-delay: -2.5s;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
 /* Scroll-reveal (components/marketing/ScrollReveal.tsx) — a transition, not
    an @keyframes animation, since it's triggered by a class toggle on
    intersection rather than on mount. Content stays fully visible with no
@@ -309,5 +383,25 @@ body {
   .animate-draw-line {
     animation: none;
     stroke-dashoffset: 0;
+  }
+
+  .animate-flow-travel {
+    animation: none;
+    opacity: 0;
+  }
+
+  .cta-shimmer::after {
+    animation: none;
+    display: none;
+  }
+
+  .animate-ping {
+    animation: none;
+  }
+
+  .animate-float-3d,
+  .animate-float-3d-delayed {
+    animation: none;
+    transform: none;
   }
 }

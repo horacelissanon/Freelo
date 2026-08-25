@@ -18,7 +18,14 @@
 //
 // Sample names/companies are deliberately fictional (not the real dev
 // account's client list) — this is public marketing copy.
-import { useId, useState } from 'react';
+//
+// The "+ Nouveau ..." button per tab, the toast, and the persistent signup
+// nudge below it are modeled on dailykash.app's own embedded demo (looked
+// at for reference while building this): click an action, watch the number/
+// list actually update, then get nudged toward signup right at that "oh,
+// this really works" moment — more convincing than a purely inert preview.
+import { useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 
 type DemoTab = 'dashboard' | 'clients' | 'devis' | 'factures';
@@ -134,6 +141,54 @@ const SAMPLE_FACTURES: {
   },
 ];
 
+// Labels match the real app's own buttons verbatim — (app)/dashboard/page.tsx
+// ("Nouveau client" / "Nouveau devis" / "Nouveau projet") and
+// (app)/invoices/page.tsx ("Créer facture" on the Factures tab). There is no
+// "revenu" entity in ZeFacto (unlike the finance-tracker this demo pattern
+// was inspired by) — the dashboard's action mirrors its real "Nouveau
+// projet" quick-action instead of inventing one.
+const ADD_LABEL: Record<DemoTab, string> = {
+  dashboard: 'Nouveau projet',
+  clients: 'Nouveau client',
+  devis: 'Nouveau devis',
+  factures: 'Créer facture',
+};
+
+const ADD_TOAST: Record<DemoTab, string> = {
+  dashboard: 'Projet créé',
+  clients: 'Client ajouté',
+  devis: 'Devis créé',
+  factures: 'Facture créée',
+};
+
+const NEW_CLIENT: (typeof SAMPLE_CLIENTS)[number] = {
+  name: 'Boubacar Diallo',
+  company: 'Kayré Events',
+  status: 'Nouveau',
+  color: 'purple',
+};
+const NEW_DEVIS: (typeof SAMPLE_DEVIS)[number] = {
+  number: 'QT-2026-005',
+  client: 'Maison Fangol',
+  amount: '180 000 FCFA',
+  status: 'En attente',
+  color: 'orange',
+  icon: 'clock',
+};
+const NEW_FACTURE: (typeof SAMPLE_FACTURES)[number] = {
+  number: 'FA-2026-009',
+  client: 'Maison Fangol',
+  amount: '60 000 FCFA',
+  status: 'En attente',
+  color: 'orange',
+  icon: 'clock',
+};
+
+const INITIAL_ACTIVITY = [
+  { label: 'Atelier Sové', detail: 'Facture payée', amount: '+95 000 FCFA' },
+  { label: 'Nova Design', detail: 'Devis accepté', amount: '+210 000 FCFA' },
+];
+
 const inputCardClass = 'rounded-lg border border-border bg-canvas p-3 shadow-card';
 
 // Smooth SVG path through a set of points — each point gets a cubic-bezier
@@ -218,9 +273,57 @@ export function ProductDemo() {
   const [activeTab, setActiveTab] = useState<DemoTab>('dashboard');
   const active = TABS.find((t) => t.id === activeTab)!;
 
+  const [activeProjects, setActiveProjects] = useState(4);
+  const [clients, setClients] = useState(SAMPLE_CLIENTS);
+  const [devis, setDevis] = useState(SAMPLE_DEVIS);
+  const [factures, setFactures] = useState(SAMPLE_FACTURES);
+  const [added, setAdded] = useState<Record<DemoTab, boolean>>({
+    dashboard: false,
+    clients: false,
+    devis: false,
+    factures: false,
+  });
+  const [toast, setToast] = useState<string | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [showHint, setShowHint] = useState(true);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Every click anywhere in this demo — a tab, the action button, even a
+  // repeat click once a tab already got its one row added — surfaces the
+  // signup nudge. Only the FIRST click per tab actually mutates its list
+  // (no unbounded duplicate rows on repeat clicks); every click still
+  // (re)shows the toast + nudge, since the point of a read-only demo is to
+  // consistently point at "create an account" rather than only doing it
+  // once and going quiet.
+  function handleTabClick(tab: DemoTab) {
+    setActiveTab(tab);
+    setShowHint(false);
+    setHasInteracted(true);
+  }
+
+  function handleAdd() {
+    setShowHint(false);
+    setHasInteracted(true);
+    if (!added[activeTab]) {
+      setAdded((a) => ({ ...a, [activeTab]: true }));
+      if (activeTab === 'dashboard') {
+        setActiveProjects((p) => p + 1);
+      } else if (activeTab === 'clients') {
+        setClients((c) => [NEW_CLIENT, ...c]);
+      } else if (activeTab === 'devis') {
+        setDevis((d) => [NEW_DEVIS, ...d]);
+      } else {
+        setFactures((f) => [NEW_FACTURE, ...f]);
+      }
+    }
+    setToast(ADD_TOAST[activeTab]);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }
+
   return (
     <div className="animate-slide-up-in mx-auto mt-14 flex max-w-6xl flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-center">
-      <div className="relative w-full max-w-2xl">
+      <div className="animate-float-3d relative w-full max-w-2xl">
         <div className="overflow-hidden rounded-xl border border-border bg-canvas shadow-card">
           <div className="flex items-center gap-1.5 border-b border-border bg-secondary/60 px-4 py-2.5">
             <span className="h-2.5 w-2.5 rounded-full bg-tag-red-fg/50" />
@@ -273,7 +376,7 @@ export function ProductDemo() {
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => handleTabClick(tab.id)}
                       aria-current={isActive ? 'page' : undefined}
                       className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-2.5 text-left transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none sm:py-2 ${
                         isActive
@@ -291,16 +394,55 @@ export function ProductDemo() {
               </nav>
             </div>
             <div className="min-w-0 flex-1 p-4 sm:p-5">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="font-headings text-sm font-bold text-foreground">{active.label}</p>
-                <span className="flex items-center gap-1 rounded-full bg-tag-green px-2 py-0.5 font-body text-[9px] font-medium text-tag-green-fg">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-tag-green-fg/60" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-tag-green-fg" />
-                  </span>
-                  En ligne
-                </span>
+                <div className="relative flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleAdd}
+                    className={`flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 font-body text-[10px] font-semibold transition-colors duration-150 ${
+                      added[activeTab]
+                        ? 'bg-tag-green text-tag-green-fg hover:opacity-90'
+                        : 'bg-foreground text-canvas hover:opacity-90'
+                    }`}
+                  >
+                    <Icon i={added[activeTab] ? 'check-circle' : 'plus'} size={11} />
+                    {added[activeTab] ? 'Ajouté' : ADD_LABEL[activeTab]}
+                  </button>
+                  {/* Points at the action button on first load, like
+                      dailykash.app's "Teste l'outil !" callout — nudges a
+                      visitor who might otherwise treat this as a static
+                      screenshot into actually trying it. Disappears for
+                      good after the first click anywhere in the demo. */}
+                  {showHint && !added[activeTab] && (
+                    <div className="animate-fade-in pointer-events-none absolute -top-8 right-0 z-20 flex items-center gap-1 rounded-full bg-foreground px-2.5 py-1 font-body text-[10px] font-medium whitespace-nowrap text-canvas shadow-lg">
+                      Teste l’outil ! 👇
+                    </div>
+                  )}
+                </div>
               </div>
+              {/* Toast on click, then a persistent signup nudge once the
+                  visitor has seen the "it actually works" moment at least
+                  once (stays visible across tab switches from then on). */}
+              {toast && (
+                <div className="animate-fade-in mb-2 flex items-center gap-1.5 rounded-lg bg-foreground px-2.5 py-1.5">
+                  <Icon i="bell" size={11} className="flex-shrink-0 text-canvas" />
+                  <span className="font-body text-[10px] font-medium text-canvas">{toast}</span>
+                </div>
+              )}
+              {!toast && hasInteracted && (
+                <div className="animate-fade-in mb-2 flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2.5 py-1.5">
+                  <span className="font-body text-[10px] font-medium text-foreground">
+                    C’est aussi simple que ça ! ✨
+                  </span>
+                  <Link
+                    href="/login?mode=signup"
+                    className="flex-shrink-0 rounded-full bg-primary px-2.5 py-1 font-body text-[10px] font-semibold whitespace-nowrap text-primary-foreground"
+                  >
+                    Créer un compte
+                  </Link>
+                </div>
+              )}
               {/* Fixed height + scroll — this is what lets a visitor
                   actually scroll through a tab's rows instead of the card
                   growing unpredictably tall; same behavior on mobile and
@@ -312,36 +454,12 @@ export function ProductDemo() {
                 key={activeTab}
                 className="animate-fade-in max-h-[210px] overflow-y-auto overscroll-contain pr-1"
               >
-                {activeTab === 'dashboard' && <DashboardView />}
-                {activeTab === 'clients' && <ClientsView />}
-                {activeTab === 'devis' && <ListView rows={SAMPLE_DEVIS} />}
-                {activeTab === 'factures' && <ListView rows={SAMPLE_FACTURES} />}
+                {activeTab === 'dashboard' && <DashboardView activeProjects={activeProjects} />}
+                {activeTab === 'clients' && <ClientsView clients={clients} />}
+                {activeTab === 'devis' && <ListView rows={devis} />}
+                {activeTab === 'factures' && <ListView rows={factures} />}
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Sketchy teaser of the client-facing tracking link —
-            deliberately a skeleton, not a finished mockup like the
-            dashboard above: the point is to make someone curious enough
-            to click through and look, not to hand over the whole
-            design. */}
-        <div className="absolute -bottom-6 -left-3 hidden w-36 overflow-hidden rounded-xl border border-border bg-canvas shadow-xl sm:block">
-          <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
-            <Icon i="link" size={10} className="flex-shrink-0 text-primary" />
-            <span className="font-body text-[9px] font-semibold text-foreground">Suivi client</span>
-          </div>
-          <div className="flex flex-col gap-1.5 p-2.5">
-            <div className="h-1.5 w-3/4 rounded-full bg-muted" />
-            <div className="h-1.5 w-1/2 rounded-full bg-muted" />
-            <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-secondary">
-              <div className="h-full w-2/3 rounded-full bg-primary/50" />
-            </div>
-            <div className="h-1.5 w-2/3 rounded-full bg-muted" />
-          </div>
-          <div className="flex items-center justify-center gap-1 border-t border-border bg-secondary/50 py-1.5">
-            <Icon i="search" size={10} className="text-muted-foreground" />
-            <span className="font-body text-[9px] font-medium text-muted-foreground">Aperçu</span>
           </div>
         </div>
       </div>
@@ -353,7 +471,7 @@ export function ProductDemo() {
           the dominant one, and deliberately NOT wired to the tab state
           above (stays on its own fixed Tableau de bord snapshot) so this
           secondary flourish doesn't need its own scroll/nav affordances. */}
-      <div className="relative hidden h-72 w-36 flex-shrink-0 rounded-[2rem] border-[6px] border-foreground bg-foreground shadow-2xl lg:block">
+      <div className="animate-float-3d-delayed relative hidden h-72 w-36 flex-shrink-0 rounded-[2rem] border-[6px] border-foreground bg-foreground shadow-2xl lg:block">
         <div className="absolute top-2 left-1/2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-foreground" />
         <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.5rem] bg-canvas">
           <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5">
@@ -431,7 +549,7 @@ export function ProductDemo() {
   );
 }
 
-function DashboardView() {
+function DashboardView({ activeProjects }: { activeProjects: number }) {
   return (
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -441,7 +559,7 @@ function DashboardView() {
         </div>
         <div className={inputCardClass}>
           <p className="font-body text-[10px] text-muted-foreground">Projets actifs</p>
-          <p className="font-headings text-lg font-bold text-foreground">4</p>
+          <p className="font-headings text-lg font-bold text-foreground">{activeProjects}</p>
         </div>
         <div className={inputCardClass}>
           <p className="font-body text-[10px] text-muted-foreground">Factures impayées</p>
@@ -458,14 +576,35 @@ function DashboardView() {
           <Sparkline values={[40, 65, 50, 70, 90, 55, 68]} />
         </div>
       </div>
+      <div className="mt-3 rounded-lg border border-border p-3">
+        <p className="mb-1.5 font-body text-[10px] text-muted-foreground">Activité récente</p>
+        <div className="flex flex-col">
+          {INITIAL_ACTIVITY.map((a, i) => (
+            <div
+              key={`${a.label}-${i}`}
+              className="flex items-center justify-between gap-2 border-b border-border/60 py-1.5 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-body text-[11px] font-medium text-foreground">
+                  {a.label}
+                </p>
+                <p className="truncate font-body text-[9px] text-muted-foreground">{a.detail}</p>
+              </div>
+              <span className="flex-shrink-0 font-body text-[10px] font-semibold text-tag-green-fg">
+                {a.amount}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 }
 
-function ClientsView() {
+function ClientsView({ clients }: { clients: typeof SAMPLE_CLIENTS }) {
   return (
     <div className="flex flex-col">
-      {SAMPLE_CLIENTS.map((c) => (
+      {clients.map((c) => (
         <div
           key={c.name}
           className="flex items-center justify-between gap-2 border-b border-border/60 py-2 last:border-b-0"

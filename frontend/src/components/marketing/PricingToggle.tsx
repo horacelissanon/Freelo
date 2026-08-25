@@ -165,30 +165,47 @@ export function PricingToggle() {
 
       <div className="mt-3 grid w-full grid-cols-1 gap-5 sm:grid-cols-2">
         <div className={`${cardClass} border border-border bg-canvas`}>
-          <p className="font-headings text-base font-semibold text-foreground">Gratuit</p>
-          <p className="mt-1 font-headings text-3xl font-bold text-foreground">
+          <span className="w-fit rounded-full bg-secondary px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Gratuit
+          </span>
+          <p className="mt-3 font-headings text-base font-semibold text-foreground">Découvrir</p>
+          <p className="mt-1 font-body text-xs text-muted-foreground">
+            Pour démarrer sans engagement.
+          </p>
+          <p className="mt-3 font-headings text-3xl font-bold whitespace-nowrap text-foreground sm:text-4xl">
             {formatAmount(0, currency)}
           </p>
           <FeatureList items={freeFeatures} tone="muted" />
           <Link
             href="/login?mode=signup"
-            className="mt-6 block rounded-md border border-border px-4 py-2.5 text-center font-body text-sm font-medium text-foreground"
+            className="mt-6 block rounded-full border border-border px-4 py-2.5 text-center font-body text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
           >
-            Commencer gratuitement
+            Créer un compte gratuit
           </Link>
         </div>
 
         {/* The one deliberately green card — everything around it (panel,
             toggles, the other card) stays light so this is unambiguously
             the featured plan, not one of several green things fighting for
-            attention. */}
+            attention. Badge floats half outside the top edge (like a price
+            tag), amber against the green fill so it pops instead of
+            blending into the card the way a plain white pill did. */}
         <div className={`${cardClass} relative bg-primary shadow-xl`}>
-          <span className="absolute -top-3 left-6 rounded-full bg-canvas px-2.5 py-0.5 font-body text-[11px] font-semibold tracking-wide text-primary uppercase shadow-card">
-            Le plus choisi
+          <span className="absolute -top-3.5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-tag-orange px-3 py-1 font-body text-[11px] font-bold tracking-wide text-tag-orange-fg uppercase shadow-card">
+            <Icon i="star" size={11} />
+            Recommandé
           </span>
-          <p className="font-headings text-base font-semibold text-primary-foreground">Pro</p>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <p className="font-headings text-3xl font-bold text-primary-foreground">
+          <span className="w-fit rounded-full bg-primary-foreground/15 px-2.5 py-1 font-body text-[11px] font-semibold tracking-wide text-primary-foreground uppercase">
+            Pro
+          </span>
+          <p className="mt-3 font-headings text-base font-semibold text-primary-foreground">
+            Pour les freelances établis
+          </p>
+          <p className="mt-1 font-body text-xs text-primary-foreground/70">
+            Sans limite, prêt pour la croissance.
+          </p>
+          <div className="mt-3 flex items-baseline gap-1.5">
+            <p className="font-headings text-3xl font-bold whitespace-nowrap text-primary-foreground sm:text-4xl">
               {formatAmount(annual ? ANNUAL_PRICE : MONTHLY_PRICE, currency)}
             </p>
             <span className="font-body text-xs text-primary-foreground/70">
@@ -203,9 +220,10 @@ export function PricingToggle() {
           <FeatureList items={proFeatures} tone="inverted" />
           <Link
             href="/login?mode=signup"
-            className="mt-6 block rounded-md bg-canvas px-4 py-2.5 text-center font-body text-sm font-medium text-primary"
+            className="mt-6 flex items-center justify-center gap-1.5 rounded-full bg-canvas px-4 py-2.5 text-center font-body text-sm font-semibold text-primary transition-opacity hover:opacity-90"
           >
             Essayer le plan Pro
+            <Icon i="chevron-right" size={14} />
           </Link>
         </div>
       </div>

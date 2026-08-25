@@ -1,13 +1,13 @@
 // Landing page (PRD §3.13) — the app's public entry point for visitors.
-// Server-rendered; client JS is four small progressive-enhancement islands
+// Server-rendered; client JS is five small progressive-enhancement islands
 // (ScrollReveal for the fade-in-on-scroll effect, PricingToggle for the
 // Mensuel/Annuel switch, ProductDemo for the clickable dashboard/clients/
-// devis/factures tour, MobileNav for the phone-width header dropdown) so it
-// stays fast on the low-end-phone / 2G-3G connections the PRD calls out —
-// everything else, including content, works with zero JS (ProductDemo
-// server-renders the Tableau de bord tab in full; only clicking through to
-// the other three tabs needs JS). Content is scoped to what's ACTUALLY
-// shipped today — no
+// devis/factures tour, MobileNav for the phone-width header dropdown,
+// PromoBanner for the dismissible top strip) so it stays fast on the
+// low-end-phone / 2G-3G connections the PRD calls out — everything else,
+// including content, works with zero JS (ProductDemo server-renders the
+// Tableau de bord tab in full; only clicking through to the other three
+// tabs needs JS). Content is scoped to what's ACTUALLY shipped today — no
 // fabricated user counts or testimonials, and no overclaiming payment
 // processing that doesn't exist: ZeFacto does NOT collect payment from a
 // freelancer's client on their behalf — a freelancer indicates their
@@ -34,10 +34,11 @@ import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 import { ScrollReveal } from '@/components/marketing/ScrollReveal';
 import { PricingToggle } from '@/components/marketing/PricingToggle';
-import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
+import { DevisShowcase } from '@/components/marketing/DevisShowcase';
 import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { HeaderAuthCta } from '@/components/marketing/HeaderAuthCta';
 import { MobileNav } from '@/components/marketing/MobileNav';
+import { PromoBanner } from '@/components/marketing/PromoBanner';
 import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
 import { ProductDemo } from '@/components/marketing/ProductDemo';
@@ -69,6 +70,31 @@ const COMMUNITY_BENEFITS: string[] = [
   "Pose tes questions à l'équipe et aux autres freelances",
   'Partage tes retours et tes idées de fonctionnalités',
   'Sois informé·e en avant-première des nouveautés',
+];
+
+// Original copy scoped to what ZeFacto actually fixes (see PricingToggle.tsx
+// and FEATURES below for the same three areas: suivi client, devis/prix,
+// devises) — structurally inspired by a competitor's own "pain points"
+// panel, not its wording.
+const PAIN_POINTS: { title: string; description: string; accentClass: string }[] = [
+  {
+    title: 'Le prix se discute deux fois',
+    description:
+      'Un devis envoyé par WhatsApp ou email se noie dans la conversation — et le client "ne se souvient plus" du montant accepté.',
+    accentClass: 'before:bg-tag-red-fg',
+  },
+  {
+    title: 'Le suivi client tient sur trois outils',
+    description:
+      'Un carnet pour les contacts, Excel pour les montants, WhatsApp pour le reste — impossible de savoir où en est un client d’un coup d’œil.',
+    accentClass: 'before:bg-tag-orange-fg',
+  },
+  {
+    title: 'Chaque devise remet tout à refaire',
+    description:
+      'Un client à l’étranger paie en euros ou en dollars — et c’est reparti pour une maquette Canva refaite à la main.',
+    accentClass: 'before:bg-tag-purple-fg',
+  },
 ];
 
 const STEPS: { icon: string; title: string; description: string }[] = [
@@ -139,33 +165,6 @@ const FEATURES: {
     title: 'Alertes automatiques',
     description:
       'Échéance de projet qui approche, facture en retard — ZeFacto te prévient avant que ton client s’en inquiète.',
-  },
-];
-
-const COMPARISON_ROWS: ComparisonRow[] = [
-  {
-    category: 'Organisation',
-    headline: 'Un espace, pas cinq',
-    zefacto: 'Clients, projets, devis et factures réunis au même endroit.',
-    patchwork: 'WhatsApp pour les échanges, Excel pour les chiffres, un carnet pour les contacts.',
-  },
-  {
-    category: 'Suivi client',
-    headline: 'Un lien, zéro relance',
-    zefacto: 'Ton client suit son projet en temps réel, sans jamais créer de compte.',
-    patchwork: 'PDF envoyés par email, relances manuelles répétées pour savoir où ça en est.',
-  },
-  {
-    category: 'Devises',
-    headline: 'Prêt pour tes clients d’ici et d’ailleurs',
-    zefacto: 'Devis et factures générés directement en FCFA, EUR ou USD selon le client.',
-    patchwork: 'Une maquette Canva ou Photoshop à refaire à la main pour chaque devise.',
-  },
-  {
-    category: 'Accès',
-    headline: 'Toujours à portée de main',
-    zefacto: 'App installable, rapide même sur une connexion faible.',
-    patchwork: 'Outils lourds à rouvrir, fichiers à retrouver à chaque fois.',
   },
 ];
 
@@ -245,156 +244,216 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-background">
       {/* ── Header ──────────────────────────────────────────────────── */}
-      {/* Floating, not flush — inset from the viewport edges with its own
-          rounded pill + shadow. Uses position: fixed (not sticky) so it
-          stays visible through the entire scroll — sticky was tried first
-          and reported as disappearing mid-scroll. Fixed removes it from
-          document flow, hence the extra hero top-padding below. */}
-      <header className="fixed inset-x-0 top-3 z-30 mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-              <svg
-                viewBox="0 0 64 64"
-                className="h-5 w-5 text-primary-foreground"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={8}
-                strokeLinecap="square"
-              >
-                <line x1="17" y1="19" x2="47" y2="19" />
-                <line x1="17" y1="45" x2="47" y2="45" />
-                <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
-              </svg>
-            </div>
-            {/* Hidden below sm — the mobile header row (logo + ThemeToggle +
+      {/* Banner + header share one fixed block so they move as a unit — the
+          header doesn't need to know whether the banner is mounted/
+          dismissed to compute its own top offset. Uses position: fixed (not
+          sticky) so it stays visible through the entire scroll — sticky was
+          tried first and reported as disappearing mid-scroll. Fixed removes
+          it from document flow, hence the extra hero top-padding below
+          (sized for the tallest case: banner wrapped to 2 lines + header). */}
+      <div className="fixed inset-x-0 top-0 z-30">
+        <PromoBanner />
+        <header className="mx-auto mt-3 max-w-6xl px-4 sm:px-6">
+          <div className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-border bg-background/90 px-4 py-2.5 shadow-lg backdrop-blur-md sm:px-6">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+                <svg
+                  viewBox="0 0 64 64"
+                  className="h-5 w-5 text-primary-foreground"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={8}
+                  strokeLinecap="square"
+                >
+                  <line x1="17" y1="19" x2="47" y2="19" />
+                  <line x1="17" y1="45" x2="47" y2="45" />
+                  <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
+                </svg>
+              </div>
+              {/* Hidden below sm — the mobile header row (logo + ThemeToggle +
                 "Commencer gratuitement" + hamburger, see MobileNav) is
                 already tight enough on a narrow phone that keeping the full
                 wordmark here pushes the CTA text into wrapping/overflow;
                 the icon alone still reads as the brand mark. */}
-            <span className="hidden font-headings text-lg font-bold tracking-tight text-foreground sm:inline">
-              ZeFacto
-            </span>
+              <span className="hidden font-headings text-lg font-bold tracking-tight text-foreground sm:inline">
+                ZeFacto
+              </span>
+            </div>
+            <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
+              <a href="#comment-ca-marche" className="hover:text-foreground">
+                Comment ça marche
+              </a>
+              <a href="#comparatif" className="hover:text-foreground">
+                Devis
+              </a>
+              <a href="#tarifs" className="hover:text-foreground">
+                Tarifs
+              </a>
+              <a href="#faq" className="hover:text-foreground">
+                FAQ
+              </a>
+            </nav>
+            <div className="hidden items-center gap-1.5 sm:gap-2 md:flex">
+              <ThemeToggle />
+              <HeaderAuthCta />
+            </div>
+            <MobileNav />
           </div>
-          <nav className="hidden items-center gap-6 font-body text-sm text-muted-foreground md:flex">
-            <a href="#comment-ca-marche" className="hover:text-foreground">
-              Comment ça marche
-            </a>
-            <a href="#comparatif" className="hover:text-foreground">
-              Comparatif
-            </a>
-            <a href="#tarifs" className="hover:text-foreground">
-              Tarifs
-            </a>
-            <a href="#faq" className="hover:text-foreground">
-              FAQ
-            </a>
-          </nav>
-          <div className="hidden items-center gap-1.5 sm:gap-2 md:flex">
-            <ThemeToggle />
-            <HeaderAuthCta />
-          </div>
-          <MobileNav />
-        </div>
-      </header>
+        </header>
+      </div>
 
-      {/* ── Hero ────────────────────────────────────────────────────── */}
-      {/* Extra top padding clears the now-fixed (not in-flow) header pill —
-          pt-14/20 was sized for the old sticky-in-flow header, which
-          reserved its own space; a fixed header doesn't. */}
-      <section className="relative mx-auto max-w-6xl px-4 pt-28 pb-16 sm:px-6 sm:pt-32">
+      {/* ── Hero + Le problème + Comment ça marche ──────────────────── */}
+      {/* One continuous soft mint wash across all three sections (inspired
+          by how dailykash.app's own pale background doesn't hard-cut at
+          section boundaries — extended here rather than confined to the
+          hero the way it used to be) instead of three abrupt block-color
+          switches back to back. */}
+      <div className="relative overflow-hidden">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] bg-gradient-to-b from-tag-green/60 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[1500px] bg-gradient-to-b from-tag-green/50 via-tag-green/15 to-transparent"
         />
-        <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
-          {/* No region name here on purpose — the app supports FCFA/EUR/USD
+        {/* Extra top padding clears the now-fixed (not in-flow) banner+header
+            block above — sized for the tallest case (banner wrapped to 2
+            lines on a narrow phone + the header pill). */}
+        <section className="relative mx-auto max-w-6xl px-4 pt-36 pb-16 sm:px-6 sm:pt-40">
+          <div className="animate-fade-in mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
+            {/* No region name here on purpose — the app supports FCFA/EUR/USD
               natively, so it reads as international by what it does, not by
               a geographic claim that could read as "not for you" to a
               client or freelance based elsewhere. */}
-          <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
-            FCFA · EUR · USD
-          </span>
-          {/* Headline itself names the target (dynamic — cycles through
+            <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-medium text-tag-green-fg">
+              FCFA · EUR · USD
+            </span>
+            {/* Headline itself names the target (dynamic — cycles through
               professions so it reads as "made for you" for more visitors,
               not just designers), Canva-style. */}
-          <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
-            Le CRM taillé sur mesure pour les freelances{' '}
-            <RotatingWord words={TARGET_PROFESSIONS} className="text-primary" />.
-          </h1>
-          <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
-            Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures
-            (FCFA, EUR, USD) et suivi client réunis en un seul endroit.
-          </p>
-          <Link
-            href="/login?mode=signup"
-            className="rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
-          >
-            Commencer gratuitement
-          </Link>
-          <p className="font-body text-xs text-muted-foreground">
-            Gratuit pour démarrer · Aucune carte bancaire requise
-          </p>
-
-          {/* Capability pills — real, shipped features only (no "Contrats" /
-              "Formulaires" style pills for capabilities ZeFacto doesn't have). */}
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-            {HERO_PILLS.map((pill) => (
-              <a
-                key={pill.label}
-                href="#fonctionnalites"
-                className="flex items-center gap-1.5 rounded-full border border-border bg-canvas px-3.5 py-1.5 font-body text-xs font-medium text-foreground shadow-card transition-colors hover:border-primary/40"
+            <h1 className="font-headings text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Le CRM taillé sur mesure pour les freelances{' '}
+              <RotatingWord words={TARGET_PROFESSIONS} className="text-primary" />.
+            </h1>
+            <p className="max-w-xl font-body text-base text-muted-foreground sm:text-lg">
+              Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures
+              (FCFA, EUR, USD) et suivi client réunis en un seul endroit.
+            </p>
+            <div className="relative">
+              {/* Small pulsing ring — draws the eye to the primary CTA before
+                a visitor has scrolled or read anything, same "look here"
+                convention as a notification-dot. */}
+              <span className="absolute -top-1.5 -left-1.5 flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
+              </span>
+              <Link
+                href="/login?mode=signup"
+                className="cta-shimmer relative overflow-hidden rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
               >
-                <Icon i={pill.icon} size={13} className="text-primary" />
-                {pill.label}
-              </a>
-            ))}
-          </div>
-        </div>
+                Commencer gratuitement
+              </Link>
+            </div>
+            <p className="font-body text-xs text-muted-foreground">
+              Gratuit pour démarrer · Aucune carte bancaire requise
+            </p>
 
-        {/* Product preview — built from the app's own visual language rather
+            {/* Capability pills — real, shipped features only (no "Contrats" /
+              "Formulaires" style pills for capabilities ZeFacto doesn't have). */}
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+              {HERO_PILLS.map((pill) => (
+                <a
+                  key={pill.label}
+                  href="#fonctionnalites"
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-canvas px-3.5 py-1.5 font-body text-xs font-medium text-foreground shadow-card transition-colors hover:border-primary/40"
+                >
+                  <Icon i={pill.icon} size={13} className="text-primary" />
+                  {pill.label}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Product preview — built from the app's own visual language rather
             than a screenshot, so it never goes stale as the UI evolves. Now
             a real interactive read-only tour (ProductDemo) instead of a
             static sketch — see that file's own comment for the
             progressive-enhancement contract. */}
-        <ProductDemo />
-      </section>
-
-      {/* ── Comment ça marche ──────────────────────────────────────── */}
-      <ScrollReveal>
-        <section id="comment-ca-marche" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-              De la prise de contact au paiement, en quatre étapes
-            </h2>
-            <p className="mt-2 font-body text-sm text-muted-foreground">
-              Pas de configuration compliquée — le premier lien peut partir aujourd’hui.
-            </p>
-          </div>
-          <div className="relative mt-12 grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-6 lg:grid-cols-4">
-            <div
-              aria-hidden
-              className="absolute top-6 right-[12%] left-[12%] hidden h-0.5 bg-gradient-to-r from-primary via-primary/40 to-primary lg:block"
-            />
-            {STEPS.map((step, i) => (
-              <div key={step.title} className="relative flex flex-col items-center text-center">
-                <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent font-headings text-base font-bold text-primary-foreground shadow-sm ring-4 ring-background">
-                  {i + 1}
-                </div>
-                <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-lg bg-tag-green">
-                  <Icon i={step.icon} size={16} className="text-tag-green-fg" />
-                </div>
-                <h3 className="mt-3 font-headings text-base font-semibold text-foreground">
-                  {step.title}
-                </h3>
-                <p className="mt-1.5 max-w-[220px] font-body text-sm text-muted-foreground">
-                  {step.description}
-                </p>
-              </div>
-            ))}
-          </div>
+          <ProductDemo />
         </section>
-      </ScrollReveal>
+
+        {/* ── Le problème ─────────────────────────────────────────────── */}
+        {/* Structurally inspired by dailykash.app's own "pain points" panel
+          (eyebrow + bold 2-line headline + 3 cards with a colored top
+          accent) — original copy, scoped to what ZeFacto actually fixes
+          (PAIN_POINTS below), not their finance-tracker framing. */}
+        <ScrollReveal>
+          <section>
+            <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6">
+              <p className="font-body text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+                Sans outil dédié
+              </p>
+              <h2 className="mt-2 font-headings text-2xl font-bold text-foreground sm:text-3xl">
+                Le vrai coût, ce n’est pas le prix d’un outil —
+                <br className="hidden sm:block" /> c’est tout ce que tu perds sans lui.
+              </h2>
+              <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-4 text-left sm:grid-cols-3">
+                {PAIN_POINTS.map((point) => (
+                  <div
+                    key={point.title}
+                    className={`rounded-xl border border-border bg-canvas p-5 shadow-card before:mb-3 before:block before:h-1 before:w-8 before:rounded-full ${point.accentClass}`}
+                  >
+                    <h3 className="font-headings text-sm font-semibold text-foreground">
+                      {point.title}
+                    </h3>
+                    <p className="mt-1.5 font-body text-sm text-muted-foreground">
+                      {point.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </ScrollReveal>
+
+        {/* ── Comment ça marche ──────────────────────────────────────── */}
+        <ScrollReveal>
+          <section id="comment-ca-marche" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+                De la prise de contact au paiement, en quatre étapes
+              </h2>
+              <p className="mt-2 font-body text-sm text-muted-foreground">
+                Pas de configuration compliquée — le premier lien peut partir aujourd’hui.
+              </p>
+            </div>
+            <div className="relative mt-12 grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-6 lg:grid-cols-4">
+              <div
+                aria-hidden
+                className="absolute top-6 right-[12%] left-[12%] hidden h-0.5 overflow-hidden bg-gradient-to-r from-primary via-primary/40 to-primary lg:block"
+              >
+                {/* Traveling streak — reinforces that the 1→2→3→4 circles
+                  read left-to-right in order, not as four unrelated
+                  bullets on a static bar. */}
+                <div className="animate-flow-travel absolute inset-y-0 w-10 bg-gradient-to-r from-transparent via-white to-transparent" />
+              </div>
+              {STEPS.map((step, i) => (
+                <div key={step.title} className="relative flex flex-col items-center text-center">
+                  <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent font-headings text-base font-bold text-primary-foreground shadow-sm ring-4 ring-background">
+                    {i + 1}
+                  </div>
+                  <div className="mt-3 flex h-9 w-9 items-center justify-center rounded-lg bg-tag-green">
+                    <Icon i={step.icon} size={16} className="text-tag-green-fg" />
+                  </div>
+                  <h3 className="mt-3 font-headings text-base font-semibold text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1.5 max-w-[220px] font-body text-sm text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </ScrollReveal>
+      </div>
 
       {/* ── Fonctionnalités ─────────────────────────────────────────── */}
       <ScrollReveal>
@@ -423,6 +482,32 @@ export default function Home() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+      </ScrollReveal>
+
+      {/* ── Devis ────────────────────────────────────────────────────── */}
+      <ScrollReveal>
+        <section id="comparatif" className="border-t border-border px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-6xl">
+            <DevisShowcase />
+          </div>
+        </section>
+      </ScrollReveal>
+
+      {/* ── Personas ("Pensé pour") ─────────────────────────────────── */}
+      <ScrollReveal>
+        <section className="border-t border-border bg-tag-green">
+          <div className="mx-auto max-w-2xl px-4 pt-16 text-center sm:px-6">
+            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
+              Pensé pour des freelances comme toi
+            </h2>
+            <p className="mt-2 font-body text-sm text-muted-foreground">
+              Des profils types que ZeFacto a été conçu pour servir.
+            </p>
+          </div>
+          <div className="px-4 pb-16 sm:px-6">
+            <PersonasMarquee personas={PERSONAS} />
           </div>
         </section>
       </ScrollReveal>
@@ -467,55 +552,15 @@ export default function Home() {
         </section>
       </ScrollReveal>
 
-      {/* ── Comparatif ──────────────────────────────────────────────── */}
-      <ScrollReveal>
-        <section id="comparatif" className="border-t border-border px-4 py-16 sm:px-6">
-          <div className="mx-auto max-w-5xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-                ZeFacto remplace le patchwork, pas ta façon de travailler
-              </h2>
-              <p className="mt-2 font-body text-sm text-muted-foreground">
-                Ce que change concrètement un seul espace de travail, poste par poste.
-              </p>
-            </div>
-            <div className="mt-10">
-              <ComparisonTable rows={COMPARISON_ROWS} />
-            </div>
-          </div>
-        </section>
-      </ScrollReveal>
-
-      {/* ── Personas ("Pensé pour") ─────────────────────────────────── */}
-      <ScrollReveal>
-        <section className="border-t border-border bg-tag-green">
-          <div className="mx-auto max-w-2xl px-4 pt-16 text-center sm:px-6">
-            <h2 className="font-headings text-2xl font-bold text-foreground sm:text-3xl">
-              Pensé pour des freelances comme toi
-            </h2>
-            <p className="mt-2 font-body text-sm text-muted-foreground">
-              Des profils types que ZeFacto a été conçu pour servir.
-            </p>
-          </div>
-          <div className="px-4 pb-16 sm:px-6">
-            <PersonasMarquee personas={PERSONAS} />
-          </div>
-        </section>
-      </ScrollReveal>
-
       {/* ── Tarifs ──────────────────────────────────────────────────── */}
+      {/* Full-width neutral tint (bg-secondary), not a boxed white panel —
+          a neutral gray recedes behind both cards regardless of theme,
+          without competing with the featured Pro card's saturated green
+          (a pale green section here, like Features/Personas use, sat too
+          close in hue to actually read as separate from that card). */}
       <ScrollReveal>
-        <section id="tarifs" className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          {/* Light panel, not a full green wash — green is reserved for the
-              featured Pro card itself so it's the one thing that actually
-              stands out, not competing with a saturated background. Sits on
-              the white section behind it, so the panel reads as "raised"
-              via border + shadow rather than a color fill (bg-secondary/40
-              was too close to the page background to register as a card).
-              Padding/radius/shadow kept modest (not py-16/rounded-3xl/
-              shadow-xl) so the frame doesn't dwarf the pricing cards it's
-              wrapping. */}
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-canvas px-4 py-10 shadow-lg sm:px-8 sm:py-12">
+        <section id="tarifs" className="border-t border-border bg-secondary/60">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
             <div className="mx-auto max-w-2xl text-center">
               <span className="rounded-full bg-tag-green px-3 py-1 font-body text-xs font-semibold tracking-wide text-tag-green-fg uppercase">
                 Tarifs
@@ -620,7 +665,7 @@ export default function Home() {
                 Comment ça marche
               </a>
               <a href="#comparatif" className="font-body text-xs text-muted-foreground">
-                Comparatif
+                Devis
               </a>
               <a href="#tarifs" className="font-body text-xs text-muted-foreground">
                 Tarifs
