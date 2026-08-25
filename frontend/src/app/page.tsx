@@ -1,9 +1,13 @@
 // Landing page (PRD §3.13) — the app's public entry point for visitors.
-// Server-rendered; the only client JS is two small progressive-enhancement
-// islands (ScrollReveal for the fade-in-on-scroll effect, PricingToggle for
-// the Mensuel/Annuel switch) so it stays fast on the low-end-phone / 2G-3G
-// connections the PRD calls out — everything else, including content, works
-// with zero JS. Content is scoped to what's ACTUALLY shipped today — no
+// Server-rendered; client JS is four small progressive-enhancement islands
+// (ScrollReveal for the fade-in-on-scroll effect, PricingToggle for the
+// Mensuel/Annuel switch, ProductDemo for the clickable dashboard/clients/
+// devis/factures tour, MobileNav for the phone-width header dropdown) so it
+// stays fast on the low-end-phone / 2G-3G connections the PRD calls out —
+// everything else, including content, works with zero JS (ProductDemo
+// server-renders the Tableau de bord tab in full; only clicking through to
+// the other three tabs needs JS). Content is scoped to what's ACTUALLY
+// shipped today — no
 // fabricated user counts or testimonials, and no overclaiming payment
 // processing that doesn't exist: ZeFacto does NOT collect payment from a
 // freelancer's client on their behalf — a freelancer indicates their
@@ -33,8 +37,10 @@ import { PricingToggle } from '@/components/marketing/PricingToggle';
 import { ComparisonTable, type ComparisonRow } from '@/components/marketing/ComparisonTable';
 import { RotatingWord } from '@/components/marketing/RotatingWord';
 import { HeaderAuthCta } from '@/components/marketing/HeaderAuthCta';
+import { MobileNav } from '@/components/marketing/MobileNav';
 import { PersonasMarquee } from '@/components/marketing/PersonasMarquee';
 import { InstallPromptWidget } from '@/components/InstallPromptWidget';
+import { ProductDemo } from '@/components/marketing/ProductDemo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 import { CommunityWhatsAppCta } from '@/components/marketing/CommunityWhatsAppCta';
@@ -261,7 +267,12 @@ export default function Home() {
                 <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
               </svg>
             </div>
-            <span className="font-headings text-lg font-bold tracking-tight text-foreground">
+            {/* Hidden below sm — the mobile header row (logo + ThemeToggle +
+                "Commencer gratuitement" + hamburger, see MobileNav) is
+                already tight enough on a narrow phone that keeping the full
+                wordmark here pushes the CTA text into wrapping/overflow;
+                the icon alone still reads as the brand mark. */}
+            <span className="hidden font-headings text-lg font-bold tracking-tight text-foreground sm:inline">
               ZeFacto
             </span>
           </div>
@@ -279,10 +290,11 @@ export default function Home() {
               FAQ
             </a>
           </nav>
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="hidden items-center gap-1.5 sm:gap-2 md:flex">
             <ThemeToggle />
             <HeaderAuthCta />
           </div>
+          <MobileNav />
         </div>
       </header>
 
@@ -341,228 +353,11 @@ export default function Home() {
         </div>
 
         {/* Product preview — built from the app's own visual language rather
-            than a screenshot, so it never goes stale as the UI evolves.
-            Sidebar rows are icon-plus-bar placeholders, never real nav
-            labels — the mockup stays accurate even after the real menu
-            changes. Desktop + mobile side by side (desktop only — cramming
-            both next to each other on a phone screen would be unreadable,
-            so the phone visitor just sees the wide dashboard mockup). */}
-        <div className="animate-slide-up-in mx-auto mt-14 flex max-w-6xl flex-col items-center gap-8 lg:flex-row lg:items-center lg:justify-center">
-          <div className="relative w-full max-w-2xl">
-            <div className="overflow-hidden rounded-xl border border-border bg-canvas shadow-card">
-              <div className="flex items-center gap-1.5 border-b border-border bg-secondary/60 px-4 py-2.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-tag-red-fg/50" />
-                <span className="h-2.5 w-2.5 rounded-full bg-tag-orange-fg/50" />
-                <span className="h-2.5 w-2.5 rounded-full bg-tag-green-fg/50" />
-                <span className="ml-3 truncate font-body text-xs text-muted-foreground">
-                  zefacto.app/dashboard
-                </span>
-              </div>
-              <div className="flex">
-                <div className="flex w-14 flex-shrink-0 flex-col gap-1.5 bg-sidebar p-2.5 sm:w-40 sm:p-3">
-                  <div className="mb-3 flex items-center gap-2 px-1">
-                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-primary">
-                      <svg
-                        viewBox="0 0 64 64"
-                        className="h-4 w-4 text-primary-foreground"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={8}
-                        strokeLinecap="square"
-                      >
-                        <line x1="17" y1="19" x2="47" y2="19" />
-                        <line x1="17" y1="45" x2="47" y2="45" />
-                        <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
-                      </svg>
-                    </div>
-                    <span className="hidden font-headings text-xs font-bold text-sidebar-foreground sm:block">
-                      ZeFacto
-                    </span>
-                  </div>
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-2 rounded-md px-2 py-2 ${i === 0 ? 'bg-sidebar-muted' : ''}`}
-                    >
-                      <span
-                        className={`h-2.5 w-2.5 flex-shrink-0 rounded-sm ${i === 0 ? 'bg-sidebar-foreground' : 'bg-sidebar-foreground/40'}`}
-                      />
-                      <span
-                        className={`hidden h-1.5 rounded-full sm:block ${i === 0 ? 'w-16 bg-sidebar-foreground/90' : 'w-10 bg-sidebar-foreground/30'}`}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="min-w-0 flex-1 p-4 sm:p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="font-headings text-sm font-bold text-foreground">
-                      Tableau de bord
-                    </p>
-                    <span className="rounded-full bg-tag-green px-2 py-0.5 font-body text-[9px] font-medium text-tag-green-fg">
-                      En ligne
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div className="rounded-lg bg-primary p-3">
-                      <p className="font-body text-[10px] text-primary-foreground/80">
-                        Revenus ce mois
-                      </p>
-                      <p className="font-headings text-lg font-bold text-primary-foreground">
-                        850 000
-                      </p>
-                    </div>
-                    <div className={inputCardClass}>
-                      <p className="font-body text-[10px] text-muted-foreground">Projets actifs</p>
-                      <p className="font-headings text-lg font-bold text-foreground">4</p>
-                    </div>
-                    <div className={inputCardClass}>
-                      <p className="font-body text-[10px] text-muted-foreground">
-                        Factures impayées
-                      </p>
-                      <p className="font-headings text-lg font-bold text-foreground">2</p>
-                    </div>
-                    <div className={inputCardClass}>
-                      <p className="font-body text-[10px] text-muted-foreground">
-                        Nouveaux clients
-                      </p>
-                      <p className="font-headings text-lg font-bold text-foreground">+3</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-lg border border-border p-3">
-                    <p className="font-body text-[10px] text-muted-foreground">
-                      Revenus de la semaine
-                    </p>
-                    <div className="mt-3 flex h-16 items-end gap-1.5 sm:gap-2">
-                      {[40, 65, 50, 70, 90, 55, 45].map((h, i) => (
-                        <div
-                          key={i}
-                          className={`flex-1 rounded-t ${i === 4 ? 'bg-primary' : 'bg-tag-green'}`}
-                          style={{ height: `${h}%` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sketchy teaser of the client-facing tracking link —
-                deliberately a skeleton, not a finished mockup like the
-                dashboard above: the point is to make someone curious enough
-                to click through and look, not to hand over the whole
-                design. */}
-            <div className="absolute -bottom-6 -left-3 hidden w-36 overflow-hidden rounded-xl border border-border bg-canvas shadow-xl sm:block">
-              <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5">
-                <Icon i="link" size={10} className="flex-shrink-0 text-primary" />
-                <span className="font-body text-[9px] font-semibold text-foreground">
-                  Suivi client
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5 p-2.5">
-                <div className="h-1.5 w-3/4 rounded-full bg-muted" />
-                <div className="h-1.5 w-1/2 rounded-full bg-muted" />
-                <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-secondary">
-                  <div className="h-full w-2/3 rounded-full bg-primary/50" />
-                </div>
-                <div className="h-1.5 w-2/3 rounded-full bg-muted" />
-              </div>
-              <div className="flex items-center justify-center gap-1 border-t border-border bg-secondary/50 py-1.5">
-                <Icon i="search" size={10} className="text-muted-foreground" />
-                <span className="font-body text-[9px] font-medium text-muted-foreground">
-                  Aperçu
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Same product, on a phone — a realistic modern-iPhone frame
-              (Dynamic Island, status bar, home indicator), not a shrunk-down
-              rectangle. Deliberately kept SMALLER than the desktop mockup
-              (h-72 vs. the desktop card's ~300px+) — a supporting visual,
-              not the dominant one. */}
-          <div className="relative hidden h-72 w-36 flex-shrink-0 rounded-[2rem] border-[6px] border-foreground bg-foreground shadow-2xl lg:block">
-            <div className="absolute top-2 left-1/2 z-10 h-3.5 w-14 -translate-x-1/2 rounded-full bg-foreground" />
-            <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[1.5rem] bg-canvas">
-              <div className="flex items-center justify-between px-3 pt-2.5 pb-0.5">
-                <span className="font-body text-[9px] font-semibold text-foreground">9:41</span>
-                <div className="flex items-center gap-0.5">
-                  <Icon i="signal" size={9} className="text-foreground" />
-                  <Icon i="wifi" size={9} className="text-foreground" />
-                  <Icon i="battery-full" size={11} className="text-foreground" />
-                </div>
-              </div>
-              <div className="flex-1 overflow-hidden px-2.5 pt-2 pb-9">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded bg-primary">
-                      <svg
-                        viewBox="0 0 64 64"
-                        className="h-2.5 w-2.5 text-primary-foreground"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={8}
-                        strokeLinecap="square"
-                      >
-                        <line x1="17" y1="19" x2="47" y2="19" />
-                        <line x1="17" y1="45" x2="47" y2="45" />
-                        <line x1="15" y1="47" x2="49" y2="17" strokeWidth={7.5} />
-                      </svg>
-                    </div>
-                    <span className="font-headings text-[10px] font-bold text-foreground">
-                      ZeFacto
-                    </span>
-                  </div>
-                  <Icon i="bell" size={11} className="text-muted-foreground" />
-                </div>
-                <div className="rounded-lg bg-primary p-2">
-                  <p className="font-body text-[7px] text-primary-foreground/80">Revenus ce mois</p>
-                  <p className="font-headings text-sm font-bold text-primary-foreground">
-                    850 000 FCFA
-                  </p>
-                </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                  <div className="rounded-md border border-border p-1.5">
-                    <p className="font-body text-[7px] text-muted-foreground">Projets</p>
-                    <p className="font-headings text-xs font-bold text-foreground">4</p>
-                  </div>
-                  <div className="rounded-md border border-border p-1.5">
-                    <p className="font-body text-[7px] text-muted-foreground">Impayées</p>
-                    <p className="font-headings text-xs font-bold text-foreground">2</p>
-                  </div>
-                </div>
-                <div className="mt-1.5 rounded-md border border-border p-1.5">
-                  <p className="font-body text-[7px] text-muted-foreground">Revenus semaine</p>
-                  <div className="mt-1 flex h-8 items-end gap-1">
-                    {[40, 65, 50, 70, 90].map((h, i) => (
-                      <div
-                        key={i}
-                        className={`flex-1 rounded-t ${i === 4 ? 'bg-primary' : 'bg-tag-green'}`}
-                        style={{ height: `${h}%` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Floating bottom nav sketch — mirrors the real app's
-                  capsule-shaped BottomNav (Sidebar.tsx/BottomNav.tsx), same
-                  icon-only-no-labels rule as the desktop sidebar sketch
-                  above so it stays accurate if the real nav items change. */}
-              <div className="absolute inset-x-4 bottom-4 flex items-center justify-around rounded-full bg-sidebar px-2 py-2 shadow-lg">
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    className={`h-2 w-2 rounded-full ${i === 0 ? 'bg-white' : 'bg-white/40'}`}
-                  />
-                ))}
-              </div>
-
-              <div className="flex justify-center pb-1.5">
-                <div className="h-0.5 w-14 rounded-full bg-foreground/30" />
-              </div>
-            </div>
-          </div>
-        </div>
+            than a screenshot, so it never goes stale as the UI evolves. Now
+            a real interactive read-only tour (ProductDemo) instead of a
+            static sketch — see that file's own comment for the
+            progressive-enhancement contract. */}
+        <ProductDemo />
       </section>
 
       {/* ── Comment ça marche ──────────────────────────────────────── */}

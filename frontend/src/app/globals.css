@@ -257,6 +257,22 @@ body {
   animation: slide-up-in 180ms ease-out;
 }
 
+@keyframes draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Sparkline "draw-in" (ProductDemo.tsx) — relies on SVG2 pathLength={1} on
+   the <path> so dasharray/dashoffset can stay in a normalized 0–1 range
+   regardless of the path's actual on-screen length, instead of measuring
+   getTotalLength() in a ref/effect. */
+@utility animate-draw-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-line 900ms ease-out forwards;
+}
+
 /* Scroll-reveal (components/marketing/ScrollReveal.tsx) — a transition, not
    an @keyframes animation, since it's triggered by a class toggle on
    intersection rather than on mount. Content stays fully visible with no
@@ -281,5 +297,17 @@ body {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-slide-in-left,
+  .animate-slide-up-in {
+    animation: none;
+  }
+
+  .animate-draw-line {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }
