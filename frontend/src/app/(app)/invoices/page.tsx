@@ -24,7 +24,7 @@ import { sumForDisplay } from '@/lib/displayAmount';
 import { INVOICE_STATUS_LABELS, type InvoiceStatus, type InvoiceDocType } from '@/lib/constants';
 import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
-const VIEW_STORAGE_KEY = 'freelo-invoices-view';
+const VIEW_STORAGE_KEY = 'zefacto-invoices-view';
 
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';

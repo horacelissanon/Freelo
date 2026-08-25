@@ -42,7 +42,7 @@ interface ProjectApiRow {
 const inputClass =
   'rounded-md border border-border bg-input px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-primary/40 focus:outline-none';
 
-const VIEW_STORAGE_KEY = 'freelo-projects-view';
+const VIEW_STORAGE_KEY = 'zefacto-projects-view';
 
 export default function ProjectsPage() {
   const user = useUser();

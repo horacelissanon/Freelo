@@ -20,7 +20,7 @@ import { formatPrice } from '@/lib/utils';
 import { CLIENT_STATUS_LABELS, type ClientStatus } from '@/lib/constants';
 import { DEFAULT_DATE_FILTER, isWithinDateFilter, type DateFilterValue } from '@/lib/dateFilter';
 
-const VIEW_STORAGE_KEY = 'freelo-clients-view';
+const VIEW_STORAGE_KEY = 'zefacto-clients-view';
 
 interface ClientApiRow {
   id: string;

@@ -65,24 +65,6 @@ const COMMUNITY_BENEFITS: string[] = [
   'Sois informé·e en avant-première des nouveautés',
 ];
 
-const CAPABILITIES: { icon: string; title: string; description: string }[] = [
-  {
-    icon: 'globe',
-    title: 'FCFA · EUR · USD',
-    description: 'Devis et factures pros dans la devise du client — zéro Canva, zéro Photoshop.',
-  },
-  {
-    icon: 'link',
-    title: 'Zéro inscription client',
-    description: 'Un lien suffit — aucun compte à créer côté client.',
-  },
-  {
-    icon: 'download',
-    title: 'App installable',
-    description: 'ZeFacto sur ton écran d’accueil, comme une app native.',
-  },
-];
-
 const STEPS: { icon: string; title: string; description: string }[] = [
   {
     icon: 'users',
@@ -109,17 +91,12 @@ const STEPS: { icon: string; title: string; description: string }[] = [
 ];
 
 // 6 cards, uniform shell (rounded-lg p-5 shadow-card, same icon-badge size,
-// same text sizes) — 2 clean rows of 3 at lg, no orphan card, no explicit
-// grid-position overrides needed. `inverted` flips only the color tokens
-// (solid bg-primary fill instead of bg-canvas + a pale bg-tag-green badge)
-// on exactly one card at a time — descriptions are kept to a comparable
-// length across all six so the inverted card doesn't grow taller than its
-// neighbors and break the grid's uniformity.
+// same text sizes, same colors) — 2 clean rows of 3 at lg, no orphan card,
+// no explicit grid-position overrides needed.
 const FEATURES: {
   icon: string;
   title: string;
   description: string;
-  inverted?: boolean;
 }[] = [
   {
     icon: 'users',
@@ -132,7 +109,6 @@ const FEATURES: {
     title: 'Projets & étapes personnalisables',
     description:
       'Ajoute, retire ou réordonne les étapes de chaque projet. Ton client voit l’avancement en temps réel.',
-    inverted: true,
   },
   {
     icon: 'file-check',
@@ -338,20 +314,12 @@ export default function Home() {
             Moins de temps sur l’administratif, plus de temps sur ton travail : devis, factures
             (FCFA, EUR, USD) et suivi client réunis en un seul endroit.
           </p>
-          <div className="flex flex-col items-center gap-3 sm:flex-row">
-            <Link
-              href="/login?mode=signup"
-              className="rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
-            >
-              Commencer gratuitement
-            </Link>
-            <a
-              href="#tarifs"
-              className="rounded-md border border-border px-6 py-3 font-body text-sm font-semibold text-foreground"
-            >
-              Voir les tarifs
-            </a>
-          </div>
+          <Link
+            href="/login?mode=signup"
+            className="rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
+          >
+            Commencer gratuitement
+          </Link>
           <p className="font-body text-xs text-muted-foreground">
             Gratuit pour démarrer · Aucune carte bancaire requise
           </p>
@@ -595,22 +563,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {/* Capability strip — no fabricated numbers: every claim maps to a
-            shipped feature (see FEATURES / CAPABILITIES). Payment-method
-            mentions were removed from the hero entirely per feedback — that
-            story is told once, honestly, in the FAQ instead. */}
-        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-3">
-          {CAPABILITIES.map((cap) => (
-            <div key={cap.title} className="flex flex-col items-center gap-2 text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
-                <Icon i={cap.icon} size={17} className="text-tag-green-fg" />
-              </div>
-              <p className="font-body text-xs font-semibold text-foreground">{cap.title}</p>
-              <p className="font-body text-xs text-muted-foreground">{cap.description}</p>
-            </div>
-          ))}
-        </div>
       </section>
 
       {/* ── Comment ça marche ──────────────────────────────────────── */}
@@ -624,7 +576,7 @@ export default function Home() {
               Pas de configuration compliquée — le premier lien peut partir aujourd’hui.
             </p>
           </div>
-          <div className="relative mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+          <div className="relative mt-12 grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-6 lg:grid-cols-4">
             <div
               aria-hidden
               className="absolute top-6 right-[12%] left-[12%] hidden h-0.5 bg-gradient-to-r from-primary via-primary/40 to-primary lg:block"
@@ -663,37 +615,14 @@ export default function Home() {
             </div>
             <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((feature) => (
-                <div
-                  key={feature.title}
-                  className={
-                    feature.inverted
-                      ? 'rounded-lg border border-primary bg-primary p-5 shadow-card'
-                      : inputCardClass
-                  }
-                >
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                      feature.inverted ? 'bg-canvas' : 'bg-tag-green'
-                    }`}
-                  >
-                    <Icon
-                      i={feature.icon}
-                      size={18}
-                      className={feature.inverted ? 'text-primary' : 'text-tag-green-fg'}
-                    />
+                <div key={feature.title} className={inputCardClass}>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tag-green">
+                    <Icon i={feature.icon} size={18} className="text-tag-green-fg" />
                   </div>
-                  <h3
-                    className={`mt-4 font-headings text-base font-semibold ${
-                      feature.inverted ? 'text-primary-foreground' : 'text-foreground'
-                    }`}
-                  >
+                  <h3 className="mt-4 font-headings text-base font-semibold text-foreground">
                     {feature.title}
                   </h3>
-                  <p
-                    className={`mt-1.5 font-body text-sm ${
-                      feature.inverted ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                    }`}
-                  >
+                  <p className="mt-1.5 font-body text-sm text-muted-foreground">
                     {feature.description}
                   </p>
                 </div>

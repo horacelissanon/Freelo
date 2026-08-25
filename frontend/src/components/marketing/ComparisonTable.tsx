@@ -18,7 +18,7 @@ export function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
         {rows.map((row) => (
           <div
             key={row.category}
-            className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-[180px_1fr] sm:gap-6"
+            className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-[180px_1fr] sm:gap-6 sm:p-5"
           >
             <div>
               <p className="font-body text-xs font-semibold tracking-wide text-primary uppercase">
@@ -28,25 +28,35 @@ export function ComparisonTable({ rows }: { rows: ComparisonRow[] }) {
                 {row.headline}
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex items-start gap-2 rounded-md bg-tag-green/60 p-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <div className="flex items-start gap-1.5 rounded-md bg-tag-green/60 p-2.5 sm:gap-2 sm:p-3">
                 <Icon
                   i="check-circle"
-                  size={16}
-                  className="mt-0.5 flex-shrink-0 text-tag-green-fg"
+                  size={14}
+                  className="mt-0.5 flex-shrink-0 text-tag-green-fg sm:h-4 sm:w-4"
                 />
-                <div>
-                  <p className="font-body text-xs font-semibold text-tag-green-fg">ZeFacto</p>
-                  <p className="mt-0.5 font-body text-sm text-foreground">{row.zefacto}</p>
+                <div className="min-w-0">
+                  <p className="font-body text-[11px] font-semibold text-tag-green-fg sm:text-xs">
+                    ZeFacto
+                  </p>
+                  <p className="mt-0.5 font-body text-xs text-foreground sm:text-sm">
+                    {row.zefacto}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-start gap-2 rounded-md bg-secondary/70 p-3">
-                <Icon i="x" size={16} className="mt-0.5 flex-shrink-0 text-muted-foreground" />
-                <div>
-                  <p className="font-body text-xs font-semibold text-muted-foreground">
+              <div className="flex items-start gap-1.5 rounded-md bg-secondary/70 p-2.5 sm:gap-2 sm:p-3">
+                <Icon
+                  i="x"
+                  size={14}
+                  className="mt-0.5 flex-shrink-0 text-muted-foreground sm:h-4 sm:w-4"
+                />
+                <div className="min-w-0">
+                  <p className="font-body text-[11px] font-semibold text-muted-foreground sm:text-xs">
                     Sans ZeFacto
                   </p>
-                  <p className="mt-0.5 font-body text-sm text-muted-foreground">{row.patchwork}</p>
+                  <p className="mt-0.5 font-body text-xs text-muted-foreground sm:text-sm">
+                    {row.patchwork}
+                  </p>
                 </div>
               </div>
             </div>
