@@ -1,4 +1,4 @@
-// Coupon validation + discount math for the Merrudit Pro checkout. Shared by
+// Coupon validation + discount math for the ZeFacto Pro checkout. Shared by
 // GET /api/coupons/validate (client-side preview on the Abonnement page) and
 // POST /api/billing/subscribe (authoritative re-check at charge time — the
 // preview result is never trusted). `CouponClient` narrows PrismaClient to

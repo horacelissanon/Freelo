@@ -756,7 +756,7 @@ export function FacturationTab() {
               <Icon i="check-circle" size={28} className="text-tag-green-fg" />
             </div>
             <p className="font-body text-sm text-muted-foreground">
-              Ton paiement a été confirmé — bienvenue dans Merrudit Pro.
+              Ton paiement a été confirmé — bienvenue dans ZeFacto Pro.
             </p>
           </div>
           <div className="mt-5 flex flex-col divide-y divide-border rounded-lg border border-border">

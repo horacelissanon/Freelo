@@ -1,4 +1,4 @@
-// POST /api/billing/subscribe — start (or renew) the Merrudit Pro
+// POST /api/billing/subscribe — start (or renew) the ZeFacto Pro
 // subscription via SasPay. Mirrors /api/orders' Idempotency-Key +
 // CircuitBreaker + PENDING-row-then-charge pattern, adapted for a
 // SubscriptionTransaction instead of an Order — same provider singleton
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           amount,
           currency,
           metadata: {
-            description: `Merrudit Pro — ${billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'}`,
+            description: `ZeFacto Pro — ${billingCycle === 'MONTHLY' ? 'mensuel' : 'annuel'}`,
           },
           customer: {
             email: user.email,

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           if (queue) {
             await queue.enqueue({
               to: sub.user.email,
-              subject: 'Ton abonnement Merrudit Pro expire bientôt',
+              subject: 'Ton abonnement ZeFacto Pro expire bientôt',
               html: `<p>Ton abonnement Pro expire le ${sub.currentPeriodEnd.toLocaleDateString('fr-FR')}. Renouvelle depuis Paramètres → Abonnement pour garder tes fonctionnalités Pro.</p>`,
             });
           }
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           if (queue) {
             await queue.enqueue({
               to: sub.user.email,
-              subject: 'Ton abonnement Merrudit Pro a expiré',
+              subject: 'Ton abonnement ZeFacto Pro a expiré',
               html: "<p>Le paiement n'a pas été reçu à temps et ton compte est repassé en plan Gratuit. Réabonne-toi depuis Paramètres → Abonnement pour retrouver tes fonctionnalités Pro.</p>",
             });
           }
