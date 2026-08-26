@@ -9,6 +9,7 @@
 // The same choice also drives BottomNav's shape on mobile (see BottomNav.tsx)
 // so the two surfaces read as one consistent pick across breakpoints.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { syncUiPrefs } from '@/lib/syncUiPrefs';
 
 export type SidebarShape = 'classic' | 'capsule' | 'dock';
 
@@ -47,6 +48,7 @@ export function SidebarShapeProvider({ children }: { children: ReactNode }) {
     } catch {
       // Preference still applies for this session, just won't persist.
     }
+    syncUiPrefs({ sidebarShape: next });
   }
 
   return (

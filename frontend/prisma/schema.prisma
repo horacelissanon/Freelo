@@ -101,6 +101,7 @@ model User {
   uploads               FileUpload[]
   notifications         Notification[]
   notifPrefs            NotificationPreferences?
+  uiPreferences         UiPreferences?
   orders                Order[]
   withdrawals           Withdrawal[]
   oauthAccounts         OAuthAccount[]
@@ -378,6 +379,20 @@ model NotificationPreferences {
   userId    String   @id
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   // JSON map of { eventType: { email: bool, inApp: bool } } — flexible without migrations.
+  prefs     Json     @default("{}")
+  updatedAt DateTime @updatedAt
+}
+
+// Cross-device sync for the Paramètres → Espace de travail personalization
+// (theme, accent color, sidebar color/shape, mobile nav style, bottom nav
+// glass) — those 6 contexts are otherwise localStorage-only, so a choice
+// made on one device never appears on another. Same shape as
+// NotificationPreferences on purpose (flat JSON map, no migration needed to
+// add a 7th key later): { theme, accent, accentCustomHex, sidebarColor,
+// sidebarShape, mobileNavStyle, bottomNavGlass }.
+model UiPreferences {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   prefs     Json     @default("{}")
   updatedAt DateTime @updatedAt
 }

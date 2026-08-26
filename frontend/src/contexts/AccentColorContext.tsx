@@ -15,6 +15,7 @@
 // coexist without one needing to know about the other.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { darkenHex } from '@/lib/color';
+import { syncUiPrefs } from '@/lib/syncUiPrefs';
 
 export type AccentColor = 'green' | 'blue' | 'violet' | 'orange' | 'rose' | 'slate' | 'custom';
 
@@ -115,6 +116,10 @@ export function AccentColorProvider({ children }: { children: ReactNode }) {
     } catch {
       // Accent still applies for this session via the DOM attribute.
     }
+    // accentCustomHex is only meaningful when accent === 'custom' — no need
+    // to clear it server-side, UiPrefsSync ignores it whenever accent is a
+    // preset (see its hydration logic).
+    syncUiPrefs({ accent: next });
   }
 
   function setCustomAccent(hex: string) {
@@ -128,6 +133,7 @@ export function AccentColorProvider({ children }: { children: ReactNode }) {
     } catch {
       // Custom accent still applies for this session via the inline style.
     }
+    syncUiPrefs({ accent: 'custom', accentCustomHex: hex });
   }
 
   return (

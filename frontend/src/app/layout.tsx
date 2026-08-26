@@ -11,6 +11,7 @@ import { SidebarColorProvider } from '@/contexts/SidebarColorContext';
 import { SidebarShapeProvider } from '@/contexts/SidebarShapeContext';
 import { MobileNavStyleProvider } from '@/contexts/MobileNavStyleContext';
 import { ScopedColorGuard } from '@/components/ScopedColorGuard';
+import { UiPrefsSync } from '@/components/UiPrefsSync';
 import { APP_ROUTE_SEGMENTS } from '@/lib/appRoutes';
 
 // Single source of truth (frontend/src/lib/appRoutes.ts) for which URL
@@ -98,6 +99,7 @@ export default function RootLayout({
                     <ToastProvider>
                       <AuthProvider>
                         <ScopedColorGuard />
+                        <UiPrefsSync />
                         {children}
                       </AuthProvider>
                     </ToastProvider>

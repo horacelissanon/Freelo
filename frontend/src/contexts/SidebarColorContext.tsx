@@ -14,6 +14,7 @@ import { usePathname } from 'next/navigation';
 import { mixHex, readableForeground } from '@/lib/color';
 import { useTheme } from '@/contexts/ThemeContext';
 import { isAppRoute } from '@/lib/appRoutes';
+import { syncUiPrefs } from '@/lib/syncUiPrefs';
 
 const STORAGE_KEY = 'merrudit-sidebar-color';
 // Matches --color-sidebar's shipped default in globals.css.
@@ -130,6 +131,7 @@ export function SidebarColorProvider({ children }: { children: ReactNode }) {
       } catch {
         // Custom color still applies for this session via the DOM style.
       }
+      syncUiPrefs({ sidebarColor: next });
     } else {
       setSidebarColorState(DEFAULT_SIDEBAR_COLOR);
       clearSidebarColor();
@@ -138,6 +140,7 @@ export function SidebarColorProvider({ children }: { children: ReactNode }) {
       } catch {
         // No-op — nothing to clean up if storage was never writable.
       }
+      syncUiPrefs({ sidebarColor: null });
     }
   }
 

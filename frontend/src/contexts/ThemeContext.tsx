@@ -11,6 +11,7 @@
 // throw-if-null one — a missing provider should degrade gracefully, not
 // crash the tree.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { syncUiPrefs } from '@/lib/syncUiPrefs';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 type ResolvedTheme = 'light' | 'dark';
@@ -96,6 +97,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // Storage unavailable — mode still applies for this session, just
       // won't persist across reloads.
     }
+    syncUiPrefs({ theme: next });
   }
 
   return <ThemeContext.Provider value={{ mode, theme, setMode }}>{children}</ThemeContext.Provider>;

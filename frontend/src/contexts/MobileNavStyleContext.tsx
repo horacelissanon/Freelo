@@ -10,6 +10,7 @@
 // bottom bar until this mounts and (if the freelance opted into 'drawer'
 // previously) upgrades on the client.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { syncUiPrefs } from '@/lib/syncUiPrefs';
 
 export type MobileNavStyle = 'bottom' | 'drawer';
 
@@ -48,6 +49,7 @@ export function MobileNavStyleProvider({ children }: { children: ReactNode }) {
     } catch {
       // Preference still applies for this session, just won't persist.
     }
+    syncUiPrefs({ mobileNavStyle: next });
   }
 
   return (
