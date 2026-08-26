@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: 'CGV — ZeFacto' };
 
 export default function CgvPage() {
   return (
-    <LegalPageLayout title="Conditions Générales de Vente" updatedAt="25 août 2026">
+    <LegalPageLayout title="Conditions Générales de Vente" updatedAt="26 août 2026">
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">1. Objet</h2>
         <p className="text-muted-foreground">
@@ -39,8 +39,12 @@ export default function CgvPage() {
           4. Durée et renouvellement
         </h2>
         <p className="text-muted-foreground">
-          L’abonnement est souscrit pour la période choisie (mensuelle ou annuelle) et se renouvelle
-          automatiquement à échéance, sauf annulation préalable depuis les réglages du compte.
+          L’abonnement est souscrit pour la période choisie (mensuelle ou annuelle) via un paiement
+          unique effectué au moment de la souscription. Il ne se renouvelle pas automatiquement par
+          prélèvement : aucun paiement n’est débité sans action de votre part. Vous êtes averti·e
+          par notification et email avant l’échéance ; pour prolonger l’accès Pro, un nouveau
+          paiement doit être effectué manuellement depuis Paramètres → Abonnement. À défaut de
+          renouvellement avant l’échéance, le compte repasse automatiquement en plan Gratuit.
         </p>
       </section>
 
@@ -57,8 +61,8 @@ export default function CgvPage() {
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">6. Facturation</h2>
         <p className="text-muted-foreground">
-          Une facture est émise pour chaque paiement d’abonnement et reste consultable depuis les
-          réglages du compte.
+          Chaque paiement d’abonnement est enregistré dans un historique de facturation (montant,
+          date, statut) consultable depuis Paramètres → Abonnement.
         </p>
       </section>
 
