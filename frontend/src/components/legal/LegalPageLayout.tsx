@@ -18,7 +18,7 @@ export function LegalPageLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-12">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 bg-background px-4 py-12">
       <Link href="/" className="flex items-center gap-2 self-center">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
           <svg

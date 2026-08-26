@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-4 py-12">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 bg-background px-4 py-12">
       <Link href="/" className="flex items-center justify-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
           <svg
