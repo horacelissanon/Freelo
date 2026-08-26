@@ -74,10 +74,18 @@ export function DevisShowcase() {
                     DEV-2026-014
                   </h3>
                 </div>
-                <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-1 font-body text-[9px] font-medium text-white backdrop-blur-sm">
-                  <Icon i="clock" size={10} />
-                  En attente
-                </span>
+                <div className="flex flex-shrink-0 flex-col items-end gap-1.5">
+                  <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 font-body text-[9px] font-medium text-white backdrop-blur-sm">
+                    <Icon i="clock" size={10} />
+                    En attente
+                  </span>
+                  {/* Mirrors the real page's PDF download button — decorative
+                      here (à titre indicatif), no real devis to fetch. */}
+                  <span className="flex items-center gap-1 rounded-md bg-white px-2 py-1 font-body text-[9px] font-medium text-primary">
+                    <Icon i="download" size={9} />
+                    Télécharger
+                  </span>
+                </div>
               </div>
               <p className="relative mt-2 font-body text-[9px] text-white/70">
                 Émis le 3 août 2026
