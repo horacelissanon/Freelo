@@ -1,9 +1,13 @@
 // Shows the actual client-facing devis (quote) page instead of talking
-// about it — mirrors app/suivi/[token]/page.tsx's real "Nos offres" pack
+// about it — mirrors app/suivi/[token]/page.tsx's real gradient header
+// (quote number, client, status, issue date) and its "Nos offres" pack
 // cards (numbered badge, big price, description, turnaround, "Sélectionnée"
-// badge) and its "Valider ce devis" CTA, same "built from the app's own
-// visual language" approach as ProductDemo.tsx and SuiviClientShowcase
-// before it. Static/server-rendered — nothing here is interactive.
+// badge), same "built from the app's own visual language" approach as
+// ProductDemo.tsx before it. Server-rendered, but "Valider ce devis" is a
+// real Link — a visitor clicking it on the marketing page has no actual
+// devis to validate, so it routes to signup instead, same nudge pattern as
+// every clickable element in ProductDemo.tsx.
+import Link from 'next/link';
 import { Icon } from '@/components/ui/Icon';
 
 const CHECKLIST = [
@@ -47,6 +51,39 @@ export function DevisShowcase() {
             </span>
           </div>
           <div className="p-4 sm:p-5">
+            {/* Compact version of the real hero header (quote number,
+                client, status, issue date) — sits outside the scroll area,
+                just above "Nos offres", so it's always visible on load
+                instead of competing with the offers for the same scroll
+                real estate. */}
+            <div className="relative mb-3 overflow-hidden rounded-lg bg-gradient-to-br from-primary to-track-hero p-3">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-[0.07]"
+                style={{
+                  backgroundImage: 'radial-gradient(circle, #ffffff 1.5px, transparent 1.5px)',
+                  backgroundSize: '14px 14px',
+                }}
+              />
+              <div className="relative flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-body text-[9px] tracking-widest text-white/70 uppercase">
+                    Devis pour Fatou Ndiaye
+                  </p>
+                  <h3 className="mt-0.5 font-headings text-sm font-bold text-white">
+                    DEV-2026-014
+                  </h3>
+                </div>
+                <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-1 font-body text-[9px] font-medium text-white backdrop-blur-sm">
+                  <Icon i="clock" size={10} />
+                  En attente
+                </span>
+              </div>
+              <p className="relative mt-2 font-body text-[9px] text-white/70">
+                Émis le 3 août 2026
+              </p>
+            </div>
+
             {/* Bounded height + scroll on this inner region only, offers
                 first in DOM order — a visitor sees the pack prices
                 immediately, no scrolling required, then can scroll to see
@@ -54,7 +91,7 @@ export function DevisShowcase() {
                 de paiement). "Valider ce devis" sits outside/below the
                 scroll area so it — like the real app's own sticky
                 confirm bar — stays reachable without scrolling. */}
-            <div className="max-h-[260px] overflow-y-auto overscroll-contain pr-1">
+            <div className="max-h-[220px] overflow-y-auto overscroll-contain pr-1">
               <div className="mb-3 flex items-center gap-2">
                 <Icon i="layout-grid" size={14} className="flex-shrink-0 text-primary" />
                 <p className="font-headings text-sm font-bold text-foreground">Nos offres</p>
@@ -126,9 +163,12 @@ export function DevisShowcase() {
               </div>
             </div>
 
-            <div className="mt-4 rounded-md bg-primary px-4 py-2.5 text-center font-body text-xs font-semibold text-primary-foreground">
+            <Link
+              href="/login?mode=signup"
+              className="mt-4 block rounded-md bg-primary px-4 py-2.5 text-center font-body text-xs font-semibold text-primary-foreground transition-colors hover:bg-accent"
+            >
               Valider ce devis
-            </div>
+            </Link>
           </div>
         </div>
       </div>

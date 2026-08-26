@@ -14,7 +14,7 @@ export function CommunityWhatsAppCta() {
       href={communityWhatsappUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-foreground"
+      className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-primary"
     >
       <WhatsAppIcon className="h-4 w-4 text-primary" />
       Rejoindre la communauté

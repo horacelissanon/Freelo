@@ -55,8 +55,20 @@ export default function CguPage() {
       </section>
 
       <section>
+        <h2 className="font-headings text-base font-semibold text-foreground">5. Vos contenus</h2>
+        <p className="text-muted-foreground">
+          Vous conservez l’entière propriété des données que vous saisissez sur ZeFacto (clients,
+          projets, devis, factures, logo, fichiers). ZeFacto n’en revendique aucun droit et se
+          limite à les héberger pour fournir le service. Vous nous accordez uniquement les
+          autorisations techniques nécessaires pour les stocker, les afficher et les transmettre
+          (par exemple à un client via un lien de suivi) dans le cadre de votre utilisation du
+          service.
+        </p>
+      </section>
+
+      <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          5. Obligations de l’utilisateur
+          6. Obligations de l’utilisateur
         </h2>
         <ul className="list-disc pl-5 text-muted-foreground">
           <li>Utiliser le service conformément à la loi et aux bonnes mœurs.</li>
@@ -77,7 +89,7 @@ export default function CguPage() {
 
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          6. Disponibilité du service
+          7. Disponibilité du service
         </h2>
         <p className="text-muted-foreground">
           ZeFacto met en œuvre des moyens raisonnables pour assurer la disponibilité du service,
@@ -88,7 +100,7 @@ export default function CguPage() {
 
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          7. Suspension et résiliation
+          8. Suspension et résiliation
         </h2>
         <p className="text-muted-foreground">
           Vous pouvez supprimer votre compte à tout moment depuis les réglages. ZeFacto peut
@@ -99,7 +111,7 @@ export default function CguPage() {
 
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          8. Limitation de responsabilité
+          9. Limitation de responsabilité
         </h2>
         <p className="text-muted-foreground">
           Dans les limites permises par la loi, ZeFacto ne pourra être tenu responsable des dommages
@@ -110,7 +122,7 @@ export default function CguPage() {
 
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          9. Modification des CGU
+          10. Modification des CGU
         </h2>
         <p className="text-muted-foreground">
           Ces CGU peuvent être modifiées ; la date de mise à jour en tête de page fait foi. Une
@@ -120,7 +132,7 @@ export default function CguPage() {
 
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">
-          10. Droit applicable
+          11. Droit applicable
         </h2>
         <p className="text-muted-foreground">
           Les présentes CGU sont soumises au droit béninois. Tout litige relève des juridictions

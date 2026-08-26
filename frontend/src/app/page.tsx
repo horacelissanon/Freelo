@@ -346,7 +346,7 @@ export default function Home() {
               </span>
               <Link
                 href="/login?mode=signup"
-                className="cta-shimmer relative overflow-hidden rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
+                className="cta-shimmer rounded-md bg-primary px-6 py-3 font-body text-sm font-semibold text-primary-foreground"
               >
                 Commencer gratuitement
               </Link>
@@ -626,7 +626,7 @@ export default function Home() {
           </p>
           <Link
             href="/login?mode=signup"
-            className="rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-foreground"
+            className="rounded-md bg-white px-6 py-3 font-body text-sm font-semibold text-primary"
           >
             Commencer gratuitement
           </Link>
