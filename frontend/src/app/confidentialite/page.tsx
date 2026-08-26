@@ -78,7 +78,7 @@ export default function ConfidentialitePage() {
           <li>Upstash — cache et limitation de débit.</li>
           <li>Cloudinary — stockage des images (logos, avatars).</li>
           <li>Resend — envoi des emails transactionnels.</li>
-          <li>Bictorys / FedaPay — traitement des paiements et abonnements.</li>
+          <li>SasPay — traitement des paiements et abonnements.</li>
           <li>Sentry — supervision des erreurs techniques.</li>
         </ul>
         <p className="mt-2 text-muted-foreground">

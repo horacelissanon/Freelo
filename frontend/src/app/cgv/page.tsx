@@ -28,9 +28,9 @@ export default function CgvPage() {
       <section>
         <h2 className="font-headings text-base font-semibold text-foreground">3. Paiement</h2>
         <p className="text-muted-foreground">
-          Le paiement s’effectue en ligne par carte bancaire ou mobile money, via nos prestataires
-          de paiement (Bictorys / FedaPay). ZeFacto ne stocke aucune donnée de carte bancaire —
-          celles-ci sont traitées directement par le prestataire de paiement.
+          Le paiement s’effectue en ligne par carte bancaire ou mobile money, via notre prestataire
+          de paiement SasPay. ZeFacto ne stocke aucune donnée de carte bancaire — celles-ci sont
+          traitées directement par le prestataire de paiement.
         </p>
       </section>
 
