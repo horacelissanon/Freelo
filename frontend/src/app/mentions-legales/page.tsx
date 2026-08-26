@@ -14,27 +14,36 @@ export default function MentionsLegalesPage() {
         <ul className="mt-2 list-disc pl-5 text-muted-foreground">
           <li>
             Raison sociale / nom de l’exploitant :{' '}
-            <strong className="text-foreground">[À COMPLÉTER]</strong>
+            <strong className="text-foreground">
+              MERRUDIT — Entreprise Individuelle (LISSANON Vedonan Horace Peren)
+            </strong>
           </li>
           <li>
             Statut juridique (entreprise individuelle, SARL, etc.) :{' '}
-            <strong className="text-foreground">[À COMPLÉTER]</strong>
+            <strong className="text-foreground">Entreprise Individuelle</strong>
           </li>
           <li>
-            Siège / adresse : <strong className="text-foreground">[À COMPLÉTER]</strong>
+            Siège / adresse :{' '}
+            <strong className="text-foreground">
+              Ilot Carré Sans Borne, Parcelle C/SB, Womey Centre (Marché Womey), Abomey-Calavi,
+              Atlantique, Bénin
+            </strong>
           </li>
           <li>
-            Pays d’immatriculation : <strong className="text-foreground">[À COMPLÉTER]</strong>
+            Pays d’immatriculation : <strong className="text-foreground">Bénin</strong>
           </li>
           <li>
             Numéro d’immatriculation (IFU / RCCM ou équivalent) :{' '}
-            <strong className="text-foreground">[À COMPLÉTER]</strong>
+            <strong className="text-foreground">
+              RCCM RB/ABC/23 A 92359 (Cotonou) — IFU 0202346090048
+            </strong>
           </li>
           <li>
-            Email de contact : <strong className="text-foreground">[À COMPLÉTER]</strong>
+            Email de contact : <strong className="text-foreground">lissanonpren@yahoo.fr</strong>
           </li>
           <li>
-            Directeur de publication : <strong className="text-foreground">[À COMPLÉTER]</strong>
+            Directeur de publication :{' '}
+            <strong className="text-foreground">Vedonan Horace Peren Lissanon</strong>
           </li>
         </ul>
       </section>

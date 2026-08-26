@@ -19,7 +19,8 @@ export default function ConfidentialitePage() {
         </h2>
         <p className="text-muted-foreground">
           <strong className="text-foreground">
-            [À COMPLÉTER : raison sociale, adresse, email de contact]
+            MERRUDIT — Entreprise Individuelle (LISSANON Vedonan Horace Peren), Womey Centre,
+            Abomey-Calavi, Atlantique, Bénin — lissanonpren@yahoo.fr
           </strong>{' '}
           — voir les{' '}
           <a href="/mentions-legales" className="text-primary hover:underline">
@@ -104,9 +105,8 @@ export default function ConfidentialitePage() {
         <p className="text-muted-foreground">
           Conformément au Code du numérique, vous disposez d’un droit d’accès, de rectification,
           d’opposition et d’effacement de vos données. Pour l’exercer, contactez-nous à{' '}
-          <strong className="text-foreground">[À COMPLÉTER : email de contact]</strong>. Vous pouvez
-          également saisir l’APDP (Autorité de Protection des Données Personnelles du Bénin) en cas
-          de litige.
+          <strong className="text-foreground">lissanonpren@yahoo.fr</strong>. Vous pouvez également
+          saisir l’APDP (Autorité de Protection des Données Personnelles du Bénin) en cas de litige.
         </p>
       </section>
 
